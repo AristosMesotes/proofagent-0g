@@ -1,0 +1,50 @@
+# --- secrets / credentials: NEVER commit ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.keystore
+keystore/
+id_rsa*
+wallet*.json
+*.secret
+secrets.json
+
+# --- rust (verifier) ---
+/target/
+**/target/
+
+# --- foundry (contracts) ---
+out/
+cache/
+contracts/out/
+contracts/cache/
+# dry-run simulations are local-only noise (no tx ever landed); the REAL broadcast record
+# (broadcast/<script>/<chainid>/run-*.json) is kept as public on-chain deploy provenance.
+**/dry-run/
+
+# --- node / typescript (agent + web) ---
+node_modules/
+**/node_modules/
+dist/
+build/
+.next/
+*.tsbuildinfo
+
+# --- verdict journal (design §5a) ---
+# The DEFAULT journal `verify-tx` appends to (beside the spine) is a transient, local working file --
+# ad-hoc runs append to it, so it is not committed. The CANONICAL demo journal the committed LEDGER.md
+# is generated from lives at demo/proofagent.demo.journal and IS tracked (settlement-truth provenance).
+/proofagent.journal
+proofagent.journal
+!demo/proofagent.demo.journal
+
+# --- logs / os / editor ---
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

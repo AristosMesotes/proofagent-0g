@@ -1,0 +1,12 @@
+{
+  /* Test build: the SAME strictness as the app, plus Node types for `node:test` / `node:assert`.
+     Kept separate so the shippable browser app (tsconfig.json) stays pure DOM with `types: []` and
+     `npx tsc --noEmit` validates exactly what the page ships -- the tests do not pollute that surface. */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

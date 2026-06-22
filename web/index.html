@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--
+  ProofAgent-0G -- thin demo UI (design §4 web, §2 the three proofs + NEG case, §8 claim only what's live).
+
+  ONE screen: three honest stamps (brain = pending/Phase-2, rails = the on-chain cap, settlement = the
+  verifier verdict) + a button that runs the NEG case (a FABRICATED hash -> UNVERIFIED).
+
+  Offline + static: no framework, no CDN, no network. The page loads the compiled ESM at dist/main.js
+  (build it with `npm run build` in this directory). Honesty: the brain stamp is NEVER green at MVP.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ProofAgent-0G -- three proofs + the NEG case</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <h1 class="hero__title">ProofAgent-0G</h1>
+        <p class="hero__tagline">The AI agent that can't lie, and can't overspend.</p>
+        <p class="hero__sub">
+          Three layers, each independently provable on 0G. You don't trust the agent &mdash; you check the
+          chain.
+        </p>
+      </header>
+
+      <!-- The three honest stamps (design §2). Rendered by main.ts from the spine-derived model. -->
+      <section class="stamps" id="stamps" aria-label="The three proofs">
+        <noscript>
+          <p class="noscript">
+            This demo renders its honest proof stamps with a small offline script. Enable JavaScript, or
+            read <code>docs/PROOFAGENT_0G_DESIGN.md</code> &sect;2 for the three proofs.
+          </p>
+        </noscript>
+      </section>
+
+      <!-- The NEG case: the proof that the proof is real (design §2). -->
+      <section class="neg" aria-label="The NEG case">
+        <h2 class="neg__heading">The 30-second proof &mdash; the NEG case</h2>
+        <p class="neg__lead">
+          Point the independent verifier at a <strong>fabricated</strong> transaction hash. It does not
+          rubber-stamp; it reads the chain &mdash; so it stamps <code>UNVERIFIED</code>, never
+          <code>SETTLED</code>.
+        </p>
+        <p class="neg__hashline">
+          fabricated hash: <code id="neg-hash">0x&hellip;</code>
+        </p>
+        <button type="button" id="neg-run" class="neg__button">
+          Run the NEG case &rarr; expect UNVERIFIED
+        </button>
+        <div id="neg-output" class="neg__output" role="status" aria-live="polite"></div>
+      </section>
+
+      <!-- The public data spine, reflected so the page claims only what the spine actually pins. -->
+      <section class="spine" aria-label="Data spine (proofagent.toml)">
+        <h2 class="spine__heading">Live from the data spine (<code>proofagent.toml</code>)</h2>
+        <dl class="spine__facts">
+          <dt>Chain</dt>
+          <dd id="fact-chain">&mdash;</dd>
+          <dt>Per-tx cap (Rails)</dt>
+          <dd id="fact-cap">&mdash;</dd>
+          <dt>MandateRegistry</dt>
+          <dd id="fact-registry">&mdash;</dd>
+          <dt>Verifier corpus</dt>
+          <dd id="fact-corpus">&mdash;</dd>
+          <dt>Tolerance band</dt>
+          <dd id="fact-tolerance">&mdash;</dd>
+          <dt>Public explorer</dt>
+          <dd><a id="explorer-link" href="#" rel="noopener noreferrer">&mdash;</a></dd>
+        </dl>
+      </section>
+
+      <footer class="foot">
+        <p>
+          MIT &middot; talks to 0G only through public SDKs &middot; claims only what is live on screen
+          (design &sect;8). The TEE brain proof and on-chain settlements arrive as honestly-labelled
+          bracket-deltas (design &sect;7).
+        </p>
+      </footer>
+    </main>
+
+    <!-- The compiled, offline ESM. No bundler, no CDN. Build with `npm run build` (tsc). -->
+    <script type="module" src="./dist/main.js"></script>
+  </body>
+</html>

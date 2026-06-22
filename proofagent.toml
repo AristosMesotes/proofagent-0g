@@ -1,0 +1,373 @@
+# ProofAgent-0G -- data spine.
+# Width-by-data: a new check or corpus entry is a config edit, not a code change.
+# Nothing here is a secret; the RPC URL and any keys are read from the environment.
+
+[chain]
+id       = 16661                       # 0G Aristotle
+name     = "0G Aristotle"
+rpc_env  = "OG_RPC"                     # RPC URL is read from this env var -- never hardcoded
+explorer = "https://chainscan.0g.ai"
+testnet  = 16602                        # Galileo
+
+[tokens."USDC.e"]
+decimals = 6
+
+[tokens."W0G"]
+decimals = 18
+
+[dex]
+name   = "Oku"
+router = "SwapRouter02"
+
+# =====================================================================================================
+# The adapter MANIFEST -- width-by-data: a new adapter is a [[connector]] block + the adapter, ZERO
+# gateway/verifier dispatch change (STEP VERIFIER-UNIFY; design WOW Feature 5, the Engine).
+#
+# Each [[connector]] declares ONE execution surface:
+#   name     -- a stable connector id (the gateway registry key / the journal label)
+#   shape    -- the settlement family the verifier adjudicates it through: settlement / swap / route /
+#               bridge. The verifier reads THIS to route the settlement to the matching per-protocol
+#               algebra (verifier::ConnectorKind) -- one [[connector]] block, no code edit.
+#   chains   -- the chain id(s) the connector operates on (16602 Galileo testnet / 16661 Aristotle mainnet)
+#   priority -- the gateway's priced-fallback tie-break (lower = preferred on an equal quote)
+#   gates    -- WHICH named [[check]] gates MUST pass before the connector is trusted. An adapter CANNOT
+#               vote itself in: it is trusted only when these gates pass (loud-unverified over silent-green).
+#               The names match the [[check]] entries at the bottom of this spine.
+# Adding a protocol: implement the ExecutionConnector + declare it here + the gate proves it -- the recipe
+# is docs/ADD_AN_ADAPTER.md. Nothing here is a secret; every value is a public protocol/venue fact.
+
+[[connector]]
+name     = "native-settlement"          # the MVP native-value settlement leg (verify-tx)
+shape    = "settlement"                  # adjudicated by the value algebra (verifier::adjudicate)
+chains   = [16602, 16661]                # testnet (Galileo) + mainnet (Aristotle)
+priority = 0                             # the baseline connector
+gates    = ["settlement"]                # gated by the settlement check
+
+[[connector]]
+name     = "oku-swap"                    # Oku/Uniswap-V3 single-hop swap (design WOW Feature 1)
+shape    = "swap"                         # adjudicated by the swap algebra (Swap-event amountOut + floor)
+chains   = [16661]                       # MAINNET-only on 0G (no 16602 Oku deployment) -- operator-gated
+priority = 10
+gates    = ["settlement", "mandate-cap"] # gated by BOTH the settlement read AND the on-chain spend cap
+
+[[connector]]
+name     = "rail-route"                  # Khalani / LI.FI / JAINE routed action (design WOW Feature 2)
+shape    = "route"                        # adjudicated by the route algebra (rail terminal + delivered)
+chains   = [16602, 16661]                # native-AMM (JAINE) is 16602-able; cross-chain rails are 16661
+priority = 20
+gates    = ["settlement", "mandate-cap"] # gated by the settlement read AND the spend cap, per leg
+
+[[connector]]
+name     = "ccip-bridge"                 # Chainlink CCIP bridge-in / bridge-out hop (design WOW Feature 3 / 3b)
+shape    = "bridge"                       # adjudicated by the bridge algebra (both legs + hollow-egress catch)
+chains   = [16661]                       # CCIP on 0G is MAINNET-only (Galileo CCIP decommissioned) -- operator-gated
+priority = 30
+gates    = ["settlement", "mandate-cap"] # gated by the per-hop settlement read AND the spend cap, pre-burn
+
+[swap]
+# STEP WOW-SWAP -- the swap leg (design WOW Feature 1: Oku/Uniswap-V3 exact-input single-hop), plus the
+# verifier's SWAP verdict-extension (verifier/src/swap.rs: decode the pool `Swap` event -> realized
+# amountOut -> settled/hollow/mismatch/unverified). These are the PUBLIC 0G MAINNET (chain 16661) Oku
+# deployment of the canonical Uniswap-V3 periphery -- public protocol facts, safe to commit, NOT secrets.
+#
+# Oku/Uniswap-V3 is MAINNET-only on 0G (there is NO 16602 testnet deployment), so the LIVE swap moves
+# REAL value and is OPERATOR-GATED (design SS8: testnet/dev only by default; mainnet legs run only under a
+# hard per-trade cap with recycled dev funds, never a value-less testnet rehearsal). The code is BUILT and
+# verifier-wrapped here; it is NOT executed on mainnet by this build. The exact operator command to run
+# the live swap (and capture the on-chain Swap-event evidence) is documented in demo/EVIDENCE_SWAP.md.
+chain_id      = 16661                                          # the swap venue chain (Aristotle mainnet)
+swap_router02 = "0x807F4E281B7A3B324825C64ca53c69F0b418dE40"   # Oku SwapRouter02 (exactInputSingle)
+quoter_v2     = "0xaa52bB8110fE38D0d2d2AF0B85C3A3eE622CA455"   # Oku QuoterV2 (quoteExactInputSingle read)
+v3_factory    = "0xcb2436774C3e191c85056d248EF4260ce5f27A9D"   # Uniswap-V3 core factory (resolve the pool)
+fee_tier      = 10000                                          # default 1% pool fee tier (fallback 3000)
+# The canonical Uniswap-V3 pool `Swap` event topic0 the verifier extension matches to decode the realized
+# amountOut: keccak("Swap(address,address,int256,int256,uint160,uint128,int24)"). Pinned in
+# verifier/src/swap.rs (SWAP_EVENT_TOPIC0); a test pins this exact value.
+swap_event_topic0 = "0xc42079f94a6350d7e6235f29174924f928cc2ac818eb64fed8004e115fbcca67"
+
+# [[swap.corpus]] -- a real, already-settled swap the verifier's SWAP extension checks (each confirmable
+# on chainscan.0g.ai). LEFT EMPTY: no mainnet swap has been broadcast by this (operator-gated) build, so
+# nothing is asserted -- pinning a SETTLED swap here is operator-gated (run the documented live command on
+# 16661 under the cap, then pin {hash, expected_out, amount_out_minimum, observed amount_out} here so the
+# offline verifier replays it). NEVER fabricate a SETTLED: an unpinned swap stays off-tape -> unverified.
+
+[mandate]
+# on-chain spend cap registry -- address pinned once confirmed on-chain (claim only what's live).
+# LIVE on 0G Galileo testnet (chain 16602); deploy tx
+# 0x8b06ff07be808d6db0fb4ac7cbfea3903ab58e019445ce64c4afb17281c1d9fc, confirmed via cast code
+# (non-empty bytecode) + state read-back (owner/agent = demo wallet, perTxCap = 2_000_000, never-expiry).
+address    = "0x675FF5053F434AA3f1d48574813BFc1696FBD345"  # MandateRegistry on 16602 (PUBLIC; safe to commit)
+chain_id   = 16602                      # the network this address is live on (Galileo testnet)
+per_tx_cap = "2 USD"
+
+# The native-asset sentinel the LIVE-LOOP demo bounds a plain capped transfer against. There is NO DEX
+# on the Galileo testnet, so the live proof is a native 0G transfer (not a swap) -- bounded by an
+# on-chain asset sub-cap on this sentinel. The sentinel is the canonical "native token" placeholder
+# (0xEeee..EEeE); the registry rejects address(0) in setAssetCap, so the native asset is mandated under
+# this well-known address. Allowlisted on-chain via setAssetCap(sentinel, 2_000_000, true) in tx
+# 0x6eafa90c7d7ea9be80797868722e79dfb8372bbce03a4712b2415b9167f3cfdb (confirmable on chainscan-galileo).
+native_asset_sentinel = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"  # PUBLIC; safe to commit
+native_asset_cap      = 2_000_000        # the native sentinel's per-asset sub-cap, MINOR units (wei)
+
+[mandate_v3]
+# The FOUR-TIER production spend gate (MandateRegistryV3) -- a clean-room successor to the MVP
+# MandateRegistry on the SAME v2-compatible checkTransfer(agent, token, amount) -> (ok, reason) shape
+# (selector 0xcc1dd94f), adding: Tier 1 cumulative per-PERIOD cap (closes looping-drain), Tier 2
+# enforced expiry + spender/router allowlist, Tier 3 per-asset sub-caps + pause (global + per-agent) +
+# opt-in USD cap + bounded lists (<=16), Tier 4 per-destination sandbox caps + atomic gate+accrue.
+#
+# LIVE on 0G Galileo testnet (chain 16602). Deploy tx
+# 0x81fe165434d791f643cc56b0ab6df15d1d893b56510f08dd152a24866c8a154c (confirmed status 0x1); tiers
+# configured in the same broadcast (setAssetCap tx 0x42a4a78e..., setPeriodConfig tx 0xb451d5e4...).
+# Independently confirmed via cast: owner/agent = demo wallet, perTxCap = 2_000_000, native sentinel
+# allowlisted with assetCap = 2_000_000, periodSeconds = 3600, periodCap = 1_500_000, MAX_LIST = 16.
+#
+# THE HEADLINE proven LIVE (demo/mandate_v3_period_cap.sh): the PERIOD cap BLOCKS a looping sequence the
+# per-tx cap would pass -- gateAndRecord(1_000_000) accrued (tx
+# 0x44e5e4a022d17b91a428b44ce6793116db0d06d383799470dabc60189bdf8556, block 40044471); the SECOND
+# checkTransfer(1_000_000) then reads (false, OVER_PERIOD_CAP) -- 2_000_000 > the 1_500_000 period cap,
+# even though the per-tx cap (2_000_000) alone would have passed it. Looping-drain closed.
+address    = "0xC24A325dB118cfFD586E72b9D085FB71D5202BD2"  # MandateRegistryV3 on 16602 (PUBLIC; safe to commit)
+chain_id   = 16602                      # the network this address is live on (Galileo testnet)
+per_tx_cap        = 2_000_000           # global per-tx cap, MINOR units (wei)
+period_seconds    = 3600                # Tier 1 window length (1 hour)
+period_cap        = 1_500_000           # Tier 1 cumulative per-period cap, MINOR units (the looping guard)
+max_list          = 16                  # Tier 3 bounded-list cap (allowed tokens / spenders)
+
+[mandate_v4]
+# THE CONSOLIDATED, HARDENED spend gate (MandateRegistryV4) -- the single, self-contained successor that
+# folds the MVP MandateRegistry, the four-tier MandateRegistryV3, and the separate TimelockGuard into ONE
+# contract with the hardened, best-in-class feature set distilled from a nine-lens adversarial review
+# (TOCTOU/double-spend, asset/value-confusion, gas-grief/unbounded-work, governance-bypass). It keeps the
+# SAME v2-compatible checkTransfer(agent, token, amount) -> (ok, reason) shape (selector 0xcc1dd94f) and
+# adds: a money-path EPOCH ([start, expiry) + bumpEpoch); a LEAKY-BUCKET period limiter (overflow-safe) +
+# a tx-count leaky bucket; a runtime asset allowlist with live-decimals-bound USD caps (2-return,
+# staleness/sanity/gas-guarded, fail-closed); typed per-spoke isolation (default-deny); a guardian-settable
+# pause; a FOLDED, RE-GATED, bucket-reserving outbound time-lock; delayed-loosening governance + two-step
+# ownership; bounded-everything; and event-completeness (spendId) for the verifier's two-source reconciler.
+#
+# THE HONEST MODEL: ADVISORY + verifier-enforced + NON-CUSTODIAL. The contract holds NO funds (no custody,
+# no escrow -- the no-shared-pool philosophy). The agent gateway ENFORCES by refusing an over-cap action
+# PRE-broadcast (a fail-closed kill-switch, never shadow-only); the independent verifier CATCHES any
+# violation LOUD (verifier/src/mandate.rs hardened tiers + verifier/src/reconciler.rs: pair every
+# SpendRecorded accrual 1:1 against the on-chain Transfer -- a transfer with no record is the dangerous
+# unbounded spend -> a LOUD `refuted`). The HONEST claim everywhere: "the agent can't overspend -- the
+# mandate blocks it pre-broadcast and the verifier proves it", NEVER "physically can't overspend".
+#
+# DEPLOY is OPERATOR-GATED (design SS8: claim only what's live). The contract + Foundry tests + the verifier
+# + the agent gate are BUILT and GREEN; no V4 registry is broadcast by this build. `address` is LEFT EMPTY
+# until the operator runs the documented command (contracts/script/DeployV4.s.sol) and pins the confirmed
+# address here. Tiers (period/USD/spoke caps, guardian, paramDelay) are configured on the live registry by
+# the operator post-deploy. The MandateRegistryV4 is fully deployable + demoable on the 0G Galileo TESTNET
+# (16602) at $0 (it is your own contract and holds no funds).
+address    = ""                         # MandateRegistryV4 (operator-gated deploy; pin once confirmed on 16602)
+chain_id   = 16602                      # the network the consolidated registry targets (Galileo testnet)
+per_tx_cap          = 2_000_000         # global per-tx cap, MINOR units (wei)
+start               = 0                  # notBefore (0 => active immediately; half-open [start, expiry))
+period_seconds      = 3600               # leaky-bucket window length (1 hour)
+period_cap          = 1_500_000          # leaky-bucket cap, MINOR units (the looping-drain guard)
+# HONEST rolling-window bound: a leaky bucket admits up to ~2x cap over an arbitrary rolling window (the
+# greedy top-up). A deployment needing a HARD rolling bound sizes the ENFORCED cap at period_cap/2 (e.g.
+# advertise 1_500_000 but enforce 750_000), or enables the dual-bucket -- documented, never claimed away.
+max_tx_per_period   = 0                  # tx-count leaky-bucket cap (0 => off; operator tunes)
+min_spend           = 0                  # raw dust floor, MINOR units (0 => off)
+min_usd_micros      = 0                  # USD dust floor, micro-dollars (0 => off)
+usd_cap_micros      = 0                  # per-tx USD cap, micro-dollars 1e6==$1 (0 => off; opt-in, fail-closed)
+max_price_age       = 600                # price-feed staleness bound, seconds (a stale feed fails CLOSED)
+param_delay_seconds = 86400              # delay on risk-INCREASING owner ops (24h; tighten/pause stay instant)
+max_list            = 16                 # bounded-list cap (allowed tokens / spenders)
+max_destcap         = 16                 # bounded per-destination + per-spoke caps
+max_pending         = 16                 # bounded LIVE outbound time-lock requests
+big_value_threshold = 1_000_000          # time-lock value tier boundary, MINOR units (<= small, > big)
+short_delay_seconds = 3600               # SMALL-tier outbound delay (1 hour)
+long_delay_seconds  = 86400              # BIG-tier outbound 24h-style lock
+cancel_window_seconds = 7200             # window after executableAt past which a Pending egress is inert (reapable)
+native_asset_sentinel = "0x0000000000000000000000000000000000000001"  # canonical native-0G sentinel (decimals 18)
+
+[gas_floor]
+# STEP GAS-GATE -- the "can't deplete gas" money-safety primitive (design SS3a). RISK: the agent spends
+# native 0G (the gas token) down to ~0 -- on fees, or by swapping/bridging it away -- and is then STUCK
+# (it cannot pay for ANY transaction, so it cannot send a recovery tx, cannot cancelBridgeOut a pending
+# egress, and cannot move funds at all). A wallet that cannot afford its own next transaction is bricked.
+#
+# THE GUARD: a hard GAS FLOOR. Before ANY value-moving action the agent gateway asserts, on the agent's
+# OWN on-chain native balance (a pre-submit eth_getBalance), the exact-integer reserve inequality
+#
+#     nativeBalance - actionNativeCost - estGasFee  >=  min_gas_reserve
+#
+# and REFUSES the action PRE-broadcast (the kill-switch) when it does not hold -- the action's native
+# cost is summed from the BUILT tx's call `value`s (the native msg.value it would attach), the est gas fee
+# is added on top. It is fail-CLOSED (an unread/disabled/breached floor never permits a submit). The
+# verifier CONFIRMS, post-action, that the native reserve actually held (verifier/src/gasfloor.rs:
+# confirmed / refuted / unverified -- a post-action balance below the floor reads a LOUD `refuted`).
+#
+# `enabled` is the explicit on/off knob (turning it off is a visible config decision, never a silent
+# bypass). `min_gas_reserve` + `est_gas_fee` are native MINOR units (wei), exact-integer -- tune per
+# network. The values below are conservative testnet defaults; an operator raises min_gas_reserve to
+# cover the worst-case recovery tx (e.g. a cancelBridgeOut) on the target chain.
+enabled         = true
+min_gas_reserve = 1_000_000_000_000_000   # native reserve to keep, wei (0.001 0G) -- never spend below this
+est_gas_fee     = 200_000_000_000_000     # conservative est gas fee per broadcast, wei (added to the action cost)
+
+[net_worth_floor]
+# STEP NETWORTH-GATE -- the "can't deplete net worth" PORTFOLIO-level money-safety primitive (design §3b).
+# RISK: total net worth -- Sigma (holdings x price) across every token + chain -- drains via slippage /
+# mismatch / fees / a hack / a string of individually-"settled" but value-losing legs, EVEN when every
+# individual leg passed its own asset cap. The asset cap bounds ONE asset; the gas floor (§3a) keeps the
+# native token above a reserve; NEITHER bounds the SUM. A wallet whose every action was individually "fine"
+# can still be quietly halved.
+#
+# THE GUARD: a hard NET-WORTH FLOOR (a portfolio-level kill-switch). HALT if total net worth drops below
+# the EFFECTIVE floor = max(absolute, drawdown), the stricter of two independent bounds:
+#   - ABSOLUTE   -- a hard minimum total net worth, regardless of history (`absolute_floor`).
+#   - DRAWDOWN   -- a fraction `drawdown_num / drawdown_den` of the SESSION-START net worth
+#                   (`session_start_value`): HALT below e.g. 70% of session-start -- the doctrine
+#                   "wallet < 70% of session-start -> hard stop". Exact-integer (start x num / den).
+#
+# The VERIFIER computes net worth from its OWN per-holding chain reads (on-chain balances x prices) --
+# NEVER the agent's self-report (two-source truth). A post-action total below the floor reads a LOUD
+# `refuted` (verifier/src/networth.rs: confirmed / refuted / unverified); a PARTIAL read (ANY one holding
+# unreadable) degrades the WHOLE net worth to `unverified` -- a partial sum is never a total.
+#
+# All amounts are exact-integer VALUE UNITS = balance(minor units) x price(USD micro-units, 1e-6 USD, per
+# minor unit). `session_start_value` of 0 disables the drawdown bound (absolute only); `absolute_floor` of
+# 0 disables the absolute bound (drawdown only). The values below are conservative testnet defaults; an
+# operator tunes them to the session's recycled-dev-fund size (design §8: per-trade cap, small balances).
+# `enabled` is the explicit on/off knob (turning it off is a visible config decision, never a silent bypass).
+enabled             = true
+absolute_floor      = 1_000_000          # hard minimum total net worth, VALUE UNITS (e.g. ~$1 at 1e-6 USD scale); 0 = disabled
+session_start_value = 0                  # the session-start net worth (VALUE UNITS) the drawdown bound is a fraction of; 0 = disabled (operator pins per session)
+drawdown_num        = 70                 # max-drawdown numerator: keep >= num/den of session-start (the "< 70% -> hard stop" doctrine)
+drawdown_den        = 100                # max-drawdown denominator
+
+[bridge]
+# STEP WOW-BRIDGE + the hub-and-spoke section -- the bridge legs (design WOW Feature 3 / 3b + the
+# "Cross-chain security: hub-and-spoke (0G hub)" design section). 0G is the SECURED HUB; the other chains
+# are SPOKES (hub-and-spoke, NOT a mesh -- a mesh degrades safety to the weakest chain/bridge).
+#   bridge-IN (spoke -> hub, AUTONOMOUS): Eth->0G (USDC lock-and-mint) + Arb->0G + BNB->0G (w0G CCT direct)
+#   bridge-OUT (hub -> spoke, the RISKY direction): 0G->{Eth/Arb/Base/BNB} via Chainlink CCIP `ccipSend`
+# plus the verifier's BRIDGE verdict-extension (verifier/src/bridge.rs: read BOTH legs per hop -- the source
+# burn/lock event + the destination release/mint event -> a PER-HOP settled/hollow/mismatch/unverified, with
+# the HOLLOW-EGRESS catch as the centerpiece). These are the PUBLIC 0G CCIP venue facts from design WOW
+# Feature 3b -- public protocol facts, safe to commit, NOT secrets.
+#
+# CCIP on 0G is MAINNET-only (chain 16661): the Galileo testnet (16602) CCIP lane is DECOMMISSIONED, so
+# there is NO testnet rehearsal -- a live bridge moves REAL value and is OPERATOR-GATED (design SS8). The
+# code is BUILT and verifier-wrapped here; it is NOT executed on mainnet by this build. The exact operator
+# command to run the live bridge (and capture the two-leg on-chain evidence) is in demo/EVIDENCE_BRIDGE.md.
+chain_id    = 16661                                          # the bridge venue chain (Aristotle mainnet)
+ccip_router = "0x0aA145a62153190B8f0D3cA00c441e451529f755"   # the PUBLIC 0G CCIP Router (IRouterClient.ccipSend)
+token_admin_registry = "0x051665f2455116e929b9972c36d23070F5054Ce0"  # TokenAdminRegistry (resolve pools)
+fee_token   = "0x0000000000000000000000000000000000000000"   # native-gas fee-token sentinel (msg.value); operator may override
+
+# The PUBLIC CCIP destination-chain selectors (the `chain-selectors` registry; design WOW Feature 3 / 3b).
+# The agent PINS the EXPECTED selector per hop; the build refuses any selector not in this allow-list
+# (NEVER the decommissioned Galileo testnet lane). Mirrors verifier DestSelector + agent DEST_SELECTOR.
+dest_selector_ethereum = 5009297550715157269
+dest_selector_0g       = 4426351306075016396
+dest_selector_arbitrum = 4949039107694359620
+dest_selector_base     = 15971525489660198786
+dest_selector_bnb      = 11344663589394136015
+
+# Per-lane bridged-asset token + the pool the agent `approve`s before `ccipSend` (the burnMint /
+# lockRelease pool). PUBLIC protocol facts from design WOW Feature 3b -- safe to commit. The agent venue's
+# `tokenPool` is LEFT EMPTY by default (claim only what's live) so a hop fails CLOSED loudly rather than
+# target a baked-in pool; an operator pins the lane's pool here once confirmed on-chain.
+usdce_token        = "0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E"  # USDC.E on 0G (the inbound mint / egress burn asset)
+usdce_burnmint_pool = "0x0A3d8eD619ECF1E984488710eB2cEcE4FDbd83CA" # USDC.E burnMint pool (approve before egress)
+w0g_token          = "0x1Cd0690fF9a693f5EF2dD976660a8dAFc81A109c"  # W0G on 0G (the w0G egress asset)
+w0g_lockrelease_pool = "0xF6839B313671daE8c1B6AbCaB4eBd0bF41259187" # W0G lockRelease pool (approve before egress)
+
+# [[bridge.corpus]] -- a real, already-settled bridge HOP the verifier's BRIDGE extension checks. Each hop
+# carries BOTH legs (the source `ccipSend`/burn tx + the destination release/mint tx, each confirmable on
+# its chain's explorer). LEFT EMPTY: no mainnet bridge has been sent by this (operator-gated) build, so
+# nothing is asserted -- pinning a SETTLED hop here is operator-gated (run the documented live command on
+# 16661 under the cap, then pin {source_hash, dest_hash, sent, min_release, burned, released} here so the
+# offline verifier replays both legs). NEVER fabricate a SETTLED: an unpinned hop stays off-tape ->
+# unverified; a burned-source/empty-destination hop is the HOLLOW-EGRESS catch (hollow, LOUD), never settled.
+
+[timelock_guard]
+# The ASYMMETRICAL, VALUE-TIERED outbound bridge time-lock (TimelockGuard) -- design "2b.2 Outbound
+# (hub -> spoke) is the RISKY direction". Bridging value OUT of the secured 0G hub burns/locks on the hub
+# and depends on a remote chain to release (the hollow-egress trap), so a large outbound transfer is a
+# TWO-STEP, value-tiered time-lock: queueBridgeOut (mandate-gated; gate spender pinned to the per-spoke
+# destination sentinel) -> executeBridgeOut (REVERTS unless the delay elapsed -- no bypass) /
+# cancelBridgeOut (owner aborts in-window). The verifier CONFIRMS execute-after-delay independently
+# (verifier/src/timelock.rs: confirmed / refuted / unverified; a too-early execute reads REFUTED).
+#
+# The guard is YOUR OWN contract (it composes with MandateRegistryV3 by ADDRESS + holds NO funds), so --
+# unlike the money-bearing CCIP legs -- it is fully deployable + demoable on the 0G Galileo TESTNET (16602)
+# at $0. The DEPLOY is OPERATOR-GATED (design SS8: claim only what's live): the script + tests are BUILT and
+# GREEN, but no guard is broadcast by this build. address is LEFT EMPTY until the operator runs the
+# documented command (contracts/script/DeployTimelock.s.sol) and pins the confirmed address here.
+address    = ""                         # TimelockGuard (operator-gated deploy; pin once confirmed on 16602)
+chain_id   = 16602                      # the network the guard targets (Galileo testnet -- $0, your own contract)
+big_value_threshold = 1_000_000         # value tier boundary, MINOR units: <= is small (short delay), > is big
+short_delay_seconds = 3600              # SMALL-tier delay (1 hour) -- small in-cap egress clears fast
+long_delay_seconds  = 86400             # BIG-tier 24h-style lock -- a large egress is held for owner review
+# longDelay >= shortDelay is enforced on-chain (the big tier is never the faster one).
+#
+# PER-SPOKE ISOLATED CAPS (design "2b.3"): each spoke lane carries its OWN cap, so a weak-spoke exploit is
+# bounded to THAT spoke -- never the hub, never another spoke. The cap REUSES MandateRegistryV3's Tier-4
+# per-destination destCap, keyed by the spoke's sentinel (TimelockGuard.spokeSpender(destSelector) ==
+# keccak("proofagent:spoke:" || selector)); queueBridgeOut runs the gate with that sentinel as `spender`.
+# Configure a spoke's cap ON the registry: setDestCap(spokeSpender(destSelector), cap). Read it back via
+# guard.spokeCap(destSelector) / spokeEffectiveCap(token, destSelector). LEFT UNSET here (operator-gated):
+# the per-spoke caps are configured on the live registry by the operator once the guard is deployed --
+# claim only what's live (design SS8). An unset spoke inherits the hub's global/asset caps (no extra
+# tightening); the hub itself is NEVER tightened by any spoke's cap (the hub is the security floor).
+
+[verifier]
+# corpus = real, already-settled on-chain txs the verifier checks (each confirmable on the explorer).
+# Left empty so nothing unverified is asserted; pinned once confirmed.
+#
+# Each pinned tx is a [[verifier.corpus]] table (an honestly-recorded Claim the verifier checks
+# against an INDEPENDENT on-chain read):
+#
+#   [[verifier.corpus]]
+#   kind     = "BUY"            # trade-kind label (journal only, never the verdict)
+#   hash     = "0x..."          # the 32-byte tx hash (the read key)
+#   claimed  = "1000"           # the agent's claimed amount, MINOR UNITS, exact-integer string
+#   observed = "1100"           # OPTIONAL recorded on-chain read (the Observation), MINOR UNITS.
+#                               #   present -> seeds the offline tape so `verify-tx` replays the real
+#                               #   settlement with no network; absent -> off-tape -> `unverified`
+#                               #   (NEVER a fabricated `settled`). The `live` build ignores it and
+#                               #   reads the chain itself.
+# The LIVE-LOOP SETTLED proof, pinned from the real on-chain transfer. This is a genuine, already-
+# settled native 0G transfer on the Galileo testnet (chain 16602), confirmable on
+# chainscan-galileo.0g.ai. `claimed` is the agent's recorded word (1_000_000 wei); `observed` is the
+# INDEPENDENT on-chain read (eth_getTransactionByHash.value), recorded here so the default OFFLINE
+# build replays the genuine settlement deterministically with no network -- the `live` build ignores
+# `observed` and reads the chain itself (design SS2 settlement / SS3 two-source truth). claimed ==
+# observed (exact match) -> within the 15% band -> `settled`.
+[[verifier.corpus]]
+kind     = "TRANSFER"                                                            # native 0G transfer (no DEX on testnet)
+hash     = "0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0"  # LIVE on 16602 (block 39996100); confirmable on the explorer
+claimed  = "1000000"                                                             # the agent's claim, MINOR units (wei)
+observed = "1000000"                                                             # independent on-chain read (value moved), wei
+
+# A SECOND genuine, already-settled native 0G transfer on Galileo (chain 16602, block 39996470),
+# confirmable on chainscan-galileo.0g.ai. Same shape: claimed == observed == 1_000_000 wei -> within
+# the 15% band -> `settled`. Pinned with its recorded on-chain read so the offline build replays it too.
+[[verifier.corpus]]
+kind     = "TRANSFER"                                                            # native 0G transfer (no DEX on testnet)
+hash     = "0xfb18bfc1a3a12b78843549f0023ccca62746513036e54523ab8d23aaf04f6290"  # LIVE on 16602 (block 39996470); confirmable on the explorer
+claimed  = "1000000"                                                             # the agent's claim, MINOR units (wei)
+observed = "1000000"                                                             # independent on-chain read (value moved), wei
+
+corpus = []                             # the inline form is ignored; the [[verifier.corpus]] table above is the corpus
+
+[verifier.tolerance]
+# exact-integer band, no float: |claimed - observed| within num/den of expected
+num = 15
+den = 100
+
+[[check]]
+name = "settlement"
+kind = "settlement"
+rung = "verify"
+
+[[check]]
+name = "mandate-cap"
+kind = "callable"
+rung = "rails"

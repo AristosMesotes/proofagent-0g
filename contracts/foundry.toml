@@ -1,0 +1,48 @@
+# ProofAgent-0G -- Foundry config for the on-chain mandate ("the agent can't overspend" engine).
+# Design SS2 (Rails): the MandateRegistry whose checkTransfer() rejects any spend over the cap,
+# BEFORE broadcast, as a zero-gas eth_call. Design SS4: contracts/src/MandateRegistry.sol +
+# contracts/script/Deploy.s.sol.
+#
+# CLEAN-ROOM / OFFLINE-BY-DEFAULT (design SS3 principle 6, SS6): this project vendors NO external
+# Solidity libraries. forge-std is intentionally NOT a dependency, so `forge build` / `forge test`
+# run with zero network and zero submodules. The tests are dependency-free (a tiny in-file harness),
+# exactly as the build spec requires when forge-std is not vendored.
+
+[profile.default]
+src = "src"
+out = "out"
+test = "test"
+script = "script"
+libs = ["lib"]
+
+# Pin the compiler so the build is reproducible and offline: 0.8.26 is resolved from the local svm
+# cache, never downloaded. evm_version = "cancun" matches the 0G EVM target.
+solc_version = "0.8.26"
+evm_version = "cancun"
+
+# Zero-warning bar (design SS3 zero-defect): any solc warning is a HARD build failure. Without this,
+# `forge build` exits 0 "successful with warnings" and a Solidity warning would slip the gate; with it,
+# a warning is non-zero exit, so the `contracts-build` check turns RED on the first warning. The current
+# source compiles warning-free, so this enforces the existing state rather than changing behavior today.
+deny = "warnings"
+
+optimizer = true
+# The consolidated MandateRegistryV4 is a large, single-file gate that sits near the EIP-170 24,576-byte
+# runtime limit. optimizer_runs is tuned for SIZE (fewer runs => smaller deployed bytecode) so the
+# hardened contract deploys with a comfortable margin; the per-call gas delta on the (view) gate read is
+# negligible. Keep this value if you add to the contract -- re-check `forge build --sizes` after any growth.
+optimizer_runs = 100
+
+# Deterministic bytecode metadata (design SS3 principle 4): strip the bytecode-hash so the same
+# source always yields byte-identical artifacts, with no embedded build path or wall-clock.
+bytecode_hash = "none"
+cbor_metadata = false
+
+# The RPC URL is read from the environment (proofagent.toml [chain] rpc_env = "OG_RPC") -- NEVER
+# hardcoded, NEVER committed. The deploy script broadcasts against this endpoint.
+[rpc_endpoints]
+og = "${OG_RPC}"
+
+[fmt]
+line_length = 110
+tab_width = 4

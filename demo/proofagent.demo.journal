@@ -1,0 +1,3 @@
+{"hash":"0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0","kind":"TRANSFER","claimed":1000000,"observed":1000000,"recorded":true,"verdict":"settled"}
+{"hash":"0xfb18bfc1a3a12b78843549f0023ccca62746513036e54523ab8d23aaf04f6290","kind":"TRANSFER","claimed":1000000,"observed":1000000,"recorded":true,"verdict":"settled"}
+{"hash":"0xdeadbeef00000000000000000000000000000000000000000000000000000000","kind":"unknown","claimed":0,"observed":null,"recorded":false,"verdict":"unverified"}

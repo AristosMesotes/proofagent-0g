@@ -1,0 +1,40 @@
+[package]
+name = "verifier"
+version = "0.1.0"
+description = "Independent on-chain settlement verifier -- reads the chain itself, never the agent's word."
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+# std-only, deterministic, offline-by-default. The default build pulls in NO dependencies and needs
+# no network. The optional network read leg lives behind the `live` feature (design SS6).
+[features]
+# `live`: compile the LiveSource JSON-RPC reader. OFF by default, so the default build is std-only
+# and offline. Enable with `--features live` once a real RPC endpoint + on-chain corpus are available.
+default = []
+live = ["dep:ureq", "dep:serde_json"]
+
+[dependencies]
+# JSON-RPC transport for the (feature-gated) LiveSource only -- absent from the default build.
+# The real read leg (STEP WIRE-LIVE) POSTs eth_getTransactionReceipt / eth_getTransactionByHash over
+# HTTPS, so it enables HTTPS + `"json"` (serde_json request/response bodies). It uses `native-tls`
+# (the platform TLS stack -- schannel on Windows / Security.framework on macOS / OpenSSL on Linux)
+# rather than the rustls/`ring` path, so the HTTPS leg builds with NO C toolchain. These deps are
+# pulled in ONLY behind the `live` feature; the default build still has zero dependencies and no
+# network (design SS6, offline-by-default clean room).
+ureq = { version = "2.12", default-features = false, features = ["native-tls", "json"], optional = true }
+# JSON-RPC request/response bodies for the (feature-gated) LiveSource only. Explicit (not just
+# ureq's transitive copy) so the LiveSource can name `serde_json::Value` / `json!` directly. Behind
+# the `live` feature; absent from the default build.
+serde_json = { version = "1", default-features = false, features = ["std"], optional = true }
+
+[lib]
+name = "verifier"
+path = "src/lib.rs"
+
+[[bin]]
+name = "verifier"
+path = "src/main.rs"
+
+[lints]
+workspace = true

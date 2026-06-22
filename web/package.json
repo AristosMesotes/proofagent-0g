@@ -1,0 +1,17 @@
+{
+  "name": "proofagent-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProofAgent-0G thin demo UI -- three honest proof stamps + the NEG case (fabricated hash -> UNVERIFIED).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "tsc -p tsconfig.test.json && node --test \"dist/**/*.test.js\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.41",
+    "typescript": "5.9.3"
+  }
+}

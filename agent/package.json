@@ -1,0 +1,17 @@
+{
+  "name": "proofagent-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProofAgent-0G agent loop -- the deterministic planner leg (plan -> mandate-gate -> execute -> verify).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "tsc && node --test \"dist/**/*.test.js\""
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "20.19.41"
+  }
+}
