@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!--
+  ProofAgent-0G -- the interactive Verification Console (design §3 IA, §4 components).
+
+  P0 SCAFFOLD: this is the entry skeleton the dashboard's later phases grow into the full IA (header rail
+  + at-a-glance rollup + four proof cards + the paste-any-hash playground + the live verdict feed + spine
+  facts + the evidence drawer). At this stage it renders only the honest, static chrome (header rail +
+  live spine facts) -- it paints NO verdict and reconciles nothing yet. The working proof surface remains
+  index.html (the three proofs + the NEG case), which is untouched.
+
+  Offline + static: no framework, no CDN, no network. The page loads the compiled ESM at dist/dashboard.js
+  (build it with `npm run build` in this directory). Honesty: nothing here is rendered green/live.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ProofAgent-0G -- Verification Console (scaffold)</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <!-- The dashboard mounts here. Rendered by dashboard.ts from the spine-derived model. -->
+      <div id="dashboard" aria-label="ProofAgent-0G verification console">
+        <noscript>
+          <p class="noscript">
+            This verification console renders with a small offline script. Enable JavaScript, or open
+            <a href="./index.html">the working proof page</a> (three proofs + the NEG case), or read
+            <code>docs/PROOFAGENT_0G_DESIGN.md</code> &sect;2 for the three proofs.
+          </p>
+        </noscript>
+      </div>
+    </main>
+
+    <!-- The compiled, offline ESM. No bundler, no CDN. Build with `npm run build` (tsc). -->
+    <script type="module" src="./dist/dashboard.js"></script>
+  </body>
+</html>

@@ -34,6 +34,7 @@ import {
   SETTLED_ONCHAIN,
   type RpcTransport,
 } from "./onchain.js";
+import { renderOnchainOutcome, renderOnchainDiag, markPending } from "./render.js";
 
 /** Map a stamp honesty level to its CSS state class. Only `LIVE` is the green state (design §8). */
 function levelClass(level: StampLevel): string {
@@ -170,60 +171,6 @@ function wireNegCase(): void {
 
     out.setAttribute("data-verdict", result.verdict);
   });
-}
-
-/**
- * Append a verdict line, a why line, and a reproduce block to an output container, then stamp the
- * container's `data-verdict` so the headless harness can read the rendered verdict. Shared by the two
- * on-chain controls. `settled` is the only green verdict; everything else renders amber.
- */
-function renderOnchainOutcome(
-  out: HTMLElement,
-  verdict: string,
-  why: string,
-  reproduceCommand: string,
-): void {
-  out.replaceChildren();
-
-  const verdictEl = document.createElement("p");
-  const isGreen = verdict.toLowerCase() === VERDICT.SETTLED;
-  verdictEl.className = isGreen ? "neg__verdict neg__verdict--settled" : "neg__verdict";
-  verdictEl.textContent = verdict.toUpperCase();
-  out.appendChild(verdictEl);
-
-  const whyEl = document.createElement("p");
-  whyEl.className = "neg__why";
-  whyEl.textContent = why;
-  out.appendChild(whyEl);
-
-  const repro = document.createElement("pre");
-  repro.className = "neg__repro";
-  repro.textContent = `# reproduce the read independently:\n${reproduceCommand}`;
-  out.appendChild(repro);
-
-  // The harness reads this attribute and reconciles it against the verifier/contract independently.
-  out.setAttribute("data-verdict", verdict);
-}
-
-/** Render a loud diagnostic (a read/usage failure) WITHOUT a verdict -- the absence is the honest signal. */
-function renderOnchainDiag(out: HTMLElement, message: string): void {
-  out.replaceChildren();
-  const diag = document.createElement("p");
-  diag.className = "neg__diag";
-  diag.textContent = message;
-  out.appendChild(diag);
-  // No verdict was minted -> mark the read as errored, never leave a stale green verdict.
-  out.setAttribute("data-verdict", "read-error");
-}
-
-/** Mark a control's output as in-flight (a read is pending) -- honest, never a premature verdict. */
-function markPending(out: HTMLElement, label: string): void {
-  out.replaceChildren();
-  const p = document.createElement("p");
-  p.className = "neg__why";
-  p.textContent = label;
-  out.appendChild(p);
-  out.setAttribute("data-verdict", "pending");
 }
 
 /**

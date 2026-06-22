@@ -41,59 +41,15 @@ import { VERDICT, type Verdict } from "./proofs.js";
  * These pin the SAME live surface the demo's `demo/EVIDENCE.md` confirms on the public explorer:
  * the deployed MandateRegistry, the native-asset sentinel, the agent identity, the pinned SETTLED tx,
  * and the per-tx cap -- all on 0G Galileo testnet (chain id 16602).
+ *
+ * They now live in the single spine source {@link ./spine.ts} so a growing surface cannot drift two
+ * copies. They are imported for this module's internal reads AND re-exported byte-identically here, so
+ * every existing importer of `onchain.ts` (`main.ts`, the tests, the headless harness) keeps working
+ * unchanged against the same values -- same surface, one source.
  * ------------------------------------------------------------------------------------------------ */
 
-/** 0G Galileo testnet -- the chain the deployed registry + pinned SETTLED tx are live on. */
-export const GALILEO = {
-  /** Galileo testnet chain id (mirrors `[mandate].chain_id` / `[verifier]` corpus context). */
-  chainId: 16602,
-  /**
-   * The public 0G Galileo JSON-RPC endpoint (mirrors `demo/EVIDENCE.md` RPC). Read-only reads only;
-   * overridable at run time via the env-injected RPC so a private endpoint is never baked in here.
-   */
-  rpcUrl: "https://evmrpc-testnet.0g.ai",
-  /** The public 0G Galileo testnet explorer (so a viewer confirms each read themselves). */
-  explorer: "https://chainscan-galileo.0g.ai",
-} as const;
-
-/**
- * The deployed `MandateRegistry` + the identities the RAILS read targets, mirroring `[mandate]` in
- * proofagent.toml. All PUBLIC (the spine marks each "safe to commit"): the registry address, the
- * native-asset sentinel the cap is enforced against, the demo agent the mandate is bound to, and the
- * per-tx cap. The OVER-cap probe amount is strictly above the cap so the chain MUST answer
- * `OVER_TX_CAP` -- the honest, deterministic block.
- */
-export const RAILS_ONCHAIN = {
-  /** Deployed MandateRegistry on Galileo (`[mandate].address`). */
-  registry: "0x675FF5053F434AA3f1d48574813BFc1696FBD345",
-  /** The demo agent the mandate is bound to (the registry's mandated `agent`; PUBLIC). */
-  agent: "0xc7Af61A1399Aca0bee648D7853AE93f96B86866a",
-  /** The canonical native-asset sentinel the cap is enforced against (`[mandate].native_asset_sentinel`). */
-  nativeSentinel: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-  /** The on-chain per-tx cap, MINOR units (wei) -- `perTxCap = 2_000_000` (`[mandate]`). */
-  perTxCap: 2_000_000n,
-  /**
-   * The OVER-cap probe amount, MINOR units (wei). 3_000_000 > the 2_000_000 cap, so `checkTransfer`
-   * MUST return `(false, OVER_TX_CAP)` -- the deterministic block the screen renders (mirrors the
-   * `demo/EVIDENCE.md` PROOF 2 over-cap request).
-   */
-  overCapAmount: 3_000_000n,
-} as const;
-
-/**
- * The PINNED, already-settled tx the SETTLED read confirms, mirroring `[[verifier.corpus]]` in
- * proofagent.toml + `demo/EVIDENCE.md` PROOF 1. A genuine native 0G transfer on Galileo: `status 0x1`
- * (Success) and a native `value` of `claimed` wei, so the verifier's adjudication is `settled`.
- */
-export const SETTLED_ONCHAIN = {
-  /** The pinned SETTLED tx hash (`[[verifier.corpus]].hash`; confirmable on the explorer). */
-  hash: "0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0",
-  /** The agent's recorded claim, MINOR units (wei) -- `[[verifier.corpus]].claimed`. */
-  claimed: 1_000_000n,
-  /** Exact-integer tolerance band num/den (`[verifier.tolerance]`; no float -- design §3 #5). */
-  toleranceNum: 15n,
-  toleranceDen: 100n,
-} as const;
+import { GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN } from "./spine.js";
+export { GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN };
 
 /* ------------------------------------------------------------------------------------------------ *
  * The read-only transport seam (a thin JSON-RPC reader). A live browser `fetch` reader and an

@@ -40,45 +40,15 @@
 
 /* ------------------------------------------------------------------------------------------------ *
  * Spine-derived public constants (mirror proofagent.toml -- nothing secret).
+ *
+ * These now live in the single spine source {@link ./spine.ts} so a growing surface cannot drift two
+ * copies. They are RE-EXPORTED here byte-identically, so every existing importer of `proofs.ts`
+ * (`main.ts`, the tests, the headless harness) keeps working unchanged. Same values, one source.
  * ------------------------------------------------------------------------------------------------ */
 
-/** The 0G chain + public explorer, mirroring `[chain]` in proofagent.toml. */
-export const CHAIN = {
-  /** 0G Aristotle chain id (design appendix). */
-  id: 16661,
-  name: "0G Aristotle",
-  /** Galileo testnet chain id -- where live legs run (design §8: testnet/dev only). */
-  testnet: 16602,
-  /** The public explorer (design appendix: chainscan.0g.ai). Viewers confirm the chain themselves. */
-  explorer: "https://chainscan.0g.ai",
-} as const;
-
-/**
- * The on-chain spend cap, mirroring `[mandate]` in proofagent.toml. `registryAddress` is empty until the
- * MandateRegistry is confirmed/deployed on-chain (design §8: claim only what's live). An empty address is
- * the HONEST "not yet deployed" signal -- the UI must not render a green "live on-chain" rails stamp while
- * it is empty.
- */
-export const MANDATE = {
-  /** Per-transaction cap, the public knob from the spine (`per_tx_cap = "2 USD"`). */
-  perTxCapUsd: 2,
-  /** Deployed registry address, or "" when not yet pinned on-chain (design §8). */
-  registryAddress: "" as string,
-} as const;
-
-/**
- * The settlement corpus, mirroring `[verifier]` `corpus` in proofagent.toml. Empty until real,
- * already-settled txs are confirmed on-chain (design §6: "Demo against already-public settlements" /
- * §8: claim only what's live). While empty, the UI asserts NO `settled` -- the one live proof is the NEG
- * case below. The exact-integer tolerance band mirrors `[verifier.tolerance]` (15/100 -- design §3 #5).
- */
-export const VERIFIER = {
-  /** Count of real, already-settled txs pinned in the spine (0 until confirmed on-chain). */
-  corpusSize: 0,
-  /** Exact-integer tolerance band num/den (no float on the money path -- design §3 principle 5). */
-  toleranceNum: 15,
-  toleranceDen: 100,
-} as const;
+import { CHAIN, MANDATE, VERIFIER } from "./spine.js";
+// Re-export the spine constants under the same names this module has always exposed (backward-compatible).
+export { CHAIN, MANDATE, VERIFIER };
 
 /* ------------------------------------------------------------------------------------------------ *
  * The verdict alphabet (design §2) -- mirrored from the Rust `Verdict` enum, read-only.

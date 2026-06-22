@@ -21,6 +21,22 @@
   --amber-ink: #2a1f02;
   --accent: #4aa8ff;
   --radius: 12px;
+
+  /* --- NEW design tokens (additive; the existing page does not reference these yet) --- */
+  /* The honesty colour grammar extends with a LOUD red for a real anomaly and a grey for an */
+  /* infra-gated read -- per the dashboard spec's verdict grammar. Only --green stays green. */
+  --danger: #e5484d;        /* hollow / mismatch -- a real anomaly, surfaced LOUD (red). */
+  --danger-soft: #2a1113;   /* the danger-state ink/background companion. */
+  --danger-ink: #2a0c0e;    /* readable ink on a solid --danger fill. */
+  --muted: #6b7a8a;         /* honest not-yet / reconciling / read-error neutral (grey). */
+  --text-success: #5fd6a0;  /* the transient "Copied"/"reconciled" flash text. */
+
+  /* Pill + elevation + motion tokens (so the dashboard's geometry is consistent + tweakable). */
+  --r-pill: 9999px;         /* fully-rounded pill radius. */
+  --pill-h: 1.6rem;         /* fixed pill height so pills do not jitter row to row. */
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 18px rgba(0, 0, 0, 0.28);
+  --transition-bg: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  --num: tabular-nums;      /* the tabular-numeral feature digits use so they do not jitter. */
 }
 
 * {
@@ -241,4 +257,138 @@ body {
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.86em;
+}
+
+/* ================================================================================================ *
+ * NEW dashboard primitives (additive). The existing demo page references NONE of these classes, so
+ * adding them changes nothing on the current screen. The dashboard phases build the new IA on them.
+ * Honesty colour grammar (verdict states): only .is-live / .is-settled are green; .is-hollow /
+ * .is-mismatch are LOUD red; .is-pending / .is-armed / .is-unverified are amber/neutral; .is-read-error
+ * is grey (infra-gated). The iron rule survives: only live/settled is green.
+ * ================================================================================================ */
+
+/* --- the shared Card chrome primitive (one wrapper -> visual consistency for free) --- */
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+  min-height: 8rem; /* a floor so a grid of cards does not jump while a read is in flight. */
+}
+.card__titlebar {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.card__body {
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+/* --- tabular numerals (digits/hashes do not jitter as values change) --- */
+.mono-num {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: var(--num);
+}
+
+/* --- a generic status dot, colour-coded by an honest state class --- */
+.status-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: var(--r-pill);
+  background: var(--muted);
+  vertical-align: middle;
+  transition: var(--transition-bg);
+}
+.status-dot.is-live,
+.status-dot.is-settled {
+  background: var(--green);
+}
+.status-dot.is-armed,
+.status-dot.is-pending,
+.status-dot.is-unverified {
+  background: var(--amber);
+}
+.status-dot.is-hollow,
+.status-dot.is-mismatch {
+  background: var(--danger);
+}
+.status-dot.is-read-error {
+  background: var(--muted);
+}
+
+/* --- a generic pill (fully-rounded, fixed height so it does not jitter) --- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: var(--pill-h);
+  padding: 0 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  background: var(--panel-2);
+  transition: var(--transition-bg);
+}
+
+/* --- the LOUD-anomaly + infra-gated verdict faces (red / grey) the dashboard adds --- */
+.verdict--danger {
+  background: var(--danger);
+  color: var(--danger-ink);
+}
+.verdict--muted {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+/* --- the transient "Copied"/"reconciled" flash text colour --- */
+.flash-success {
+  color: var(--text-success);
+}
+
+/* --- the dashboard header rail (P0 scaffold: identity only; network/Tier-2 arrive later) --- */
+.dash-header {
+  padding: 1.5rem 0 1rem;
+}
+.dash-header__eyebrow {
+  margin: 0 0 0.4rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.dash-header__title {
+  margin: 0;
+  font-size: 2.2rem;
+  letter-spacing: -0.02em;
+}
+.dash-header__tagline {
+  margin: 0.3rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* --- the dashboard cards stack (P0: a simple column; the responsive grid arrives in P1) --- */
+#dashboard .card {
+  margin: 1.25rem 0;
+}
+.dash-scaffold__note {
+  margin: 0 0 0.6rem;
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+}
+.dash-scaffold__note:last-child {
+  margin-bottom: 0;
+}
+.dash-scaffold__note a {
+  color: var(--accent);
 }
