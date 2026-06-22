@@ -6,7 +6,9 @@ Two static screens (design §4):
   controls** -- the **NEG case** and two READ-ONLY on-chain checks (**RAILS** + **SETTLED**), so the headless
   harness can drive all three proofs through the real UI (loads `dist/main.js`).
 - **`dashboard.html`** -- the interactive **Verification Console**: the four proof cards (NEG · BRAIN · RAILS ·
-  SETTLEMENT) + the paste-any-hash **Playground** + the **"Run the agent (dry-run)"** card + the live verdict
+  SETTLEMENT) — with **RAILS expanded into a read-only mirror of the deployed MandateRegistry** (a 0G chain
+  badge + a tri-state reconciled-vs-deployed pill + a per-asset table + a wallet-free `checkTransfer`
+  simulator) — + the paste-any-hash **Playground** + the **"Run the agent (dry-run)"** card + the live verdict
   feed + the evidence drawer (loads `dist/dashboard.js`). The console mounts dynamically; it adds no new trust
   surface -- every verdict it paints is reconciled against an independent source, and only `settled`/`live` is
   green.
@@ -93,6 +95,39 @@ has no real broadcast hash, so its journal `hash` is an honest, clearly-tagged `
 (never mistakable for a real `0x` tx hash) and its `observed` is JSON `null` (the loud absence — never a
 fabricated `0`). The status line reads `DEFECTS … 3 unverified` honestly — an all-`unverified` dry-run is
 **NOT green**, and `audit` would surface those rows loud (exit 1).
+
+## The RAILS card, EXPANDED — the mandate-registry mirror (dashboard only — design §4.2 · §10.4b)
+
+On the Verification Console the **RAILS card is expanded** into a full READ-ONLY mirror of the **deployed
+MandateRegistry** (`web/src/mandateCard.ts`). The dashboard still shows **four** cards — this is the RAILS
+card, not a fifth. It reuses the same read-only `RpcTransport` + `runRailsCheck` / `runMandateCheck` /
+`decodeCheckTransfer` the proofs already read through (no new broadcast surface), and lays out, top to bottom:
+
+- **Header** — the title + a **0G monogram chain badge** (0G has no branded glyph, so a clean-room monogram
+  tile + the chain id) + a tri-state **RECONCILED-vs-deployed pill** (`Reconciled` · `Drifted` · `Unverified`).
+  The on-chain read is the **baseline**: the card's stated config is reconciled against what `checkTransfer`
+  actually answers on-chain (the two-source doctrine — the chain is the arbiter, never the UI). `Reconciled`
+  is the only green face; a disagreement is a **loud** `Drifted`; an unreachable RPC is an honest `Unverified`
+  (grey), never a faked green.
+- **Global period-cap bar** — the consolidated **`MandateRegistryV4`** rolling-window cap (used fraction +
+  reset countdown). V4 is **built-not-deployed** (its deploy is operator-gated; `[mandate_v4].address=""`),
+  so the bar shows the **V4 spec** with `0 used` and a clear *"not enforced on the deployed MVP registry"*
+  tag — it never reads as a live-enforced number.
+- **Per-asset table** — one row per asset: a state dot (allowed/blocked) · symbol · truncated address ·
+  decimals · per-tx cap (formatted by the asset's decimals). A **blocked** (non-allowlisted) row is greyed
+  with a `—` cap (the default-deny). The table body scrolls inside a fixed cap so a long allowlist never blows
+  the card height.
+- **Wallet-free `checkTransfer` simulator** — an asset dropdown + an amount field → a **real READ-ONLY
+  `eth_call`** of `checkTransfer(agent, asset, amount)` against the deployed registry. The decoded on-chain
+  `(ok, reason)` becomes a tri-state verdict **`ALLOWED` / `BLOCKED` / `UNVERIFIED`** that spells out the
+  binding reason. **No wallet, no signing, no broadcast** — a zero-gas read. A usage error (a non-numeric or
+  money-truncating amount) mints **no** verdict; an unreachable RPC shows `UNVERIFIED`, never a faked allow.
+- **Footer** — *"Read independently from chain — not the agent's UI."*
+
+The chain context is threaded as one `{chainId, registryAddress, …}` **context object** (`MANDATE_CARD` in
+`web/src/spine.ts`), so bringing the consolidated V4 registry live is a **data change** (repoint the context),
+**not** a card redesign. By-chain is the single **0G** badge only — one enforcement chain (proven by
+`scripts/0g_only_gate.ps1`); there is deliberately **no chain selector**.
 
 ## Build & run (offline, no framework, no CDN)
 

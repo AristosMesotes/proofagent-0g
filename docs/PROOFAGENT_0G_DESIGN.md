@@ -156,6 +156,26 @@ projection — so a judge sees the **identical artifact** a real `verifier verif
 ledger` run produces. It is labelled a dry-run, it mints no verdict, and it can never reach a green
 `settled` — exactly the honesty doctrine (§3 #2/#3, §13), made visible on a single click.
 
+**The RAILS card is the mandate, read straight from chain (the deployed-registry mirror).** On the
+Verification Console the **RAILS card is expanded into a READ-ONLY mirror of the deployed mandate registry**
+(`web/src/mandateCard.ts`) — still **one of the four** proof cards, not a fifth. It reuses the RAILS leg's own
+read-only `checkTransfer` codec (`runRailsCheck` / `runMandateCheck` / `decodeCheckTransfer` over the
+`RpcTransport` seam, no copy, no new broadcast surface) and lays out: a **header** with a **0G monogram chain
+badge** (0G has no branded glyph) + a tri-state **RECONCILED-vs-deployed pill** — the on-chain read is the
+**baseline**, so the card's stated config is reconciled against what `checkTransfer` actually answers on-chain
+(the two-source doctrine, §3 #1: `Reconciled` green / `Drifted` loud-red / `Unverified` grey, never a faked
+green); a **global period-cap bar** carrying the consolidated `MandateRegistryV4` (§10.4b) rolling-window cap,
+shown as the **V4 spec, built-not-deployed** (its deploy is operator-gated; `[mandate_v4].address=""`) and
+labelled so — never a live-enforced number (§8 claim only what's live); a **per-asset table** (state dot ·
+symbol · truncated address · decimals · per-tx cap; a non-allowlisted asset greyed with a `—`, capped-scroll);
+and a **wallet-free `checkTransfer` simulator** (asset dropdown + amount → a real zero-gas `eth_call` → a
+tri-state **`ALLOWED` / `BLOCKED` / `UNVERIFIED`** verdict naming the binding on-chain reason — no wallet, no
+broadcast; a usage error mints no verdict; an unreachable RPC is `UNVERIFIED`, never a faked allow). The chain
+is threaded as one `{chainId, registryAddress}` **context object** (`MANDATE_CARD` in `web/src/spine.ts`), so
+bringing the consolidated V4 registry live is a **data change** (repoint the context), not a redesign;
+by-chain is the **single 0G badge** only — one enforcement chain, proven by `scripts/0g_only_gate.ps1` — with
+deliberately **no chain selector**. Footer: *"Read independently from chain — not the agent's UI."*
+
 ---
 
 ## 6. The settlement-truth LEDGER — the journal, the projection, the audit

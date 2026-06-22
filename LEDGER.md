@@ -255,6 +255,15 @@ This RUN LEDGER is the **identical artifact** a real `verifier verify-tx … --j
 run produces, so a judge sees the same settlement-truth shape — but it claims **nothing** in §1, because a
 dry-run settles nothing (and nothing was lost).
 
+**The RAILS card mirror (`web/src/mandateCard.ts`) is a READ-ONLY view, not a ledger entry.** The Verification
+Console's expanded RAILS card mirrors the deployed `MandateRegistry` — a tri-state **reconciled-vs-deployed**
+pill (the stated config reconciled against the chain's own over-cap `checkTransfer` answer: `Reconciled` /
+`Drifted` / `Unverified`, never a faked green), a per-asset table (allowlist + sub-caps), and a wallet-free
+`checkTransfer` simulator (a real zero-gas `eth_call` per pick → `ALLOWED` / `BLOCKED` / `UNVERIFIED`). Like the
+RAILS claim in §6, it is a **read of the on-chain mandate**, never a settlement — it adds **no §1 row** (a read
+moves no money). The consolidated **`MandateRegistryV4`** USD/period tier it shows is **built-not-deployed**
+(`[mandate_v4].address=""`; deploy operator-gated), labelled as such — never charted as a live-enforced number.
+
 ---
 
 ## Status at a glance

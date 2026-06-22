@@ -76,6 +76,17 @@ prints a **RUN LEDGER** in the verifier's own journal format (`{"hash","kind","c
 + the `ledger` status line) — the identical artifact a real `verifier verify-tx … --journal` + `verifier ledger`
 produces. Confirm the gate answers yourself with the `cast call` from Proof 2 (vary the asset/amount).
 
+### See the mandate, read straight from chain (the RAILS card)
+On the same Verification Console, the **RAILS card is a READ-ONLY mirror of the deployed mandate registry**: a
+0G chain badge, a tri-state **reconciled-vs-deployed** pill (the on-chain read is the baseline — `Reconciled`
+only when the card's stated config matches the chain's own `checkTransfer` answer; `Drifted` if they disagree;
+`Unverified` if the RPC is unreachable — never a faked green), a **per-asset table** (allowlist + per-tx caps;
+non-allowlisted assets greyed), and a **wallet-free `checkTransfer` simulator** — pick an asset + amount and
+the card runs the **same zero-gas `eth_call` as Proof 2**, rendering `ALLOWED` / `BLOCKED` / `UNVERIFIED` with
+the binding on-chain reason. No wallet, no signing, no broadcast. The consolidated **`MandateRegistryV4`**
+USD/period cap is shown as **built-not-deployed** (its deploy is operator-gated), labelled honestly — never as
+a live-enforced number. Confirm any verdict the simulator shows with the `cast call` from Proof 2.
+
 ### Audit the ledger
 ```bash
 cargo run -p verifier -- ledger    # the full verifier-verdict journal

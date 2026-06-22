@@ -71,6 +71,8 @@ import { FeedStore, FeedView, type VerdictSource } from "./feed.js";
 import { EvidenceDrawer, type EvidenceRecord } from "./evidence.js";
 import { buildDryRun, type DryRunListeners } from "./dryrunView.js";
 import { type DryRunResult } from "./dryrun.js";
+import { buildMandateCard, type MandateCardListeners } from "./mandateCard.js";
+import { type MandateAsset } from "./spine.js";
 
 /* ------------------------------------------------------------------------------------------------ *
  * Identity copy (the header rail -- design §3/§4.1).
@@ -558,107 +560,84 @@ function buildBrainCard(grid: HTMLElement): void {
   grid.appendChild(built.root);
 }
 
-/* ---- RAILS card -- a read-only checkTransfer over-cap probe -> OVER_TX_CAP, reconciled vs 0G RPC --- */
+/* ---- RAILS card (EXPANDED) -- a read-only mirror of the deployed MandateRegistry (design §4.2, §10.4b) -- */
 
 /**
- * Build + wire the RAILS card. A click runs a READ-ONLY `eth_call checkTransfer(agent, native, OVER-cap)`
- * against the deployed registry; the chain answers `(false, OVER_TX_CAP)` -- the block is the POSITIVE
- * proof the system is working (design §4.2 RAILS). The reconciliation badge replays the SAME `eth_call`
- * independently (a SECOND read-only read) and confirms the identical reason. Honesty split (design §11):
- * the control reads a live deployed registry, but the stamp-level framing stays "armed" in the claim copy
- * until `MANDATE.registryAddress` is pinned -- the badge (a real, reconciled `eth_call`) is the arbiter, so
- * the two never read as contradictory.
+ * Build + wire the EXPANDED RAILS card -- a READ-ONLY mirror of the deployed mandate registry ({@link
+ * ./mandateCard.ts}). It stays the RAILS card (the grid is still FOUR cards, NOT a fifth): the header carries
+ * a 0G monogram chain badge + a tri-state RECONCILED-vs-deployed pill (the on-chain read is the baseline);
+ * below it a global USD/period-cap bar (the consolidated V4 spec, built-not-deployed, labelled honestly), a
+ * per-asset table (the deployed allowlist + sub-caps), and a wallet-free `checkTransfer` simulator.
+ *
+ * It reuses `runRailsCheck` (the over-cap reconcile baseline) + `runMandateCheck`/`decodeCheckTransfer` (the
+ * simulator), so the on-chain answer the card paints is byte-identically re-derivable. The header reconcile +
+ * each simulation feed the SAME honesty plumbing the old card did: it records `cardStatus.rails` (so the
+ * rollup counts it), the rails evidence (so the drawer shows the read), and a `0G RPC` feed row per checked
+ * verdict. An unreachable RPC degrades LOUD to `unavailable` (grey), never a faked green.
  */
 function buildRailsCard(grid: HTMLElement, transport: RpcTransport): void {
-  const armedNote =
-    MANDATE.registryAddress.length > 0
-      ? ""
-      : " (stamp-level: ARMED — the registry address is not yet pinned in the spine; the live control reads " +
-        "the deployed registry and the reconciled eth_call is the arbiter)";
-  const built = buildCard({
-    key: "rails",
-    title: "RAILS — it cannot overspend",
-    headline: "Check on-chain → expect OVER_TX_CAP (blocked)",
-    claim:
-      "Ask the deployed MandateRegistry on 0G to checkTransfer an OVER-cap amount as a zero-gas eth_call. " +
-      "The chain rejects it BEFORE broadcast — the block is the proof the system works." +
-      armedNote,
-    dotState: "is-pending",
-    sourceLabel: "0G RPC",
-    prefill: [
-      { label: "over-cap probe", value: `${RAILS_ONCHAIN.overCapAmount.toString()} wei`, mono: true },
-      { label: "per-tx cap", value: `${RAILS_ONCHAIN.perTxCap.toString()} wei`, mono: true },
-      { label: "registry", value: shortHash(RAILS_ONCHAIN.registry), mono: true },
-    ],
-    button: {
-      label: "Check on-chain → expect OVER_TX_CAP (blocked)",
-      onClick: (out, badge) => {
-        out.replaceChildren();
-        out.setAttribute("data-verdict", "pending");
-        const p = document.createElement("p");
-        p.className = "verdict-why";
-        p.textContent = "Reading the on-chain cap (eth_call checkTransfer, zero gas, no broadcast)…";
-        out.appendChild(p);
-        badge.set(RECONCILE.CHECKING);
-        runRailsCheck(transport)
-          .then(async (result) => {
-            renderThreeAltitude(
-              out,
-              result.verdict,
-              result.explanation,
-              `checkTransfer(agent, native, ${result.amount.toString()}) → (false, ${result.verdict})` +
-                `  ·  reproduce: ${result.reproduceCommand}`,
-            );
-            // Independent re-read: replay the SAME read-only eth_call and compare the decoded reason.
-            const independent = await independentRails(transport);
-            const state = decideReconcile(result.verdict, independent);
-            badge.set(state);
-            recordStatus("rails", result.verdict, state);
-            // Record evidence (the decoded on-chain answer + the replayable calldata) + stamp the feed.
-            setEvidence("rails", {
-              title: "RAILS — on-chain cap (checkTransfer)",
-              rawJson:
-                `eth_call checkTransfer(agent=${result.agent}, asset=${result.token}, amount=${result.amount.toString()})\n` +
-                `→ decoded (ok=false, reason="${result.verdict}")  ·  blocked=${result.blocked.toString()}`,
-              calldata: result.calldata,
-              reproduce: [result.reproduceCommand],
-              reconLog: [{ surface: "RAILS", painted: result.verdict, independent: independent.verdict, state }],
-            });
-            appendFeed("RAILS", result.verdict, "0G RPC", null, state);
-          })
-          .catch((err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            renderThreeAltitude(
-              out,
-              "read-error",
-              `on-chain read error: ${msg}`,
-              "eth_call checkTransfer → read error (the source was unreachable; nothing is faked green)",
-            );
-            badge.set(RECONCILE.UNAVAILABLE);
-            recordStatus("rails", null, RECONCILE.UNAVAILABLE);
-            setEvidence("rails", {
-              title: "RAILS — on-chain cap (checkTransfer)",
-              rawJson: `eth_call checkTransfer → read error: ${msg}\nThe source was unreachable; nothing is faked green.`,
-              calldata: null,
-              reproduce: [],
-              reconLog: [{ surface: "RAILS", painted: "read-error", independent: null, state: RECONCILE.UNAVAILABLE }],
-            });
-            appendFeed("RAILS", "read-error", "0G RPC", null, RECONCILE.UNAVAILABLE);
-          });
-      },
+  const listeners: MandateCardListeners = {
+    // The header's reconcile pill resolved (the deployed-config baseline, reconciled vs the chain's own answer).
+    onReconcile: (verdict, reconcile) => {
+      recordStatus("rails", verdict, reconcile);
+      setEvidence("rails", {
+        title: "RAILS — deployed MandateRegistry mirror (checkTransfer)",
+        rawJson:
+          `eth_call checkTransfer(agent, native sentinel, over-cap) on ${RAILS_ONCHAIN.registry}\n` +
+          `→ decoded reason="${verdict}"  ·  the header pill reconciles the stated config vs this on-chain answer.`,
+        calldata: null,
+        reproduce: [
+          `cast call ${RAILS_ONCHAIN.registry} "checkTransfer(address,address,uint256)" ` +
+            `${RAILS_ONCHAIN.agent} ${RAILS_ONCHAIN.nativeSentinel} ${RAILS_ONCHAIN.overCapAmount.toString()} --rpc-url $OG_RPC`,
+        ],
+        reconLog: [
+          {
+            surface: "RAILS reconcile-vs-deployed",
+            painted: verdict,
+            independent: reconcile === RECONCILE.RECONCILED ? verdict : null,
+            state: reconcile,
+          },
+        ],
+      });
+      appendFeed("RAILS", verdict, "0G RPC", null, reconcile);
     },
-  });
+    // A wallet-free simulation resolved (a real read-only checkTransfer eth_call for the picked asset+amount).
+    onSimulate: (asset: MandateAsset, amount, reason, reconcile) => {
+      appendFeed(`RAILS sim ${asset.symbol}`, reason, "0G RPC", null, reconcile);
+      setEvidence("rails", {
+        title: "RAILS — wallet-free checkTransfer simulation",
+        rawJson:
+          `eth_call checkTransfer(agent, ${asset.address}, ${amount.toString()}) on ${RAILS_ONCHAIN.registry}\n` +
+          `→ decoded reason="${reason}" (read-only; no wallet, no broadcast).`,
+        calldata: null,
+        reproduce: [
+          `cast call ${RAILS_ONCHAIN.registry} "checkTransfer(address,address,uint256)" ` +
+            `${RAILS_ONCHAIN.agent} ${asset.address} ${amount.toString()} --rpc-url $OG_RPC`,
+        ],
+        reconLog: [
+          {
+            surface: `RAILS sim ${asset.symbol}`,
+            painted: reason,
+            independent: reconcile === RECONCILE.RECONCILED ? reason : null,
+            state: reconcile,
+          },
+        ],
+      });
+    },
+    // A loud read-error diagnostic (the source was unreachable; nothing is faked green).
+    onReadError: (where, message) => {
+      recordStatus("rails", null, RECONCILE.UNAVAILABLE);
+      setEvidence("rails", {
+        title: "RAILS — deployed MandateRegistry mirror (checkTransfer)",
+        rawJson: `${where} → read error: ${message}\nThe source was unreachable; nothing is faked green.`,
+        calldata: null,
+        reproduce: [],
+        reconLog: [{ surface: where, painted: "read-error", independent: null, state: RECONCILE.UNAVAILABLE }],
+      });
+    },
+  };
+  const built = buildMandateCard(transport, listeners);
   grid.appendChild(built.root);
-}
-
-/** Independently re-derive the RAILS verdict by replaying the SAME read-only eth_call; null if unreachable. */
-async function independentRails(transport: RpcTransport): Promise<IndependentResult> {
-  try {
-    const replay = await runRailsCheck(transport);
-    return { verdict: replay.verdict };
-  } catch {
-    return { verdict: null };
-  }
 }
 
 /* ---- SETTLEMENT card -- a read-only receipt/value read -> SETTLED, reconciled vs the verifier ------ */
@@ -857,8 +836,9 @@ function autoEnrich(transport: RpcTransport): void {
     }
   };
   // Auto-run the NEG card too (it is pure + instant) so first paint shows its honest reconciled verdict.
+  // The RAILS card (the expanded mandate mirror) self-enriches on build -- its header reconcile fires its own
+  // background read, so it needs no programmatic button click here.
   triggerCardRead("neg");
-  triggerCardRead("rails");
   triggerCardRead("settlement");
   void refreshNetworkPill(transport);
 

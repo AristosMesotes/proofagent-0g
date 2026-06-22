@@ -35,6 +35,15 @@ produces a **RUN LEDGER** in the verifier's own journal format. A dry-run broadc
 honestly `unverified` — never a fabricated `settled`. The Brain stamp stays **PENDING** (its green flip is
 operator-gated on a real TEE attestation).
 
+### See the mandate, read straight from chain
+On the **Verification Console** the **RAILS card is a read-only mirror of the deployed mandate registry**: a 0G
+chain badge, a tri-state **reconciled-vs-deployed** pill (the on-chain read is the baseline — `Reconciled` /
+`Drifted` / `Unverified`, never a faked green), a **per-asset table** (allowlist + per-tx caps; blocked assets
+greyed), and a **wallet-free `checkTransfer` simulator** (pick an asset + amount → a real zero-gas `eth_call` →
+**`ALLOWED` / `BLOCKED` / `UNVERIFIED`** with the binding reason). No wallet, no signing, no broadcast. The
+consolidated **`MandateRegistryV4`** USD/period tier is shown as **built-not-deployed** (its deploy is
+operator-gated), labelled honestly — never as a live-enforced number.
+
 ### Stack
 Rust (verifier) · Solidity (mandate) · TypeScript (agent · 0G SDKs · web).
 Self-contained, MIT, talks to 0G only through public SDKs.

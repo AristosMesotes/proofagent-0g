@@ -1221,6 +1221,250 @@ code {
   word-break: break-all;
 }
 
+/* ================================================================================================ *
+ * The EXPANDED RAILS card -- the read-only mandate-registry mirror (design §4.2, §10.4b). Additive: only
+ * the dashboard references these classes (the demo page index.html references NONE of them, so the existing
+ * screen is unchanged). The honesty colour grammar is reused verbatim: only .is-settled is green;
+ * .is-mismatch is LOUD red; .is-read-error is grey; everything else (a block, a pending) is the amber face.
+ * The card stays ONE of the four proof cards (it reuses .proof-card chrome) -- it is NOT a fifth card.
+ * ================================================================================================ */
+
+.mandate-card .card__body {
+  gap: 0.85rem;
+}
+
+/* --- A. the header: title + the 0G monogram chain badge + the tri-state reconciled-vs-deployed pill --- */
+.mandate-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.mandate-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.mandate-card__title {
+  margin: 0;
+}
+.mandate-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+/* The 0G monogram chain badge (0G has no branded glyph -> a clean-room monogram tile + the chain id). */
+.chain-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: var(--pill-h);
+  padding: 0 0.55rem 0 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--panel-2);
+}
+.chain-badge__mono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #06121f;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.chain-badge__text {
+  font-size: 0.74rem;
+  color: var(--ink-dim);
+}
+
+/* The tri-state reconciled-vs-deployed pill (Reconciled green · Drifted red · Unverified grey). */
+.deploy-pill {
+  max-width: 100%;
+}
+.deploy-pill__text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 38ch;
+}
+.deploy-pill.is-settled {
+  border-color: var(--green);
+  color: var(--green);
+}
+.deploy-pill.is-mismatch {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.deploy-pill.is-read-error,
+.deploy-pill.is-pending {
+  color: var(--muted);
+}
+
+/* --- B. the global USD/period-cap bar (the V4 spec tier — built-not-deployed, labelled honestly) --- */
+.period-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.period-cap__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.period-cap__label {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.period-cap__tag {
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+}
+.period-cap__meter {
+  position: relative;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: #06090d;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.period-cap__fill {
+  display: block;
+  height: 100%;
+  background: var(--amber);
+  transition: width 200ms ease;
+}
+.period-cap__detail {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  word-break: break-word;
+}
+
+/* --- C. the per-asset table (state dot · symbol · address · decimals · per-tx cap; blocked greyed) --- */
+.asset-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.asset-table__heading {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+/* The capped-scroll wrapper so a long allowlist never blows the card height. */
+.asset-table__scroll {
+  max-height: 11rem;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.asset-table__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+}
+.asset-table__table th,
+.asset-table__table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  word-break: break-all;
+}
+.asset-table__table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--ink-dim);
+  font-weight: 700;
+  z-index: 1;
+}
+.asset-table__table tbody tr:last-child td {
+  border-bottom: none;
+}
+.asset-row__dot {
+  width: 1.2rem;
+}
+.asset-row__symbol {
+  font-weight: 700;
+}
+/* A blocked (non-allowlisted) row is greyed -- the `—` cap + the muted ink say "default-deny", honestly. */
+.asset-row--blocked td {
+  color: var(--muted);
+}
+.asset-row--allowed .asset-row__cap {
+  color: var(--ink);
+}
+
+/* --- D. the wallet-free checkTransfer simulator (asset dropdown + amount -> a read-only eth_call) --- */
+.sim {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.sim__heading {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+.sim__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+.sim__asset,
+.sim__amount {
+  flex: 1 1 8rem;
+  min-width: 7rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+.sim__button {
+  flex: 1 1 100%;
+}
+.sim__out {
+  margin: 0;
+}
+.sim__diag {
+  margin: 0;
+}
+.sim__recon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+/* --- E. the footer line (the two-source doctrine, in one line) --- */
+.mandate-card__footer {
+  margin: 0;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 0.55rem;
+}
+
 /* --- accessibility: honour a reduced-motion preference (drop the background-only transitions) --- */
 @media (prefers-reduced-motion: reduce) {
   .feed-row {
@@ -1234,7 +1478,10 @@ code {
   .proof-card__button,
   .dryrun__button,
   .pg-check,
-  .drawer__close {
+  .drawer__close,
+  .period-cap__fill,
+  .chain-badge,
+  .deploy-pill {
     transition: none;
   }
 }
