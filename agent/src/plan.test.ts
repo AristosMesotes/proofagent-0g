@@ -13,7 +13,21 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { plan, PlanError, TOTAL_BPS, CHAINS, TOKENS, type Plan } from "./plan.js";
+import { plan, attestPlan, PlanError, TOTAL_BPS, CHAINS, TOKENS, type Plan } from "./plan.js";
+import type { BrainVerdict } from "./zerog/types.js";
+
+/** Build a brain verdict fixture for the attestPlan tests -- `attested` is the only load-bearing field. */
+function verdictOf(attested: boolean): BrainVerdict {
+  return {
+    attested,
+    provider: "0xabcabcabcabcabcabcabcabcabcabcabcabcab12",
+    model: "org/some-public-model",
+    responseId: attested ? "resp-1" : undefined,
+    service: { provider: "0xabcabcabcabcabcabcabcabcabcabcabcabcab12", signerMatch: attested, composeMatch: attested, trusted: attested },
+    response: attested ? { provider: "0xabcabcabcabcabcabcabcabcabcabcabcabcab12", responseId: "resp-1", signatureValid: true } : undefined,
+    reason: attested ? "BRAIN_ATTESTED" : "BRAIN_RESPONSE_NOT_SIGNED",
+  };
+}
 
 /** Helper: sum allocation bps with integer addition only (mirrors the money-path invariant). */
 function sumBps(p: Plan): number {
@@ -121,4 +135,40 @@ test("never fabricate: a non-string query throws PlanError (defensive against un
   // The type system forbids this, but JS callers could violate it; it must fail loud, not coerce.
   assert.throws(() => plan(undefined as unknown as string), PlanError);
   assert.throws(() => plan(42 as unknown as string), PlanError);
+});
+
+test("the default plan brain is the offline stub label, NOT tee (SS7/SS8 -- claim only what's live)", () => {
+  // A bare plan() is always the deterministic MVP brain -- never silently TEE-labelled.
+  const p = plan("balanced hedge");
+  assert.equal(p.brain, "stub", "the offline default brain is honestly labelled stub, not tee");
+  assert.notEqual(p.brain, "tee");
+});
+
+test("attestPlan labels a plan TEE-attested ONLY when the brain verdict is attested (design §9 Depth)", () => {
+  const stub = plan("balanced hedge");
+  assert.equal(stub.brain, "stub");
+  const attested = attestPlan(stub, verdictOf(true));
+  // The TEE label is distinct from the stub label -- a viewer can never confuse the two brains.
+  assert.equal(attested.brain, "tee", "a genuine attestation lifts the plan to the distinct tee label");
+  assert.notEqual(attested.brain, stub.brain, "the tee plan is labelled distinctly from the stub plan");
+  // Only the honesty label changes -- the chain + allocations are byte-identical (the proof is WHICH brain
+  // ran, not WHAT it allocates).
+  assert.deepEqual(attested.chain, stub.chain);
+  assert.deepEqual(attested.allocations, stub.allocations);
+});
+
+test("attestPlan REFUSES to TEE-label a plan when the verdict is NOT attested (design §3 #3 -- never fabricate)", () => {
+  const stub = plan("aggressive growth");
+  // A non-attested verdict can never promote a stub plan to TEE-verified -- it throws, loudly.
+  assert.throws(() => attestPlan(stub, verdictOf(false)), PlanError);
+  // The original stub plan is untouched (no in-place mutation to a fake tee label).
+  assert.equal(stub.brain, "stub");
+});
+
+test("attestPlan does not mutate its input plan (the stub plan stays a stub)", () => {
+  const stub = plan("keep it stable");
+  const attested = attestPlan(stub, verdictOf(true));
+  assert.equal(stub.brain, "stub", "the input stub plan is not mutated");
+  assert.equal(attested.brain, "tee", "the returned plan carries the tee label");
+  assert.notStrictEqual(attested, stub, "attestPlan returns a new plan object, not the same reference");
 });

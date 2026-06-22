@@ -46,6 +46,8 @@
  * public 0G values from the design appendix.
  */
 
+import type { BrainVerdict } from "./zerog/types.js";
+
 /**
  * The whole portfolio in basis points (1 bps = 1/100 of a percent), so `TOTAL_BPS = 10000 = 100%`.
  *
@@ -284,4 +286,39 @@ export function plan(query: string): Plan {
     allocations,
     brain: "stub",
   };
+}
+
+/**
+ * Re-label a deterministic stub plan as TEE-ATTESTED -- design §9 Depth: "surface a real green brain
+ * verdict on screen for a live plan call." This is the agent-side honesty seam that lets a plan carry the
+ * distinct `"tee"` brain label INSTEAD of `"stub"`, and ONLY when a REAL verified enclave attestation backs
+ * it (design §7/§8 "claim only what's live"; §3 #3 "never fabricate").
+ *
+ * The TEE label is reachable ONLY through a verdict whose `attested === true` -- the same load-bearing
+ * boolean the Brain leg ([`attestInference`]) mints from two cryptographic facts (a `trusted` service
+ * attestation AND a verified per-response enclave signature), NEITHER taken from the model's reply text. A
+ * verdict that is NOT attested is a loud [`PlanError`] -- a stub plan is NEVER silently dressed up as
+ * TEE-verified, exactly mirroring the web brain stamp, which lifts green only on `attested === true`.
+ *
+ * This keeps the offline default honest: [`plan`] always returns `brain: "stub"` (the deterministic MVP
+ * brain), and a plan is `brain: "tee"` ONLY after this function is handed a genuine attestation -- so a
+ * `"tee"`-labelled plan is, by construction, attestation-backed. The allocations/chain are untouched; only
+ * the honesty label changes (the attestation proves WHICH brain ran, not WHAT it should allocate).
+ *
+ * @param p       The deterministic plan to re-label (typically the output of [`plan`], `brain: "stub"`).
+ * @param verdict The brain verdict from the attestation seam. Its `attested` flag is the ONLY gate.
+ * @returns the SAME plan re-labelled `brain: "tee"` -- iff the verdict is genuinely attested.
+ * @throws {PlanError} if `verdict.attested !== true` -- a non-attested verdict can never label a plan
+ *   as TEE-verified (design §3 #3: degrade loudly, never fabricate a proof).
+ */
+export function attestPlan(p: Plan, verdict: BrainVerdict): Plan {
+  if (verdict.attested !== true) {
+    // Never mislabel: a non-attested verdict cannot promote a stub plan to TEE-verified. Loud, not silent.
+    throw new PlanError(
+      `cannot label a plan TEE-attested: the brain verdict is not attested (reason: ${verdict.reason})`,
+    );
+  }
+  // Re-validate the allocation invariant defensively -- the label changes, the money invariant must hold.
+  assertAllocations(p.allocations);
+  return { ...p, brain: "tee" };
 }
