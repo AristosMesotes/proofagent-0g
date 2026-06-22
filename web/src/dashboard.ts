@@ -1,74 +1,606 @@
 /**
- * dashboard.ts -- the entry skeleton for the interactive Verification Console (design §3 IA, §4 components).
+ * dashboard.ts -- the interactive Verification Console: the IA shell + the four proof cards (design §3 IA,
+ * §4 components, §5 flows, §8 honesty).
  *
- * ## P0 status: SCAFFOLD ONLY (no verdict surface yet)
+ * ## P1 status: the IA shell + the FOUR proof cards (NEG · BRAIN · RAILS · SETTLEMENT)
  *
- * This is the new `boot()` entry the dashboard's later phases grow into the full information architecture
- * (header rail + at-a-glance rollup + the four proof cards + the playground + the live feed + spine facts +
- * the evidence drawer). At P0 it renders ONLY the honest, static chrome -- the header rail (eyebrow / title /
- * tagline) and the spine-facts readout from the public constants -- plus a clearly-labelled scaffold notice.
- * It paints NO verdict and reconciles NOTHING yet, so there is nothing here that could be dishonest. The
- * existing demo page (`index.html` -> `dist/main.js`) is untouched and remains the live proof surface; this
- * page is a parallel, additive entry the next phases build out.
+ * This grows the P0 scaffold into the single-page information architecture (design §3):
+ *   A. a slim, sticky HEADER RAIL (eyebrow / title / tagline) + a read-only own-RPC NETWORK PILL,
+ *   B. an AT-A-GLANCE ROLLUP STRIP narrating the aggregate reconciliation result,
+ *   C. the responsive auto-fit CARD GRID with the FOUR proof cards, each a three-altitude verdict block
+ *      + a reconciliation badge, and
+ *   H. the FOOTER + the spine facts.
+ * The playground (D), the live feed (E), and the evidence drawer (G) arrive in later phases; nothing here
+ * paints them, so nothing here over-claims them.
  *
- * It deliberately REUSES the existing, proven building blocks rather than reinventing them:
+ * It REUSES the existing, proven building blocks verbatim rather than reinventing them (design §7):
+ *   - the four proof sources -- `runNegCase` / `buildStamps` / `runRailsCheck` / `runSettledCheck`,
+ *   - the read-only `RpcTransport` seam + `createBrowserRpcTransport` (no signing surface by construction),
+ *   - the shared render primitives (`card` chrome, the three-altitude block, status pill, short-hash),
  *   - the spine-derived public constants from {@link ./spine.ts} (one source, no drift),
- *   - the shared render primitives (`card`) from {@link ./render.ts},
- * so this skeleton compiles under the exact same ultra-strict `tsconfig` and inherits the honesty
- * primitives unchanged.
+ *   - the reconciliation-badge state machine from {@link ./reconcile.ts}.
  *
- * ## Honesty (design §3 #2/#3, §8)
+ * ## Honesty (design §3 #1/#2/#5, §8) -- the whole point
  *
- * Pure DOM, NO innerHTML (no injection surface). It mints no verdict and fabricates no success; the spine
- * facts reflect ONLY what the public spine actually pins (an unpinned registry / empty corpus render their
- * honest "not yet" copy, never a fabricated green).
+ * - First paint renders ALL FOUR cards in their honest DEFAULT states with ZERO network round-trip; live
+ *   reads enrich in the background and never block interaction (design §5.1).
+ * - ONLY `live`/`settled` is green. The BRAIN card stays PENDING (amber) -- it can NEVER reach green here
+ *   (no real attestation is wired; the green flip is operator-gated, elsewhere). The RAILS card frames the
+ *   on-chain block (`OVER_TX_CAP`) as the system WORKING, and keeps the stamp-level "armed" framing in its
+ *   claim copy until the registry address is pinned -- the reconciliation badge is the arbiter.
+ * - Every card's verdict container emits `data-verdict` through its lifecycle so the headless harness
+ *   reconciles it independently. The reconciliation badge goes green ONLY from an INDEPENDENT re-read that
+ *   agrees with the painted verdict -- never from the UI's own state ({@link ./reconcile.ts}).
+ * - An unreachable RPC degrades LOUDLY (`read-error`, grey) and the badge shows `source unavailable
+ *   (infra-gated)` -- never a faked green. The network pill reads `infra-gated`, never coerces a happy chain.
  *
  * ## Clean-room (design §6)
  *
- * No proprietary identifier, private path, or secret -- only the public spine constants and the public
- * explorer URL. Generic, verification-domain names only.
+ * Pure DOM, NO `innerHTML` (no injection surface). No proprietary identifier, private path, or secret --
+ * only the public spine constants and the public 0G explorer/RPC. Generic, verification-domain names only.
  */
 
-import { CHAIN, MANDATE, VERIFIER } from "./spine.js";
-import { card } from "./render.js";
+import { buildStamps, runNegCase, FABRICATED_HASH } from "./proofs.js";
+import {
+  runRailsCheck,
+  runSettledCheck,
+  createBrowserRpcTransport,
+  type RpcTransport,
+} from "./onchain.js";
+import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN } from "./spine.js";
+import { card, statusPill, statusDot, shortHash, renderThreeAltitude } from "./render.js";
+import { ReconcileBadge, RECONCILE, decideReconcile, type IndependentResult } from "./reconcile.js";
+
+/* ------------------------------------------------------------------------------------------------ *
+ * Identity copy (the header rail -- design §3/§4.1).
+ * ------------------------------------------------------------------------------------------------ */
 
 /** The header-rail eyebrow -- the mono credibility cue (design §4.1). */
 const EYEBROW = "0G Aristotle · Verification Console";
-/** The page title + one-line tagline (design §3 header rail). */
 const TITLE = "ProofAgent-0G";
 const TAGLINE = "can't lie, can't overspend";
 
+/* ------------------------------------------------------------------------------------------------ *
+ * The shared read-only transport + a small live-state registry for the rollup + network pill.
+ * ------------------------------------------------------------------------------------------------ */
+
+/** One card's live reconciliation summary the rollup reads to narrate the aggregate honestly. */
+interface CardStatus {
+  /** The painted verdict (lower-cased verifier verdict, or an on-chain reason like `over_tx_cap`). */
+  verdict: string | null;
+  /** The reconciliation-badge state -- the rollup counts `reconciled` (green) vs `mismatch` vs not-yet. */
+  reconcile: string;
+  /** Whether this card is a green-eligible LIVE/SETTLED surface (settlement), for the "N live" count. */
+  greenEligible: boolean;
+}
+
+/** The four card keys (stable ids the rollup + harness key on). */
+type CardKey = "neg" | "brain" | "rails" | "settlement";
+
+/** The in-memory live status of each card -- the single source the rollup strip reflects (no duplication). */
+const cardStatus: Record<CardKey, CardStatus> = {
+  neg: { verdict: null, reconcile: RECONCILE.PENDING, greenEligible: false },
+  brain: { verdict: null, reconcile: RECONCILE.AWAITING, greenEligible: false },
+  rails: { verdict: null, reconcile: RECONCILE.PENDING, greenEligible: false },
+  settlement: { verdict: null, reconcile: RECONCILE.PENDING, greenEligible: true },
+};
+
+/* ------------------------------------------------------------------------------------------------ *
+ * A. The header rail (eyebrow / title / tagline) + the read-only own-RPC network pill (design §4.1).
+ * ------------------------------------------------------------------------------------------------ */
+
+/** The network pill -- reflects THIS page's own read-only RPC (decoupled from any wallet), honestly. */
+let networkPill: HTMLSpanElement | null = null;
+
 /**
- * Render the slim header rail (eyebrow / title / tagline) into a host element. The network indicator and
- * the optional Tier-2 affordance arrive in later phases; at P0 the rail is identity-only (honest, static).
+ * Render the slim, sticky header rail: identity (eyebrow / title / tagline) on the left, the read-only
+ * own-RPC network indicator pill on the right. The pill starts honestly "checking…" (muted) and resolves
+ * to `0G Galileo ●live` only when this page's own RPC answers, or `infra-gated` (grey) on a read failure --
+ * never a faked green, never coercing an unknown chain to a happy default (design §4.1).
  */
 function renderHeaderRail(host: HTMLElement): void {
   const rail = document.createElement("header");
-  rail.className = "dash-header";
+  rail.className = "dash-header dash-header--rail";
+
+  const idCol = document.createElement("div");
+  idCol.className = "dash-header__id";
 
   const eyebrow = document.createElement("p");
   eyebrow.className = "dash-header__eyebrow mono-num";
   eyebrow.textContent = EYEBROW;
-  rail.appendChild(eyebrow);
+  idCol.appendChild(eyebrow);
 
   const title = document.createElement("h1");
   title.className = "dash-header__title";
   title.textContent = TITLE;
-  rail.appendChild(title);
+  idCol.appendChild(title);
 
   const tagline = document.createElement("p");
   tagline.className = "dash-header__tagline";
   tagline.textContent = TAGLINE;
-  rail.appendChild(tagline);
+  idCol.appendChild(tagline);
+
+  rail.appendChild(idCol);
+
+  const statusZone = document.createElement("div");
+  statusZone.className = "dash-header__status";
+  const pill = statusPill("is-pending", "Network: checking…");
+  pill.classList.add("network-pill");
+  networkPill = pill;
+  statusZone.appendChild(pill);
+  rail.appendChild(statusZone);
 
   host.appendChild(rail);
 }
 
 /**
- * Render the spine-facts readout from the public constants (design §4.7 -- "live from the spine, not a
- * slogan"). Reflects ONLY what the spine pins: an unpinned registry / empty corpus show their honest
- * "not yet" copy, never a fabricated green. Mirrors the existing page's spine panel, value-for-value.
+ * Refresh the network indicator from THIS page's OWN read-only RPC (a single, key-less `eth_call` that the
+ * page already issues for RAILS -- here a lightweight liveness probe). Honest: `0G Galileo ●live` only when
+ * the page's own RPC answers; `infra-gated` (grey) on any failure -- never a faked green, never a coerced
+ * chain. Decoupled from any wallet (Tier-1 reads the chain itself).
  */
+async function refreshNetworkPill(transport: RpcTransport): Promise<void> {
+  if (networkPill === null) {
+    return;
+  }
+  const setPill = (stateClass: string, label: string): void => {
+    if (networkPill === null) {
+      return;
+    }
+    networkPill.replaceChildren();
+    networkPill.className = "pill status-pill network-pill";
+    networkPill.appendChild(statusDot(stateClass));
+    const text = document.createElement("span");
+    text.textContent = label;
+    networkPill.appendChild(text);
+  };
+  try {
+    // A read-only liveness probe against the page's own RPC -- the over-cap checkTransfer the RAILS card
+    // already issues. A successful (decodable) read means the page's own RPC is live on 0G Galileo.
+    await runRailsCheck(transport);
+    setPill("is-live", `Network: 0G Galileo (${GALILEO.chainId}) ●live`);
+  } catch {
+    // Honest degrade: the page could not reach its own RPC -> infra-gated, NEVER a faked green.
+    setPill("is-read-error", "Network: 0G Galileo ●infra-gated");
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------ *
+ * B. The at-a-glance rollup strip (design §3/§4 -- one mono line narrating the aggregate reconciliation).
+ * ------------------------------------------------------------------------------------------------ */
+
+let rollupEl: HTMLParagraphElement | null = null;
+
+/** Render the rollup strip placeholder; {@link updateRollup} fills it as cards resolve. */
+function renderRollup(host: HTMLElement): void {
+  const strip = document.createElement("p");
+  strip.className = "rollup mono-num is-pending";
+  strip.setAttribute("role", "status");
+  strip.setAttribute("aria-live", "polite");
+  strip.textContent = "reconciling the four proofs vs 0G RPC + the verifier…";
+  rollupEl = strip;
+  host.appendChild(strip);
+}
+
+/**
+ * Recompute + render the rollup line from the single `cardStatus` source (design §4 rollup -- "all-green
+ * only if every live tile reconciles green"). Honest aggregation: it counts how many cards an INDEPENDENT
+ * re-read confirmed (`reconciled`), how many are an honest not-yet (pending/checking/awaiting/unavailable),
+ * and how many DISAGREED (`mismatch`). The strip is only the green face when every confirmable card has
+ * reconciled AND there is zero mismatch; any mismatch is LOUD; the brain's permanent `awaiting` keeps the
+ * strip honest ("1 pending(brain)"), never coercing the aggregate to all-green.
+ */
+function updateRollup(): void {
+  if (rollupEl === null) {
+    return;
+  }
+  let reconciled = 0;
+  let mismatch = 0;
+  let notYet = 0;
+  let brainPending = false;
+  for (const key of Object.keys(cardStatus) as CardKey[]) {
+    const s = cardStatus[key];
+    if (s.reconcile === RECONCILE.RECONCILED) {
+      reconciled += 1;
+    } else if (s.reconcile === RECONCILE.MISMATCH) {
+      mismatch += 1;
+    } else {
+      notYet += 1;
+      if (key === "brain") {
+        brainPending = true;
+      }
+    }
+  }
+  const parts: string[] = [`${reconciled} reconciled`];
+  if (brainPending) {
+    parts.push("1 pending(brain)");
+    if (notYet > 1) {
+      parts.push(`${notYet - 1} not-yet`);
+    }
+  } else if (notYet > 0) {
+    parts.push(`${notYet} not-yet`);
+  }
+  parts.push(`${mismatch} mismatch`);
+  rollupEl.textContent = `${parts.join(" · ")} — reconciled vs 0G RPC + the verifier (the UI is never trusted)`;
+  // Honesty colour: LOUD red on any mismatch; the green face only when every confirmable card reconciled
+  // and nothing is mid-flight (the brain's permanent awaiting keeps it off all-green by construction).
+  rollupEl.className = "rollup mono-num";
+  if (mismatch > 0) {
+    rollupEl.classList.add("is-mismatch");
+  } else if (reconciled > 0 && notYet === 0) {
+    rollupEl.classList.add("is-settled");
+  } else {
+    rollupEl.classList.add("is-pending");
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------ *
+ * C. The four proof cards -- a shared card builder, then one builder per card.
+ *
+ * Each card = Card chrome + a status dot + headline + claim + (where interactive) a run button + the
+ * three-altitude verdict block + a reconciliation badge + a record into `cardStatus` for the rollup.
+ * ------------------------------------------------------------------------------------------------ */
+
+/** The card grid host (responsive auto-fit; design §3 C). */
+function renderCardGrid(host: HTMLElement): HTMLElement {
+  const grid = document.createElement("section");
+  grid.className = "card-grid";
+  grid.setAttribute("aria-label", "The four proofs");
+  host.appendChild(grid);
+  return grid;
+}
+
+/** The pieces a built card exposes so its wiring can drive the verdict block + badge + status record. */
+interface BuiltCard {
+  readonly root: HTMLElement;
+  readonly out: HTMLElement;
+  readonly badge: ReconcileBadge;
+}
+
+/**
+ * Build one proof card's chrome: title bar, a status dot + headline row, the claim copy, an optional
+ * control button (wired by the caller), the three-altitude verdict output container, and the reconciliation
+ * badge. Returns the handles the caller wires. Pure DOM, no innerHTML.
+ */
+function buildCard(opts: {
+  key: CardKey;
+  title: string;
+  headline: string;
+  claim: string;
+  dotState: string;
+  sourceLabel: string;
+  button?: { label: string; onClick: (out: HTMLElement, badge: ReconcileBadge) => void };
+  prefill?: readonly { label: string; value: string; mono: boolean }[];
+}): BuiltCard {
+  const { root, body } = card({ title: opts.title, id: `card-${opts.key}` });
+  root.classList.add("proof-card");
+  root.setAttribute("data-proof", opts.key);
+
+  // Status-dot + headline row.
+  const head = document.createElement("div");
+  head.className = "proof-card__head";
+  head.appendChild(statusDot(opts.dotState));
+  const h = document.createElement("h2");
+  h.className = "proof-card__headline";
+  h.textContent = opts.headline;
+  head.appendChild(h);
+  body.appendChild(head);
+
+  const claim = document.createElement("p");
+  claim.className = "proof-card__claim";
+  claim.textContent = opts.claim;
+  body.appendChild(claim);
+
+  // Optional pre-fill facts (the literal call / probe -- design §4.2 "show the literal call").
+  if (opts.prefill !== undefined && opts.prefill.length > 0) {
+    const dl = document.createElement("dl");
+    dl.className = "proof-card__prefill";
+    for (const f of opts.prefill) {
+      const dt = document.createElement("dt");
+      dt.textContent = f.label;
+      const dd = document.createElement("dd");
+      dd.className = f.mono ? "mono-num" : "";
+      dd.textContent = f.value;
+      dl.appendChild(dt);
+      dl.appendChild(dd);
+    }
+    body.appendChild(dl);
+  }
+
+  // The three-altitude verdict output container (the harness reads its data-verdict).
+  const out = document.createElement("div");
+  out.className = "proof-card__output";
+  out.setAttribute("role", "status");
+  out.setAttribute("aria-live", "polite");
+
+  const badge = new ReconcileBadge(opts.sourceLabel);
+
+  // Optional control button.
+  if (opts.button !== undefined) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "proof-card__button";
+    btn.textContent = opts.button.label;
+    const handler = opts.button.onClick;
+    btn.addEventListener("click", () => {
+      handler(out, badge);
+    });
+    body.appendChild(btn);
+  }
+
+  body.appendChild(out);
+
+  // The reconciliation-badge row (always shown -- the honesty primitive on every card).
+  const badgeRow = document.createElement("div");
+  badgeRow.className = "proof-card__recon";
+  badgeRow.appendChild(badge.element());
+  body.appendChild(badgeRow);
+
+  return { root, out, badge };
+}
+
+/** Record a card's resolved verdict + reconcile state into the single status source, then refresh rollup. */
+function recordStatus(key: CardKey, verdict: string | null, reconcile: string): void {
+  cardStatus[key].verdict = verdict === null ? null : verdict.toLowerCase();
+  cardStatus[key].reconcile = reconcile;
+  updateRollup();
+}
+
+/* ---- NEG card -- a fabricated hash -> UNVERIFIED, reconciled vs the verifier rule ----------------- */
+
+/**
+ * Build + wire the NEG card. A click points the verifier's PUBLISHED rule at a FABRICATED hash; it can
+ * ONLY return `unverified` (there is deliberately no code path to `settled`). The reconciliation badge then
+ * re-runs the SAME rule independently (a second, pure re-derivation) and confirms `unverified` -- agreement
+ * is the badge (design §4.2 NEG). A `settled` here would be a LOUD failure of the proof itself.
+ */
+function buildNegCard(grid: HTMLElement): void {
+  const built = buildCard({
+    key: "neg",
+    title: "NEG — refuse a fabricated tx",
+    headline: "Run the NEG case → expect UNVERIFIED",
+    claim:
+      "Point the verifier's published rule at a FABRICATED hash. It does not rubber-stamp; it reads the " +
+      "chain — so it stamps UNVERIFIED, never SETTLED. There is deliberately no code path to a settled here.",
+    dotState: "is-unverified",
+    sourceLabel: "verifier",
+    prefill: [{ label: "fabricated hash", value: FABRICATED_HASH, mono: true }],
+    button: {
+      label: "Run the NEG case → expect UNVERIFIED",
+      onClick: (out, badge) => {
+        badge.set(RECONCILE.CHECKING);
+        let result;
+        try {
+          result = runNegCase(FABRICATED_HASH);
+        } catch (err) {
+          renderThreeAltitude(
+            out,
+            "read-error",
+            `usage error: ${err instanceof Error ? err.message : String(err)}`,
+            `runNegCase(${FABRICATED_HASH}) → usage error (no verdict minted)`,
+          );
+          badge.set(RECONCILE.UNAVAILABLE);
+          recordStatus("neg", null, RECONCILE.UNAVAILABLE);
+          return;
+        }
+        renderThreeAltitude(
+          out,
+          result.verdict,
+          result.explanation,
+          `adjudicate(claimed, None, ${VERIFIER.toleranceNum}/${VERIFIER.toleranceDen}) → ${result.verdict}` +
+            `  ·  reproduce: ${result.reproduceCommand}`,
+        );
+        // Independent re-derivation: re-run the SAME published rule again, from scratch, and compare.
+        const independent: IndependentResult = { verdict: runNegCase(FABRICATED_HASH).verdict };
+        const state = decideReconcile(result.verdict, independent);
+        badge.set(state);
+        recordStatus("neg", result.verdict, state);
+      },
+    },
+  });
+  grid.appendChild(built.root);
+}
+
+/* ---- BRAIN card -- honest PENDING, never green here (no real attestation is wired) ---------------- */
+
+/**
+ * Build the BRAIN card -- a NON-interactive status card (design §4.2 BRAIN). It reads `buildStamps()` with
+ * NO attestation, so the brain stamp is PENDING (amber). It can NEVER reach green here: the green flip keys
+ * on a real, verified enclave attestation (`attested === true`) that is operator-gated and wired elsewhere.
+ * Its reconciliation badge is permanently `awaiting real attestation` (muted) -- there is no independent
+ * attestation source at MVP, so the badge can never reach `reconciled`/green. This card is the canonical
+ * demonstration that the UI tells the truth even about its OWN capabilities (design §8/§9).
+ */
+function buildBrainCard(grid: HTMLElement): void {
+  // Read the honest brain stamp from the SAME source the demo page uses (no attestation -> PENDING).
+  const brainStamp = buildStamps().find((s) => s.proof === "brain");
+  const claim =
+    brainStamp !== undefined
+      ? brainStamp.claim
+      : "0G Compute TEE attestation is a Phase-2 (Depth) bracket — not green until a real enclave verdict is on screen.";
+  const built = buildCard({
+    key: "brain",
+    title: "BRAIN — which model ran (0G Compute TEE)",
+    headline: "PENDING — Phase-2 (Depth)",
+    claim,
+    dotState: "is-pending",
+    sourceLabel: "enclave signature",
+  });
+  // Paint the honest PENDING verdict block immediately (no button -- it is a status card).
+  renderThreeAltitude(
+    built.out,
+    "pending",
+    "At MVP the brain is a hosted LLM, honestly labelled. This card is NOT green until a real 0G Compute " +
+      "TEE attestation (a verified service attestation AND a per-response enclave signature) is on screen.",
+    "buildStamps(brain=∅) → PENDING (no attestation wired; the green flip is operator-gated, elsewhere)",
+  );
+  // The badge is permanently the honest not-yet -- no independent attestation source exists here.
+  built.badge.set(RECONCILE.AWAITING);
+  recordStatus("brain", "pending", RECONCILE.AWAITING);
+  grid.appendChild(built.root);
+}
+
+/* ---- RAILS card -- a read-only checkTransfer over-cap probe -> OVER_TX_CAP, reconciled vs 0G RPC --- */
+
+/**
+ * Build + wire the RAILS card. A click runs a READ-ONLY `eth_call checkTransfer(agent, native, OVER-cap)`
+ * against the deployed registry; the chain answers `(false, OVER_TX_CAP)` -- the block is the POSITIVE
+ * proof the system is working (design §4.2 RAILS). The reconciliation badge replays the SAME `eth_call`
+ * independently (a SECOND read-only read) and confirms the identical reason. Honesty split (design §11):
+ * the control reads a live deployed registry, but the stamp-level framing stays "armed" in the claim copy
+ * until `MANDATE.registryAddress` is pinned -- the badge (a real, reconciled `eth_call`) is the arbiter, so
+ * the two never read as contradictory.
+ */
+function buildRailsCard(grid: HTMLElement, transport: RpcTransport): void {
+  const armedNote =
+    MANDATE.registryAddress.length > 0
+      ? ""
+      : " (stamp-level: ARMED — the registry address is not yet pinned in the spine; the live control reads " +
+        "the deployed registry and the reconciled eth_call is the arbiter)";
+  const built = buildCard({
+    key: "rails",
+    title: "RAILS — it cannot overspend",
+    headline: "Check on-chain → expect OVER_TX_CAP (blocked)",
+    claim:
+      "Ask the deployed MandateRegistry on 0G to checkTransfer an OVER-cap amount as a zero-gas eth_call. " +
+      "The chain rejects it BEFORE broadcast — the block is the proof the system works." +
+      armedNote,
+    dotState: "is-pending",
+    sourceLabel: "0G RPC",
+    prefill: [
+      { label: "over-cap probe", value: `${RAILS_ONCHAIN.overCapAmount.toString()} wei`, mono: true },
+      { label: "per-tx cap", value: `${RAILS_ONCHAIN.perTxCap.toString()} wei`, mono: true },
+      { label: "registry", value: shortHash(RAILS_ONCHAIN.registry), mono: true },
+    ],
+    button: {
+      label: "Check on-chain → expect OVER_TX_CAP (blocked)",
+      onClick: (out, badge) => {
+        out.replaceChildren();
+        out.setAttribute("data-verdict", "pending");
+        const p = document.createElement("p");
+        p.className = "verdict-why";
+        p.textContent = "Reading the on-chain cap (eth_call checkTransfer, zero gas, no broadcast)…";
+        out.appendChild(p);
+        badge.set(RECONCILE.CHECKING);
+        runRailsCheck(transport)
+          .then(async (result) => {
+            renderThreeAltitude(
+              out,
+              result.verdict,
+              result.explanation,
+              `checkTransfer(agent, native, ${result.amount.toString()}) → (false, ${result.verdict})` +
+                `  ·  reproduce: ${result.reproduceCommand}`,
+            );
+            // Independent re-read: replay the SAME read-only eth_call and compare the decoded reason.
+            const independent = await independentRails(transport);
+            const state = decideReconcile(result.verdict, independent);
+            badge.set(state);
+            recordStatus("rails", result.verdict, state);
+          })
+          .catch((err: unknown) => {
+            renderThreeAltitude(
+              out,
+              "read-error",
+              `on-chain read error: ${err instanceof Error ? err.message : String(err)}`,
+              "eth_call checkTransfer → read error (the source was unreachable; nothing is faked green)",
+            );
+            badge.set(RECONCILE.UNAVAILABLE);
+            recordStatus("rails", null, RECONCILE.UNAVAILABLE);
+          });
+      },
+    },
+  });
+  grid.appendChild(built.root);
+}
+
+/** Independently re-derive the RAILS verdict by replaying the SAME read-only eth_call; null if unreachable. */
+async function independentRails(transport: RpcTransport): Promise<IndependentResult> {
+  try {
+    const replay = await runRailsCheck(transport);
+    return { verdict: replay.verdict };
+  } catch {
+    return { verdict: null };
+  }
+}
+
+/* ---- SETTLEMENT card -- a read-only receipt/value read -> SETTLED, reconciled vs the verifier ------ */
+
+/**
+ * Build + wire the SETTLEMENT card. A click runs a READ-ONLY receipt + value read of the PINNED settled tx,
+ * then recomputes the verifier's `adjudicate` rule in the open -> `settled` (the only on-chain green path,
+ * design §4.2 SETTLEMENT). The reconciliation badge re-fetches the same receipt/value and reruns `adjudicate`
+ * independently; agreement is the badge. An off-record/failed receipt degrades LOUD to `unverified`/
+ * `mismatch` -- NEVER softened to settled.
+ */
+function buildSettlementCard(grid: HTMLElement, transport: RpcTransport): void {
+  const built = buildCard({
+    key: "settlement",
+    title: "SETTLEMENT — the trade really happened",
+    headline: "Check on-chain → expect SETTLED (Success + value)",
+    claim:
+      "Read the PINNED settled tx's receipt + value on 0G, then recompute the verifier's exact-integer " +
+      "adjudication in the open. A status 0x1 receipt and an in-band value re-derive SETTLED — the only " +
+      "on-chain green path, and re-derivable by anyone who fetches the same receipt.",
+    dotState: "is-pending",
+    sourceLabel: "verifier",
+    prefill: [{ label: "pinned tx", value: shortHash(SETTLED_ONCHAIN.hash), mono: true }],
+    button: {
+      label: "Check on-chain → expect SETTLED (Success + value)",
+      onClick: (out, badge) => {
+        out.replaceChildren();
+        out.setAttribute("data-verdict", "pending");
+        const p = document.createElement("p");
+        p.className = "verdict-why";
+        p.textContent = "Reading the pinned settlement (receipt + value, no broadcast)…";
+        out.appendChild(p);
+        badge.set(RECONCILE.CHECKING);
+        runSettledCheck(transport)
+          .then(async (result) => {
+            const observedTxt = result.observed === null ? "∅" : `${result.observed.toString()} wei`;
+            renderThreeAltitude(
+              out,
+              result.verdict,
+              result.explanation,
+              `receipt.status=${result.success ? "0x1" : "0x0"}, value=${observedTxt}; ` +
+                `adjudicate(${result.claimed.toString()}, observed, ${SETTLED_ONCHAIN.toleranceNum.toString()}/` +
+                `${SETTLED_ONCHAIN.toleranceDen.toString()}) → ${result.verdict}  ·  reproduce: ${result.reproduceCommand}`,
+            );
+            const independent = await independentSettlement(transport);
+            const state = decideReconcile(result.verdict, independent);
+            badge.set(state);
+            recordStatus("settlement", result.verdict, state);
+          })
+          .catch((err: unknown) => {
+            renderThreeAltitude(
+              out,
+              "read-error",
+              `on-chain read error: ${err instanceof Error ? err.message : String(err)}`,
+              "receipt/value read → read error (the source was unreachable; nothing is faked settled)",
+            );
+            badge.set(RECONCILE.UNAVAILABLE);
+            recordStatus("settlement", null, RECONCILE.UNAVAILABLE);
+          });
+      },
+    },
+  });
+  grid.appendChild(built.root);
+}
+
+/** Independently re-derive the SETTLEMENT verdict by re-fetching the receipt/value; null if unreachable. */
+async function independentSettlement(transport: RpcTransport): Promise<IndependentResult> {
+  try {
+    const replay = await runSettledCheck(transport);
+    return { verdict: replay.verdict };
+  } catch {
+    return { verdict: null };
+  }
+}
+
+/* ------------------------------------------------------------------------------------------------ *
+ * F. Spine facts + H. footer (reused honestly from the public spine constants -- design §4.7).
+ * ------------------------------------------------------------------------------------------------ */
+
+/** Render the spine-facts readout (design §4.7 -- "live from the spine, not a slogan"). */
 function renderSpineFacts(host: HTMLElement): void {
   const { root, body } = card({ title: "Live from the data spine (proofagent.toml)", id: "dash-spine" });
 
@@ -100,7 +632,6 @@ function renderSpineFacts(host: HTMLElement): void {
   );
   row("Tolerance band", `${VERIFIER.toleranceNum}/${VERIFIER.toleranceDen} (exact-integer band, no float)`);
 
-  // The public explorer link (always the public explorer root; never a private endpoint).
   const dt = document.createElement("dt");
   dt.textContent = "Public explorer";
   const dd = document.createElement("dd");
@@ -116,42 +647,85 @@ function renderSpineFacts(host: HTMLElement): void {
   host.appendChild(root);
 }
 
-/**
- * Render the honest P0 scaffold notice -- a clearly-labelled placeholder so a viewer is never misled into
- * thinking the verdict surface is live here yet. It directs them to the working proof page in the meantime.
- */
-function renderScaffoldNotice(host: HTMLElement): void {
-  const { root, body } = card({ title: "Verification console -- scaffold", id: "dash-scaffold" });
-
+/** Render the honest footer (design §8 -- claims only what's live; later capabilities are bracket-deltas). */
+function renderFooter(host: HTMLElement): void {
+  const footer = document.createElement("footer");
+  footer.className = "foot";
   const p = document.createElement("p");
-  p.className = "dash-scaffold__note";
   p.textContent =
-    "This interactive Verification Console is being built in phases. At this scaffold stage it renders " +
-    "the header rail and the live spine facts only -- no verdict is painted here yet, so nothing on " +
-    "this page is reconciled or claimed live.";
-  body.appendChild(p);
-
-  const link = document.createElement("p");
-  link.className = "dash-scaffold__note";
-  const a = document.createElement("a");
-  a.href = "./index.html";
-  a.textContent = "Open the working proof page (three proofs + the NEG case) →";
-  link.appendChild(a);
-  body.appendChild(link);
-
-  host.appendChild(root);
+    "MIT · talks to 0G only through public SDKs · claims only what is live on screen. Later capabilities " +
+    "(the TEE brain proof, on-chain settlements) arrive as honestly-labelled bracket-deltas.";
+  footer.appendChild(p);
+  host.appendChild(footer);
 }
 
-/** Boot the dashboard scaffold once the DOM is ready. Renders ONLY honest, static chrome at P0. */
+/* ------------------------------------------------------------------------------------------------ *
+ * Auto-enrich + focus re-poll (design §5.1) -- live reads ENRICH, they never block first paint.
+ * ------------------------------------------------------------------------------------------------ */
+
+/**
+ * On boot, fire the live on-chain reads in the BACKGROUND (RAILS + SETTLEMENT) so each card resolves its
+ * verdict + reconciliation badge WITHOUT blocking interaction, plus the network-pill liveness probe. The
+ * NEG + BRAIN cards are pure/static and are already in their honest states from first paint, so they are
+ * not part of the network round-trip. A defensive focus/visibility re-poll refreshes the network pill.
+ */
+function autoEnrich(transport: RpcTransport): void {
+  // Click the on-chain card buttons programmatically so the SAME wired path runs (no duplicated logic).
+  const triggerCardRead = (key: CardKey): void => {
+    const btn = document.querySelector<HTMLButtonElement>(`#card-${key} .proof-card__button`);
+    if (btn !== null) {
+      btn.click();
+    }
+  };
+  // Auto-run the NEG card too (it is pure + instant) so first paint shows its honest reconciled verdict.
+  triggerCardRead("neg");
+  triggerCardRead("rails");
+  triggerCardRead("settlement");
+  void refreshNetworkPill(transport);
+
+  // Defensive re-poll of the network indicator on focus/visibility (no canonical chain-change event).
+  const repoll = (): void => {
+    void refreshNetworkPill(transport);
+  };
+  window.addEventListener("focus", repoll);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      repoll();
+    }
+  });
+}
+
+/* ------------------------------------------------------------------------------------------------ *
+ * boot() -- assemble the IA shell + the four cards, then auto-enrich.
+ * ------------------------------------------------------------------------------------------------ */
+
+/** Boot the dashboard once the DOM is ready. First paint is honest + complete; live reads enrich after. */
 export function boot(): void {
   const mount = document.getElementById("dashboard");
   if (mount === null) {
     return;
   }
   mount.replaceChildren();
+
+  // A. header rail + own-RPC network pill.
   renderHeaderRail(mount);
-  renderScaffoldNotice(mount);
+  // B. rollup strip.
+  renderRollup(mount);
+  // C. the four proof cards.
+  const grid = renderCardGrid(mount);
+  // The two on-chain controls read the public 0G Galileo testnet read-only (no key, no broadcast).
+  const transport = createBrowserRpcTransport(GALILEO.rpcUrl);
+  buildNegCard(grid);
+  buildBrainCard(grid);
+  buildRailsCard(grid, transport);
+  buildSettlementCard(grid, transport);
+  // F. spine facts + H. footer.
   renderSpineFacts(mount);
+  renderFooter(mount);
+
+  // First paint is complete + honest. Now ENRICH with live reads in the background (design §5.1).
+  updateRollup();
+  autoEnrich(transport);
 }
 
 if (document.readyState === "loading") {

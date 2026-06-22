@@ -134,6 +134,76 @@ export function statusDot(stateClass: string): HTMLSpanElement {
   return dot;
 }
 
+/**
+ * Map a verdict / honesty state string to its CSS honesty-grammar class (design §4 verdict grammar). The
+ * single repo-wide mapping so every dot/pill/headline colours identically -- and the iron rule holds: ONLY
+ * `live`/`settled` is green; `hollow`/`mismatch` are LOUD red; `read-error` is grey; everything else
+ * (`armed`/`pending`/`unverified`/an over-cap reason/an unknown code) is the honest amber/neutral face.
+ */
+export function verdictStateClass(verdict: string): string {
+  switch (verdict.trim().toLowerCase()) {
+    case "live":
+    case "settled":
+      return "is-settled";
+    case "hollow":
+    case "mismatch":
+      return "is-mismatch";
+    case "read-error":
+      return "is-read-error";
+    default:
+      // armed / pending / unverified / an on-chain reason (e.g. OVER_TX_CAP) / any unmapped code -> amber.
+      return "is-pending";
+  }
+}
+
+/** A status pill (dot + label) reflecting an honest state class. Generic; reused on cards + the network rail. */
+export function statusPill(stateClass: string, label: string): HTMLSpanElement {
+  const pill = document.createElement("span");
+  pill.className = "pill status-pill";
+  pill.appendChild(statusDot(stateClass));
+  const text = document.createElement("span");
+  text.textContent = label;
+  pill.appendChild(text);
+  return pill;
+}
+
+/**
+ * Render the THREE-ALTITUDE verdict block (design §4 -- the single most reusable idea) into a container:
+ *   (i)  a big, bold, colour-coded HEADLINE verdict (a judge reads the top),
+ *   (ii) a plain-English WHY line,
+ *   (iii) a dim, mono RAW-EVIDENCE line echoing the literal source read (a skeptic reads the bottom).
+ * Both audiences see the SAME truth. The headline's colour is the honest verdict grammar
+ * ({@link verdictStateClass}) -- only `settled`/`live` is green. The container's `data-verdict` is stamped
+ * so the headless harness reconciles it independently (the UI is never trusted, design §8). Pure DOM, no
+ * innerHTML. The raw-evidence line is NEVER truncated (it is the canonical, copy-safe evidence).
+ */
+export function renderThreeAltitude(
+  out: HTMLElement,
+  verdict: string,
+  why: string,
+  rawEvidence: string,
+): void {
+  out.replaceChildren();
+
+  const headline = document.createElement("p");
+  headline.className = `verdict-headline ${verdictStateClass(verdict)}`;
+  headline.textContent = verdict.toUpperCase();
+  out.appendChild(headline);
+
+  const whyEl = document.createElement("p");
+  whyEl.className = "verdict-why";
+  whyEl.textContent = why;
+  out.appendChild(whyEl);
+
+  const raw = document.createElement("p");
+  raw.className = "verdict-raw mono-num";
+  raw.textContent = rawEvidence;
+  out.appendChild(raw);
+
+  // The harness reads this attribute and reconciles it against the verifier/contract independently.
+  out.setAttribute("data-verdict", verdict);
+}
+
 /** Options for the {@link card} chrome primitive. */
 export interface CardOptions {
   /** Optional uppercase-mono title bar text. Omitted -> no title bar. */

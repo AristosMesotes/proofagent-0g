@@ -1,21 +1,24 @@
 <!DOCTYPE html>
 <!--
-  ProofAgent-0G -- the interactive Verification Console (design §3 IA, §4 components).
+  ProofAgent-0G -- the interactive Verification Console (design §3 IA, §4 components, §5 flows, §8 honesty).
 
-  P0 SCAFFOLD: this is the entry skeleton the dashboard's later phases grow into the full IA (header rail
-  + at-a-glance rollup + four proof cards + the paste-any-hash playground + the live verdict feed + spine
-  facts + the evidence drawer). At this stage it renders only the honest, static chrome (header rail +
-  live spine facts) -- it paints NO verdict and reconciles nothing yet. The working proof surface remains
-  index.html (the three proofs + the NEG case), which is untouched.
+  P1 IA SHELL + the FOUR proof cards: a sticky header rail + a read-only own-RPC network pill; the
+  at-a-glance reconciliation rollup strip; the responsive auto-fit card grid with the four proof cards --
+  NEG (-> UNVERIFIED), BRAIN (honest PENDING, never green here), RAILS (-> OVER_TX_CAP), SETTLEMENT
+  (-> SETTLED); each card is a three-altitude verdict block + a "reconciled vs an independent source"
+  badge. Live reads ENRICH on load; they never block first paint. The playground, the live feed, and the
+  evidence drawer arrive in later phases. The original demo page remains index.html (untouched).
 
   Offline + static: no framework, no CDN, no network. The page loads the compiled ESM at dist/dashboard.js
-  (build it with `npm run build` in this directory). Honesty: nothing here is rendered green/live.
+  (build it with `npm run build` in this directory). Honesty: only live/settled is green; the BRAIN card
+  is never green here (its green flip is operator-gated, on a real attestation); a reconciliation badge
+  goes green ONLY from an independent re-read that agrees -- never from the UI's own state.
 -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ProofAgent-0G -- Verification Console (scaffold)</title>
+    <title>ProofAgent-0G -- Verification Console</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
