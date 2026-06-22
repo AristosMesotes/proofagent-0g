@@ -18,22 +18,60 @@ import {
   STAMP_LEVEL,
   VERDICT,
   type Stamp,
+  type BrainAttestation,
 } from "./proofs.js";
 
-/** Find the one stamp for a proof, or throw (also narrows the type for the strict compiler). */
-function stampFor(proof: Stamp["proof"]): Stamp {
-  const found = buildStamps().find((s) => s.proof === proof);
+/**
+ * Find the one stamp for a proof, or throw (also narrows the type for the strict compiler). Optionally
+ * pass a verified brain attestation -- the single gated input that can lift the brain stamp green.
+ */
+function stampFor(proof: Stamp["proof"], brain?: BrainAttestation): Stamp {
+  const found = buildStamps(brain).find((s) => s.proof === proof);
   if (found === undefined) {
     throw new Error(`missing stamp for proof: ${proof}`);
   }
   return found;
 }
 
-test("brain stamp is NEVER green at MVP (design §7/§8 -- TEE is a Phase-2 Depth bracket)", () => {
+test("brain stamp is NEVER green at the offline-default MVP (design §7/§8 -- TEE is a Phase-2 Depth bracket)", () => {
+  // The default offline build (no attestation handed in) must keep the brain PENDING -- never green.
   const brain = stampFor("brain");
-  assert.notEqual(brain.level, STAMP_LEVEL.LIVE, "brain must not render green");
+  assert.notEqual(brain.level, STAMP_LEVEL.LIVE, "brain must not render green at the offline default");
   assert.equal(brain.level, STAMP_LEVEL.PENDING, "brain is pending / Phase-2");
   assert.equal(brain.bracket, "Depth", "brain is the Depth bracket, not MVP");
+});
+
+test("brain stamp LIFTS green ONLY when a real VERIFIED attestation is injected (design §9 Depth)", () => {
+  // Inject a real, verified brain attestation (attested:true) -- the operator-gated Depth path. The green
+  // brain path is real and reachable; it is gated solely on a genuine enclave attestation being present.
+  const verified: BrainAttestation = {
+    attested: true,
+    provider: "0xaBcaBcaBcaBcaBcaBcaBcaBcaBcaBcaBcaBcaB12",
+    model: "org/some-public-model",
+    responseId: "resp-1",
+    reason: "BRAIN_ATTESTED: service attestation trusted AND per-response enclave signature verified",
+  };
+  const brain = stampFor("brain", verified);
+  assert.equal(brain.level, STAMP_LEVEL.LIVE, "a verified attestation lifts the brain stamp to green LIVE");
+  assert.match(brain.status, /LIVE/, "the status word reflects the live TEE attestation");
+  assert.match(brain.claim.toLowerCase(), /enclave/, "the green claim names the enclave proof");
+  // The attested model is surfaced as context (it is which-model-ran, not the proof itself).
+  assert.ok(brain.claim.includes("org/some-public-model"), "the attested model is surfaced in the claim");
+  // Still honestly labelled as the Depth bracket -- a green brain is a Depth capability, now live on screen.
+  assert.equal(brain.bracket, "Depth");
+});
+
+test("brain stamp STAYS PENDING for a NON-attested verdict (the gate is attested===true, not 'a verdict exists')", () => {
+  // A verdict that is present but NOT attested (attested:false) must NEVER light the stamp green -- the lift
+  // keys on the proof, not on the mere presence of a verdict (design §3 #3: never fabricate).
+  const notAttested: BrainAttestation = {
+    attested: false,
+    provider: "0xaBcaBcaBcaBcaBcaBcaBcaBcaBcaBcaBcaBcaB12",
+    reason: "BRAIN_RESPONSE_NOT_SIGNED: enclave signature over the response did not verify",
+  };
+  const brain = stampFor("brain", notAttested);
+  assert.notEqual(brain.level, STAMP_LEVEL.LIVE, "a non-attested verdict must not render green");
+  assert.equal(brain.level, STAMP_LEVEL.PENDING, "a non-attested verdict keeps the brain PENDING");
 });
 
 test("the three proofs are present exactly once each (design §2)", () => {
