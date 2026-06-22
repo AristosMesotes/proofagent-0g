@@ -25,6 +25,15 @@ import {
   type Stamp,
   type StampLevel,
 } from "./proofs.js";
+import {
+  runRailsCheck,
+  runSettledCheck,
+  createBrowserRpcTransport,
+  GALILEO,
+  RAILS_ONCHAIN,
+  SETTLED_ONCHAIN,
+  type RpcTransport,
+} from "./onchain.js";
 
 /** Map a stamp honesty level to its CSS state class. Only `LIVE` is the green state (design §8). */
 function levelClass(level: StampLevel): string {
@@ -163,11 +172,148 @@ function wireNegCase(): void {
   });
 }
 
+/**
+ * Append a verdict line, a why line, and a reproduce block to an output container, then stamp the
+ * container's `data-verdict` so the headless harness can read the rendered verdict. Shared by the two
+ * on-chain controls. `settled` is the only green verdict; everything else renders amber.
+ */
+function renderOnchainOutcome(
+  out: HTMLElement,
+  verdict: string,
+  why: string,
+  reproduceCommand: string,
+): void {
+  out.replaceChildren();
+
+  const verdictEl = document.createElement("p");
+  const isGreen = verdict.toLowerCase() === VERDICT.SETTLED;
+  verdictEl.className = isGreen ? "neg__verdict neg__verdict--settled" : "neg__verdict";
+  verdictEl.textContent = verdict.toUpperCase();
+  out.appendChild(verdictEl);
+
+  const whyEl = document.createElement("p");
+  whyEl.className = "neg__why";
+  whyEl.textContent = why;
+  out.appendChild(whyEl);
+
+  const repro = document.createElement("pre");
+  repro.className = "neg__repro";
+  repro.textContent = `# reproduce the read independently:\n${reproduceCommand}`;
+  out.appendChild(repro);
+
+  // The harness reads this attribute and reconciles it against the verifier/contract independently.
+  out.setAttribute("data-verdict", verdict);
+}
+
+/** Render a loud diagnostic (a read/usage failure) WITHOUT a verdict -- the absence is the honest signal. */
+function renderOnchainDiag(out: HTMLElement, message: string): void {
+  out.replaceChildren();
+  const diag = document.createElement("p");
+  diag.className = "neg__diag";
+  diag.textContent = message;
+  out.appendChild(diag);
+  // No verdict was minted -> mark the read as errored, never leave a stale green verdict.
+  out.setAttribute("data-verdict", "read-error");
+}
+
+/** Mark a control's output as in-flight (a read is pending) -- honest, never a premature verdict. */
+function markPending(out: HTMLElement, label: string): void {
+  out.replaceChildren();
+  const p = document.createElement("p");
+  p.className = "neg__why";
+  p.textContent = label;
+  out.appendChild(p);
+  out.setAttribute("data-verdict", "pending");
+}
+
+/**
+ * Wire the RAILS control: a click runs a READ-ONLY `checkTransfer` of an OVER-cap amount against the
+ * deployed registry and renders the decoded on-chain reason (`OVER_TX_CAP`) with `data-verdict`.
+ * The transport defaults to the live public-0G reader; tests inject an offline double.
+ */
+function wireRailsCheck(transport: RpcTransport): void {
+  const button = document.getElementById("rails-run");
+  const out = document.getElementById("rails-output");
+  if (!(button instanceof HTMLButtonElement) || out === null) {
+    return;
+  }
+  // Pre-fill the probe facts so the viewer sees exactly what is being checked.
+  const amountEl = document.getElementById("rails-amount");
+  if (amountEl !== null) {
+    amountEl.textContent = `${RAILS_ONCHAIN.overCapAmount.toString()} wei`;
+  }
+  const capEl = document.getElementById("rails-cap");
+  if (capEl !== null) {
+    capEl.textContent = `${RAILS_ONCHAIN.perTxCap.toString()} wei`;
+  }
+  const regEl = document.getElementById("rails-registry");
+  if (regEl !== null) {
+    regEl.textContent = RAILS_ONCHAIN.registry;
+  }
+
+  button.addEventListener("click", () => {
+    button.disabled = true;
+    markPending(out, "Reading the on-chain cap (eth_call checkTransfer, zero gas, no broadcast)…");
+    runRailsCheck(transport)
+      .then((result) => {
+        renderOnchainOutcome(out, result.verdict, result.explanation, result.reproduceCommand);
+      })
+      .catch((err: unknown) => {
+        renderOnchainDiag(
+          out,
+          `on-chain read error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      })
+      .finally(() => {
+        button.disabled = false;
+      });
+  });
+}
+
+/**
+ * Wire the SETTLED control: a click runs a READ-ONLY receipt + value read of the PINNED settled tx and
+ * renders the re-derived verifier verdict (`settled`) with `data-verdict`. Live reader by default; a
+ * test double is injected in tests.
+ */
+function wireSettledCheck(transport: RpcTransport): void {
+  const button = document.getElementById("settled-run");
+  const out = document.getElementById("settled-output");
+  if (!(button instanceof HTMLButtonElement) || out === null) {
+    return;
+  }
+  const hashEl = document.getElementById("settled-hash");
+  if (hashEl !== null) {
+    hashEl.textContent = SETTLED_ONCHAIN.hash;
+  }
+
+  button.addEventListener("click", () => {
+    button.disabled = true;
+    markPending(out, "Reading the pinned settlement (receipt + value, no broadcast)…");
+    runSettledCheck(transport)
+      .then((result) => {
+        renderOnchainOutcome(out, result.verdict, result.explanation, result.reproduceCommand);
+      })
+      .catch((err: unknown) => {
+        renderOnchainDiag(
+          out,
+          `on-chain read error: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      })
+      .finally(() => {
+        button.disabled = false;
+      });
+  });
+}
+
 /** Boot the page once the DOM is ready. */
 function boot(): void {
   renderStamps();
   renderSpineFacts();
   wireNegCase();
+  // The two on-chain controls read the public 0G Galileo testnet read-only (no key, no broadcast).
+  const transport = createBrowserRpcTransport(GALILEO.rpcUrl);
+  wireRailsCheck(transport);
+  wireSettledCheck(transport);
 }
 
 if (document.readyState === "loading") {

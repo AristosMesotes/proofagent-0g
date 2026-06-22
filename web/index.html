@@ -53,6 +53,43 @@
         <div id="neg-output" class="neg__output" role="status" aria-live="polite"></div>
       </section>
 
+      <!-- The RAILS control: a READ-ONLY eth_call of the on-chain cap (design §2 Rails). -->
+      <section class="neg" aria-label="The RAILS check (on-chain cap)">
+        <h2 class="neg__heading">Check on-chain &mdash; RAILS (the spend cap)</h2>
+        <p class="neg__lead">
+          Read-only &mdash; no key, no broadcast. Ask the deployed <code>MandateRegistry</code> on 0G to
+          <code>checkTransfer(agent, native, OVER-cap amount)</code> as a zero-gas <code>eth_call</code>.
+          The chain rejects the over-cap spend <strong>before broadcast</strong> &mdash; it answers
+          <code>OVER_TX_CAP</code>.
+        </p>
+        <p class="neg__hashline">
+          over-cap probe: <code id="rails-amount">&hellip;</code> against cap <code id="rails-cap">&hellip;</code>
+          (registry <code id="rails-registry">0x&hellip;</code>)
+        </p>
+        <button type="button" id="rails-run" class="neg__button">
+          Check on-chain &rarr; expect OVER_TX_CAP (blocked)
+        </button>
+        <div id="rails-output" class="neg__output" role="status" aria-live="polite"></div>
+      </section>
+
+      <!-- The SETTLED control: a READ-ONLY receipt/value read of the pinned tx (design §2 Settlement). -->
+      <section class="neg" aria-label="The SETTLED check (pinned on-chain settlement)">
+        <h2 class="neg__heading">Check on-chain &mdash; SETTLED (the pinned settlement)</h2>
+        <p class="neg__lead">
+          Read-only &mdash; no key, no broadcast. Read the PINNED settled transaction's receipt and value
+          on 0G (<code>eth_getTransactionReceipt</code> + <code>eth_getTransactionByHash</code>). A
+          <code>status&nbsp;0x1</code> receipt and an in-band value re-derive the verifier's
+          <code>settled</code> verdict &mdash; reproducible against the independent Rust verifier.
+        </p>
+        <p class="neg__hashline">
+          pinned tx: <code id="settled-hash">0x&hellip;</code>
+        </p>
+        <button type="button" id="settled-run" class="neg__button">
+          Check on-chain &rarr; expect SETTLED (Success + value)
+        </button>
+        <div id="settled-output" class="neg__output" role="status" aria-live="polite"></div>
+      </section>
+
       <!-- The public data spine, reflected so the page claims only what the spine actually pins. -->
       <section class="spine" aria-label="Data spine (proofagent.toml)">
         <h2 class="spine__heading">Live from the data spine (<code>proofagent.toml</code>)</h2>
