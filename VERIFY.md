@@ -1,6 +1,6 @@
 # ProofAgent-0G — See it, check it, verify it yourself
 
-**The AI agent that can't lie, and can't overspend — on 0G.** This page is for anyone: a judge, a voter, or a developer. It explains what the project is in 30 seconds, lets you **check the proofs on-chain with nothing installed**, and gives the full hands-on reproduction steps. The whole point of the project is that you don't have to trust us — you check the chain.
+**The AI agent that can't lie, and can't overspend — on 0G.** This page is for anyone: a judge, a voter, or a developer. It explains what the project is in 30 seconds, lets you **check the proofs on-chain with nothing installed**, gives the full hands-on **CLI/contract** reproduction, and — for a zero-trust, zero-wallet walkthrough in the browser — a **fullstack judge/voter guide** (below) that drives every proof through the real UI. The whole point of the project is that you don't have to trust us — you check the chain.
 
 ---
 
@@ -93,6 +93,130 @@ cargo run -p verifier -- ledger    # the full verifier-verdict journal
 cargo run -p verifier -- audit     # exits LOUD + non-zero if any defect is present (the NEG is surfaced, never hidden)
 ```
 The ledger is generated from the verifier's append-only journal — **never from the UI** ([`LEDGER.md`](./LEDGER.md)).
+
+---
+
+## 🖥️ Verify it yourself, in the browser — the fullstack judge/voter guide *(zero trust, zero wallet)*
+
+The section above is the **CLI/contract** path. This one is the **interactive** path: a judge or voter opens
+the **Verification Console** (`web/dashboard.html`) and confirms *every* proof through the real UI —
+**no wallet, no signing, nothing broadcast** — with each on-screen verdict **reconciled against an independent
+source** the UI does not control. The console mints **no** verdict of its own; every green you see is a verdict
+an independent re-read agrees with, and the one card that *can't* be confirmed yet (Brain) stays honestly
+**PENDING** by construction.
+
+### 0 — Open the console (offline, no framework, no CDN)
+```bash
+cd web && npm install && npm run build      # tsc → dist/dashboard.js  (dev-only: typescript; no network)
+npx serve -l 3100 .                          # any static server works
+# then open http://localhost:3100/dashboard.html
+```
+There is **no signing/broadcast surface** in the page by construction — the only chain access is the public,
+key-less, zero-gas 0G Galileo read endpoint (`https://evmrpc-testnet.0g.ai`). The page paints all four cards in
+their honest default states **before any network round-trip**, then enriches with live reads in the background;
+the top **network pill** reads `0G Galileo ●live` only when the page's own RPC answers, or `infra-gated` (grey)
+on a read failure — never a faked green.
+
+### 1 — Verify all four proof cards (each reconciled through the real UI)
+The card grid carries the four proofs. Each card shows a three-altitude verdict block **and** a
+*"reconciled vs an independent source"* badge — the badge greens **only** when an independent re-read agrees
+with the painted verdict, never from the UI's own state. The **at-a-glance rollup strip** above the grid
+narrates the aggregate (`N reconciled · 1 pending(brain) · 0 mismatch`) and is the green face **only** when
+every confirmable card has reconciled with zero mismatch.
+
+| Card | Click | On-screen verdict | Reconciled against (independent source) |
+|---|---|---|---|
+| **NEG — refuse a fabricated tx** | *Run the NEG case → expect UNVERIFIED* | **`UNVERIFIED`** (amber) | the verifier's published `adjudicate` rule, re-derived from scratch on the same fabricated hash — there is **deliberately no code path to `settled`** here |
+| **BRAIN — which model ran (0G Compute TEE)** | *(status card — no button)* | **`PENDING / Phase-2 (Depth)`** (amber) | **none yet** — the badge is permanently `awaiting real attestation`; it can **never** green here (the flip is operator-gated on a real enclave attestation, §1h of the [evidence](./docs/PROOFAGENT_0G_EVIDENCE.md)) |
+| **RAILS — it cannot overspend** | *(self-enriches; or use the simulator)* | reconcile pill **`Reconciled`** / **`Drifted`** / **`Unverified`** + per-pick **`ALLOWED`/`BLOCKED`/`UNVERIFIED`** | the deployed `MandateRegistry`'s own `checkTransfer` `eth_call` (the chain is the baseline, never the UI) |
+| **SETTLEMENT — the trade really happened** | *Check on-chain → expect SETTLED* | **`SETTLED`** (green) | a second, independent re-fetch of the pinned tx's receipt + value, re-running `adjudicate` in the open |
+
+**The honesty you can see:** only `settled` / `live` renders green. **NEG** can only ever be `UNVERIFIED`;
+**BRAIN** is never green here; **RAILS** frames the on-chain block (`OVER_TX_CAP`) as the system *working*; and
+an unreachable RPC degrades **loudly** (`read-error`, grey, *source unavailable — infra-gated*) — never a faked
+green. Open **"raw evidence ↗"** on any card to read the exact raw reads, the calldata, the reconciliation log,
+and a copy-safe `cast`/`verify-tx` command to reproduce that card's verdict yourself.
+
+### 2 — Use the paste-any-hash Playground (test the claim with YOUR hash)
+Scroll to **Playground — paste ANY 0G tx hash**. Paste any `0x + 64 hex` 0G transaction hash and click
+**Check**. The **same** verifier pipeline that backs the SETTLEMENT card reads 0G independently and stamps a
+verdict live — narrating each wait state (*validating → fetching receipt → cross-checking chain → confirmed*)
+and showing **claimed vs observed side by side** (the cross-check **is** the verdict, never a bare checkmark):
+- a **real, in-corpus** settlement → `SETTLED` (green) — e.g. paste `0x8c59…bfb0` from the Quick-look;
+- a **fabricated / off-record** hash → `UNVERIFIED` (a pasted hash has no recorded claim, so the only reachable
+  verdicts are `unverified` / `mismatch` / `hollow` — there is **no** path to a fabricated `settled`);
+- a **malformed** input → a loud **usage error**, *not* a verdict (no `data-verdict` is minted — the absence is
+  the honest signal);
+- an **unreachable** RPC → `READ-ERROR (infra-gated)`, never a faked pass.
+Every produced verdict is reconciled by an independent re-read (the badge), appended to the **live verdict
+feed**, and reproducible from the verbatim `verify-tx(<hash>) → …` line.
+
+### 3 — Use "Run the agent (dry-run)" — read the run LEDGER, watch the per-asset rail fire
+Find the **"Run the agent (dry-run)"** card and click *Run the agent (dry-run) → gate 3 intents, project the run
+ledger*. It walks the **full agent loop READ-ONLY** — **NO wallet, NO signing, NOTHING broadcast** (the only
+chain access is the same key-less, zero-gas `checkTransfer` `eth_call` behind RAILS) — and gates three demo
+intents **per asset** against the deployed mandate, live and reconciled:
+
+| Intent (the *same* agent) | asset | amount | on-chain `(ok, reason)` | dry-run decision |
+|---|---|---|---|---|
+| under-cap, allowlisted | native sentinel `0xEeee…EEeE` | `1_000_000` | `(true, OK)` | **ALLOWED** |
+| over its cap, same asset | native sentinel `0xEeee…EEeE` | `3_000_000` | `(false, OVER_TX_CAP)` | **BLOCKED — over the asset's cap** |
+| non-allowlisted asset | USDC.E `0x1f3AA82…473E` | `1_000_000` | `(false, TOKEN_NOT_ALLOWED)` | **BLOCKED — asset not on the allowlist** |
+
+**Watch the mandate rail fire per asset:** the same agent gets a *different* decision per asset — the gate is
+enforced **by asset**, and each leg's decision is reconciled against an independent re-read of the same gate.
+Because a dry-run broadcasts nothing, every leg's settlement verdict is **`unverified`** (never a fabricated
+`settled`), and the card prints a **RUN LEDGER** in the verifier's **own** journal format — one canonical JSONL
+record per leg (`{"hash","kind","claimed","observed","recorded","verdict"}`, byte-identical to
+`verifier/src/journal.rs`) plus the `verifier ledger` status line `DEFECTS … 3 unverified`. It is the **identical
+artifact** a real `verifier verify-tx … --journal` + `verifier ledger` produces — an all-`unverified` dry-run is
+**NOT** green, and `audit` over it would exit `1`. Confirm any leg yourself with the `cast call` from Proof 2
+(vary the asset / amount).
+
+### 4 — Read the mandate card (per-asset rules + the wallet-free checkTransfer sim)
+The **RAILS card is the deployed mandate, read straight from chain** — a READ-ONLY mirror of the deployed
+`MandateRegistry` (still one of the four cards, not a fifth). Top to bottom it shows:
+- a **0G chain badge** + the tri-state **reconciled-vs-deployed pill** (the chain's own `checkTransfer` answer is
+  the baseline: `Reconciled` green when the stated config matches it · `Drifted` loud if they disagree ·
+  `Unverified` grey if the RPC is unreachable — never a faked green);
+- a **global period/USD-cap bar** carrying the consolidated **`MandateRegistryV4`** spec, shown as
+  **built-not-deployed** (`[mandate_v4].address=""`; its deploy is operator-gated) and labelled so — **never** a
+  live-enforced number;
+- a **per-asset table** — one row per asset (allowlist state · symbol · address · decimals · per-tx cap by the
+  asset's decimals); a non-allowlisted asset is greyed with a `—` cap (default-deny);
+- a **wallet-free `checkTransfer` simulator** — pick an asset + amount → a real zero-gas `eth_call` →
+  **`ALLOWED` / `BLOCKED` / `UNVERIFIED`** naming the binding on-chain reason. **No wallet, no signing, no
+  broadcast.** A usage error (non-numeric / money-truncating amount) mints **no** verdict; an unreachable RPC
+  shows `UNVERIFIED`, never a faked allow.
+
+Confirm any simulator verdict with the `cast call` from Proof 2 — the on-chain answer the card paints is
+byte-identically re-derivable.
+
+### 5 — *(optional)* How the headless live fullstack run works — no human in the loop
+All three published proofs (NEG · RAILS · SETTLED) are **also driven *through* this same real UI under headless
+automation, zero human input** — the **fullstack-target** leg (gate #10 in the
+[evidence](./docs/PROOFAGENT_0G_EVIDENCE.md) §1g). A headless browser scrolls each real control into view,
+screenshots BEFORE, clicks it with a user gesture, polls the durable DOM `data-verdict` stamp to a terminal
+value, screenshots AFTER, then **reconciles** each on-screen verdict against its independent source: the Rust
+verifier `verify-tx` for NEG (`unverified`) + SETTLED (`settled`), and an independent `eth_call` of the deployed
+`checkTransfer` over-cap probe for RAILS (`OVER_TX_CAP`). `settled` is the only green verdict and PASSes **only**
+when the independent source also confirms `settled`; a **doctored** UI fabricating `settled` is caught LOUD
+(exit 1), and a proof whose independent source is unreachable is honestly **infra-gated**, never faked into a
+PASS. The harness + screenshots live out-of-tree so this public repo stays clean — what you can confirm here is
+that the *same* affordances you click by hand are the ones the automation drives, and that what they render is
+exactly what the chain/verifier independently re-derive.
+
+### What stays honest (the scope you can hold us to)
+- **Brain stays PENDING.** The brain stamp goes green **only** on a real, verified 0G Compute **TEE
+  attestation** (a `trusted` provider-service attestation **AND** a verified per-response enclave signature —
+  never the model's words). The live broker call needs a funded 0G Compute sub-account + a TEE provider, so it
+  is **operator-gated**; the default build keeps the stamp PENDING. We never fabricate an attestation.
+- **The dry-run is a dry-run.** Nothing is signed or broadcast; the only chain access is the **read-only**
+  `checkTransfer` `eth_call` (a real, zero-gas read). Every dry-run leg settles to `unverified` by construction.
+- **`MandateRegistryV4` is built-not-deployed.** Its consolidated USD/period gate is shown as a spec, labelled
+  so — never as a live-enforced number — until the operator deploys it (`[mandate_v4].address=""`).
+- **Nothing is faked green.** Every on-screen verdict is reconciled against an independent source; an
+  unreachable source shows an honest `infra-gated` / `Unverified`, never a coerced pass.
 
 ---
 

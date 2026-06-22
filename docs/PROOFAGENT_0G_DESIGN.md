@@ -176,6 +176,15 @@ bringing the consolidated V4 registry live is a **data change** (repoint the con
 by-chain is the **single 0G badge** only — one enforcement chain, proven by `scripts/0g_only_gate.ps1` — with
 deliberately **no chain selector**. Footer: *"Read independently from chain — not the agent's UI."*
 
+**The judge/voter fullstack walkthrough.** The interactive path through every on-screen affordance above —
+open the console → verify all four cards (NEG · Brain-PENDING · Rails · Settlement) reconciled → paste any 0G
+hash into the Playground → run the dry-run and read the RUN LEDGER (the per-asset rail firing) → read the
+mandate card (per-asset rules + the wallet-free `checkTransfer` sim) → how the headless fullstack
+run drives the same controls with no human — is the step-by-step **fullstack judge/voter guide** in
+`VERIFY.md` ("Verify it yourself, in the browser"). It is zero-trust, zero-wallet: every verdict it tells a
+judge to expect is the *reconciled* one, with honest scope stated inline (the Brain stays PENDING until a real
+attestation; the dry-run signs/broadcasts nothing; `MandateRegistryV4` is built-not-deployed).
+
 ---
 
 ## 6. The settlement-truth LEDGER — the journal, the projection, the audit

@@ -20,7 +20,7 @@ You don't trust the agent. You check the chain.
 > **operator-gated**: the default offline build keeps the Brain stamp **PENDING**, and it goes green only once
 > one live verified attestation runs. We never fabricate an attestation. Details: [`docs/PROOFAGENT_0G_EVIDENCE.md`](docs/PROOFAGENT_0G_EVIDENCE.md) §1h.
 
-👉 **[Verify it yourself →](./VERIFY.md)** — for judges, voters & developers: a 1-minute no-tools chain check, then the full hands-on reproduction.
+👉 **[Verify it yourself →](./VERIFY.md)** — for judges, voters & developers: a 1-minute no-tools chain check, the full hands-on CLI/contract reproduction, **and a zero-trust, zero-wallet fullstack browser guide** that walks you through confirming every proof through the real Verification Console (the four cards · the paste-any-hash Playground · the dry-run RUN LEDGER · the mandate card).
 
 ### The 30-second proof
 Point the verifier at a **fabricated** transaction hash and it stamps **`UNVERIFIED`** — not `SETTLED`.

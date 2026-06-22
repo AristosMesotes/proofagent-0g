@@ -61,7 +61,7 @@ live chain read uses `cast` inline, mirroring the verifier's `LiveSource` raw-JS
 
 | # | Gate check (id) | Kind | Command / mechanism | Result |
 |---|---|---|---|---|
-| 1 | **cleanroom-firewall** (money) | security | the out-of-tree scanner (maintained out-of-tree by design — a firewall names the very identifiers it forbids) | **PASS** — 116 publishable files scanned, **0 forbidden references** |
+| 1 | **cleanroom-firewall** (money) | security | the out-of-tree scanner (maintained out-of-tree by design — a firewall names the very identifiers it forbids) | **PASS** — 116 publishable files scanned at this snapshot (**136** after the Verification Console + this guide wave), **0 forbidden references** |
 | 2 | **0g-only** (money) | security | `scripts/0g_only_gate.ps1` (in-tree, public) | **PASS** — the LIVE surface is 100% 0G (`16661`/`16602`); 0 cross-chain settlements claimed live |
 | 3 | **verifier-build** | build | `cargo build` | **PASS** (exit 0) |
 | 4 | **verifier-test** | unit | `cargo test -p verifier` | **PASS — 289** (232 lib + 55 integration across 9 suites + 2 doctests), 0 failed |
@@ -96,14 +96,18 @@ key did too). **The self-gate on the gating engine itself ⇒ GREEN (rc 0), dige
 | verifier (Rust) | `cargo test -p verifier` | **289** (232 lib + 55 integration + 2 doctests) | 0 failed |
 | contracts (Solidity) | `forge test` | **181** across 9 suites | 0 failed |
 | agent (TS) | `node --test` (agent/) | **230** | 0 failed |
-| web (TS) | `node --test` (web/) | **29** | 0 failed |
+| web (TS) | `node --test` (web/) | **83** | 0 failed |
 
-> **Note (the Brain-TEE Depth leg, added after the §0 digest snapshot).** The agent (230) and web (29) counts
-> above include the **0G Compute TEE-attestation** tests (§1h) — the `attestInference` verdict, the TTL
-> service-attestation allowlist, the settle-window retry, and the web brain-stamp / `attestPlan` honesty tests.
-> These tests landed *after* the §0 gate ladder's recorded digest (`b61ebdb7…`) was minted, so they raised the
-> TS counts (agent 202 → 230, web 8 → 29) without touching any verifier/contract verdict; the §0 digest is
-> re-minted on the next full out-of-tree gate run. `tsc --noEmit` (agent + web) and both TS suites are GREEN.
+> **Note (the Depth-brain + Verification-Console legs, added after the §0 digest snapshot).** The agent (230)
+> and web (83) counts above include the **0G Compute TEE-attestation** tests (§1h) — the `attestInference`
+> verdict, the TTL service-attestation allowlist, the settle-window retry, the web brain-stamp / `attestPlan`
+> honesty tests — **and** the interactive Verification Console honesty suites: the dashboard wiring
+> (`dashboard.test.ts`), the dry-run engine + run-ledger (`dryrun.test.ts`), the RAILS mandate-card mirror
+> (`mandateCard.test.ts`), the live feed (`feed.test.ts`), the evidence drawer (`evidence.test.ts`), and the
+> generalized on-chain pipeline (`onchain.test.ts`). These all landed *after* the §0 gate ladder's recorded
+> digest (`b61ebdb7…`) was minted, so they raised the TS counts (agent 202 → 230, web 8 → 83) **without
+> touching any verifier/contract verdict**; the §0 digest is re-minted on the next full out-of-tree gate run.
+> `tsc --noEmit` (agent + web) and both TS suites are GREEN.
 
 ---
 
@@ -243,12 +247,15 @@ error otherwise — never a fabricated tx hash / order id / CCIP `messageId`. Fu
 
 | Feature | Concrete proof | Where |
 |---|---|---|
-| **Clean-room firewall** — fails RED on any proprietary identifier / private path / secret | gate #1: **116 publishable files, 0 forbidden refs**; **negative-tested** — planting a forbidden internal identifier into a publishable file → `RED README.md:NN` (exit 1), restored → GREEN | the out-of-tree scanner (maintained out-of-tree by design) |
+| **Clean-room firewall** — fails RED on any proprietary identifier / private path / secret | gate #1: **136 publishable files, 0 forbidden refs** (live, this wave); **negative-tested** — planting a forbidden internal identifier into a publishable file → `RED README.md:NN` (exit 1), restored → GREEN | the out-of-tree scanner (maintained out-of-tree by design) |
 | **0G-only gate** — asserts the entire LIVE surface is 0G; flags any non-0G chain id / RPC / explorer | gate #2: live surface 100% 0G; **negative-tested** — `[swap].chain_id 16661→1` → `RED — NON-0G chain id 1 on the LIVE surface` (exit 1), restored → GREEN | `scripts/0g_only_gate.ps1` (in-tree, public) |
 | **The two-source gate** — the gating engine catches + KILL-SWITCHES every planted money-critical defect deterministically | every money-critical check negative-tested plant→RED→restore→GREEN, the digest returning to baseline; the verdict-authority check catches a planted fabricated-verdict mint | the zero-defect gate ladder + the self-gate's generic-firewall + verdict-authority checks |
 | **Fullstack-target proof (all three)** — headless Edge (CDP) drives the REAL UI through NEG · RAILS · SETTLED, zero human; each on-screen `data-verdict` is reconciled against an INDEPENDENT second source | **per-proof before/after screenshots** (`{neg,rails,settled}_{before,after}.png` — the after-shots show the amber `UNVERIFIED`, amber `OVER_TX_CAP`, and green `SETTLED` stamps), a per-proof verdict record, and an events log (overall `PASS`); **NEG** UI `unverified`==verifier `unverified`, **RAILS** UI `OVER_TX_CAP`==the harness's OWN `eth_call` reason `OVER_TX_CAP`, **SETTLED** UI `settled`==verifier `settled`; a **doctored** UI fabricating `settled` is caught LOUD (exit 1) | gate #10 (`fullstack-target`); the harness + evidence live out-of-tree (so this repo stays clean) |
 | **"Run the agent (dry-run)" — mandate-BY-ASSET on screen** — the Verification Console walks the full agent loop READ-ONLY (no wallet, no signing, nothing broadcast) and gates 3 intents per asset via real read-only `checkTransfer` `eth_call`s | live, reconciled: native sentinel under cap → `(true, OK)` (**ALLOWED**); same asset over cap → `(false, OVER_TX_CAP)` (**BLOCKED**); non-allowlisted USDC.E → `(false, TOKEN_NOT_ALLOWED)` (**BLOCKED**) — the same agent gets a DIFFERENT decision per asset; every leg's settlement verdict is `unverified` (a dry-run broadcasts nothing → never a fabricated `settled`); the RUN LEDGER is the verifier's own journal/ledger format, status line `DEFECTS … 3 unverified` (audit would exit 1) | `web/src/dryrun.ts` + `dryrunView.ts`; `dryrun.test.ts` (the honesty invariants); design §5/§6 |
 | **RAILS card — the deployed-registry mirror on screen** — the Verification Console's RAILS card is a READ-ONLY mirror of the deployed `MandateRegistry`: a 0G monogram chain badge, a tri-state **reconciled-vs-deployed** pill (the on-chain read is the baseline), a per-asset table (allowlist + sub-caps), and a wallet-free `checkTransfer` simulator | the header pill reconciles the stated config vs the chain's own over-cap `checkTransfer` answer (`Reconciled` only when two reads concur; `Drifted` if the chain disagrees; `Unverified` if the RPC is unreachable — never a faked green); the simulator runs a real zero-gas `eth_call` per pick → a tri-state `ALLOWED`/`BLOCKED`/`UNVERIFIED` naming the binding on-chain reason (no wallet, no broadcast); the consolidated **`MandateRegistryV4`** USD/period bar is shown as **built-not-deployed** (`[mandate_v4].address=""`), labelled so — never a live-enforced number | `web/src/mandateCard.ts`; `mandateCard.test.ts` (the honesty invariants — exact-integer units, no money-truncation, a BLOCK is never an ALLOW, an unreachable read is never faked green); design §5/§10.4b |
+| **Paste-any-hash Playground — verify YOUR hash on screen** — the console takes any `0x + 64 hex` 0G tx hash and runs the SAME generalized `runSettledCheck` pipeline the SETTLEMENT card uses, narrating each wait state and showing claimed-vs-observed side by side | a real in-corpus hash → `SETTLED` (green); a fabricated/off-record hash → `UNVERIFIED` (a pasted hash has no recorded claim → only `unverified`/`mismatch`/`hollow` reachable, NEVER a fabricated `settled`); a malformed input → a loud **usage error**, not a verdict (no `data-verdict` minted); an unreachable RPC → `read-error` (infra-gated); each produced verdict is reconciled by an independent re-read + appended to the live verdict feed | `web/src/playground.ts`; `dashboard.test.ts` (the playground wiring); design §4.3/§5.2 |
+| **Verdict / reason-code dictionary — each code shown in honest plain English, unknowns verbatim** — the on-screen verdict copy maps the four settlement verdicts (`settled`/`unverified`/`hollow`/`mismatch`) to a headline + plain-English "why"; an UNMAPPED code — including every on-chain mandate reason word (`OVER_TX_CAP`/`OVER_ASSET_CAP`/`OVER_PERIOD_CAP`/`TOKEN_NOT_ALLOWED`/`SPENDER_NOT_ALLOWED`/`PAUSED`/…) — falls back to the **raw code verbatim** (the chain's own answer, never invented, never relabelled) | the dictionary is the human altitude of every three-altitude verdict block; it MINTS no verdict + COLOURS nothing (the `settled`/`live`-only-green grammar lives in `render.ts`); the binding on-chain reason word the RAILS card / dry-run / simulator paints is the verbatim chain answer, decoded from the second 32-byte `checkTransfer` word (the V4 18-rung first-failing precedence, §1c) — never coerced to a friendly label | `web/src/verdictCopy.ts` (the four-verdict map + raw-code fallback); `web/src/render.ts` (`verdictStateClass`); the precedence in `contracts/src/MandateRegistryV4.sol` + §1c/§3; design §3 #4/§4.3 |
+| **The interactive judge/voter fullstack guide — confirm everything yourself, zero trust, zero wallet** — a step-by-step browser walkthrough: open the console → verify all four cards (NEG / Brain-PENDING / Rails / Settlement) reconciled → use the paste-any-hash Playground → run the dry-run + read the RUN LEDGER (the per-asset rail firing) → read the mandate card (per-asset rules + the wallet-free sim) → how the headless fullstack run works | the guide drives ONLY the real, shipped affordances above (`#neg-output`/`#rails-output`/`#settled-output`, the Playground, the dry-run card, the mandate card); every verdict it tells the reader to expect is the reconciled one this matrix proves; honest scope is stated inline (Brain PENDING, dry-run signs/broadcasts nothing, V4 built-not-deployed) | [`VERIFY.md`](../VERIFY.md) "Verify it yourself, in the browser"; the cards in §1g; design §3/§4/§5/§8 |
 
 > **The fullstack-target is the headline two-source proof — now all three proofs.** The on-screen UI verdict
 > is **never trusted** — an independent second source re-derives it on the same hash/contract, and a fabricated
@@ -549,8 +556,8 @@ Every gate leg is GREEN together — the **0G-only** gate + the clean-room firew
 (build·test·clippy, **289 tests**, incl. swap + route + bridge + connector-unify + mandate-tier + the
 hardened-V4 tiers + the I14-R reconciler + gas-floor + net-worth + timelock), the on-chain mandate + guard
 (`forge` build·test, **181 tests**, incl. the V3 four-tier suite + the consolidated V4 suite + the
-TimelockGuard + the spoke-isolation suite), the agent + web typechecks + tests (**230 + 29**, incl. the §1h
-Brain-TEE attestation suite), the gas-floor
+TimelockGuard + the spoke-isolation suite), the agent + web typechecks + tests (**230 + 83**, incl. the §1h
+Brain-TEE attestation suite + the interactive Verification Console honesty suites), the gas-floor
 + net-worth money-critical presence gates, the headless **fullstack-target** two-source proof (all three of
 NEG · RAILS · SETTLED driven through the real UI, zero human, each reconciled against its independent
 source), the hermetic docs link check (**22 links**), and **the zero-defect gate on this repo ALL GREEN**

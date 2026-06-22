@@ -13,6 +13,11 @@ Two static screens (design §4):
   surface -- every verdict it paints is reconciled against an independent source, and only `settled`/`live` is
   green.
 
+> **Judge/voter walkthrough.** The step-by-step, zero-trust, zero-wallet guide to confirming **every** proof
+> through this console — the four cards, the Playground, the dry-run RUN LEDGER, the mandate card, and how the
+> headless run drives the same controls — is in the repo-root **`VERIFY.md`** ("Verify it yourself,
+> in the browser").
+
 | Stamp | What it shows | Honesty (design §7/§8) |
 |---|---|---|
 | **Brain** | which model ran | `PENDING / Phase-2` in the **default offline build** -- 0G Compute TEE attestation is the *Depth* bracket. The stamp lifts to a green `LIVE / TEE-attested` ONLY when `buildStamps(brain)` is handed a real verified attestation (`attested === true`) -- a `trusted` provider-service attestation AND a verified per-response enclave signature, neither from the model's words. The brain leg itself is built + offline-tested in the agent (`agent/src/zerog/compute.ts`); the live broker call is **operator-gated** (a funded 0G Compute sub-account + a TEE provider), so by default this stamp is **PENDING until one live verified attestation**. |

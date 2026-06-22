@@ -264,6 +264,13 @@ RAILS claim in §6, it is a **read of the on-chain mandate**, never a settlement
 moves no money). The consolidated **`MandateRegistryV4`** USD/period tier it shows is **built-not-deployed**
 (`[mandate_v4].address=""`; deploy operator-gated), labelled as such — never charted as a live-enforced number.
 
+> **Reading this ledger on screen (the judge/voter path).** To produce + read this RUN LEDGER interactively —
+> and to confirm every other proof through the real UI with zero wallet and zero trust — follow the **fullstack
+> judge/voter guide** in the repo-root [`VERIFY.md`](./VERIFY.md) ("Verify it yourself, in the browser"). It
+> drives the same dry-run card whose RUN LEDGER is described here; the projection a judge reads on screen is
+> byte-identical to this file's `verifier journal` + `ledger` format, and — being a dry-run — it claims nothing
+> in §1.
+
 ---
 
 ## Status at a glance
