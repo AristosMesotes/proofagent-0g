@@ -20,7 +20,7 @@
 | **Explorer** | [`https://chainscan-galileo.0g.ai`](https://chainscan-galileo.0g.ai) |
 | **MandateRegistry (MVP)** | `0x675FF5053F434AA3f1d48574813BFc1696FBD345` (LIVE on `16602`) |
 | **MandateRegistryV3 (four-tier)** | `0xC24A325dB118cfFD586E72b9D085FB71D5202BD2` (LIVE on `16602`) |
-| **MandateRegistryV4 (consolidated, hardened)** | built + Foundry-tested (61) + verifier-confirmed; deploy operator-gated ($0 on `16602`, your own contract; `[mandate_v4].address=""` until pinned) |
+| **MandateRegistryV4 (consolidated, hardened)** | built + Foundry-tested (64) + verifier-confirmed; deploy operator-gated ($0 on `16602`, your own contract; `[mandate_v4].address=""` until pinned) |
 | **TimelockGuard (egress lock + per-spoke caps)** | built + tape-tested (29 + 6 isolation); deploy operator-gated ($0 on `16602`, your own contract) |
 | **Agent / demo wallet** | `0xc7Af61A1399Aca0bee648D7853AE93f96B86866a` (testnet only; key is gitignored `.env`, never committed) |
 | **Gate digest (proofagent-0g)** | **`fnv1a64:b61ebdb7aeb04e8e`** — the 14-check ladder (build · clippy · forge · tsc · tests · the two clean-room surface-gates · the gas/net-worth presence gates · docs-links · the headless **fullstack-target** leg now driving all three proofs) |
@@ -141,7 +141,7 @@ independent source, all three of NEG · RAILS · SETTLED driven through the real
 
 `MandateRegistryV4` folds the MVP registry, the four-tier V3, and the TimelockGuard into ONE non-custodial
 gate, keeping the v2-compatible `checkTransfer`/`checkTransferTo` selectors byte-identical
-(`0xcc1dd94f`/`0x697bb97c`). Proven by **`contracts/test/MandateRegistryV4.t.sol` (61 tests, one invariant
+(`0xcc1dd94f`/`0x697bb97c`). Proven by **`contracts/test/MandateRegistryV4.t.sol` (64 tests, one invariant
 per row)** + **`verifier/tests/mandate_v4_hardened.rs` (10 tests)** + the hardened tier labels in
 `verifier/src/mandate.rs`. The verifier's `confirm_tier` adjudicates each tier's live `(ok, reason)` read
 against an `ExpectedGate` and mints a per-tier `TierVerdict` (`confirmed/refuted/unverified`) — the same
@@ -160,7 +160,7 @@ monopoly, never a fabricated `confirmed`.
 | **Pause kill-switch — global + per-agent, guardian-settable** | `test_*Pause*`, `test_Guardian_*` | `Tier::Pause` |
 | **Atomic `gateAndRecord`** (CEI + `nonReentrant`, closes the TOCTOU double-spend) | `test_GateAndRecord_*`, `test_Reentrancy_Guarded`; **negative-tested** (disable accrual → RED) | (atomic accrual; `spendId` event) |
 | **Min-spend / min-USD dust floors** | `test_*MinSpend*`, `test_*MinUsd*` | `Tier::MinSpend` (`v4:min-spend`), `Tier::MinUsd` (`v4:min-usd`) |
-| **Typed per-spoke isolation (default-deny)** | `test_Spoke_DefaultDeny_AndIsolated`; `contracts/test/TimelockSpokeIsolation.t.sol` (6) | `Tier::SpokeDefaultDeny` (`v4:spoke-default-deny`) |
+| **Typed per-spoke isolation (default-deny)** — an unconfigured spoke surfaces the dedicated `SPOKE_NOT_CONFIGURED` reason (distinct from the address `SPENDER_NOT_ALLOWED`), so the bridge boundary reads honestly | `test_Spoke_DefaultDeny_AndIsolated`, `test_Timelock_Queue_UnconfiguredSpoke_Refused`, `test_SpokeNotConfigured_DistinctFromSpenderNotAllowed`, `test_Timelock_ConfiguredSpoke_Unaffected_ByNewReason`, `test_Timelock_Execute_SpokeClearedAfterQueue_SpokeNotConfigured`; `contracts/test/TimelockSpokeIsolation.t.sol` (6) | `Tier::SpokeDefaultDeny` (`v4:spoke-default-deny`, reads back `SPOKE_NOT_CONFIGURED`) |
 | **Folded outbound time-lock — re-gated at execute, bucket-reserving** | `test_Timelock_ReGate_*` (pause/epoch preempt) | `Tier::ExecuteReGate` (`v4:execute-re-gate`), `Tier::EgressReservation` (`v4:egress-reservation`) |
 | **Bounded everything** (`MAX_LIST=16`, anti-DoS) | `test_Bounded_*`, `test_PeriodConfig_RejectsOverflowingProduct`; **negative-tested** (remove overflow precond → RED) | (bounded lists) |
 | **Delayed-loosening governance + two-step ownership + guardian** | `test_Loosening_*`, `test_Governance_ShortenParamDelay_IsDelayed`, `test_*TwoStep*`; **negative-tested** (remove the delay check → RED) | (on-chain governance) |

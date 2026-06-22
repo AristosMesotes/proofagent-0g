@@ -121,8 +121,13 @@ contract MandateRegistryV4 {
     bytes32 public constant REASON_BELOW_MIN_SPEND = "BELOW_MIN_SPEND";
     /// @notice `token` is not on the asset allowlist.
     bytes32 public constant REASON_TOKEN_NOT_ALLOWED = "TOKEN_NOT_ALLOWED";
-    /// @notice `spender` (router/destination/spoke) is not allowlisted / is an unconfigured spoke.
+    /// @notice `spender` (router/destination) is not on the address spender/router allowlist.
     bytes32 public constant REASON_SPENDER_NOT_ALLOWED = "SPENDER_NOT_ALLOWED";
+    /// @notice the TYPED bridge SPOKE (`destSelector`) is unconfigured -- the bridge-out path's own
+    ///         default-deny (distinct from the ADDRESS spender allowlist). A dedicated, machine-readable
+    ///         reason so the verifier's two-source story reads honestly at the bridge boundary: an
+    ///         unconfigured spoke is named SPOKE_NOT_CONFIGURED, never folded into the generic spender deny.
+    bytes32 public constant REASON_SPOKE_NOT_CONFIGURED = "SPOKE_NOT_CONFIGURED";
     /// @notice `amount` exceeds the global per-transaction cap.
     bytes32 public constant REASON_OVER_TX_CAP = "OVER_TX_CAP";
     /// @notice `amount` exceeds this token's per-asset sub-cap.
@@ -953,7 +958,7 @@ contract MandateRegistryV4 {
         // (1) The mandate gate -- the kill-switch, BEFORE a queue id exists. The TYPED spoke must be
         //     configured (default-deny) and the spoke cap bounds it; we run _check with spender==address(0)
         //     (the spoke selector is the isolation key, not an address) and apply the spoke cap explicitly.
-        if (!spokeConfigured[destSelector]) revert MandateRefused(REASON_SPENDER_NOT_ALLOWED);
+        if (!spokeConfigured[destSelector]) revert MandateRefused(REASON_SPOKE_NOT_CONFIGURED);
         // skipSpenderAllowlist=true: the typed spoke (proven configured above) is this path's isolation, so
         // the ADDRESS allowlist (which can never admit the address(0) sentinel) must not gate it.
         (bool ok, bytes32 reason) = _checkReserved(agent, token, amount, address(0), epoch, 0, false, true);
@@ -1067,7 +1072,7 @@ contract MandateRegistryV4 {
         // out of the period rung + skip tx-count -- otherwise the re-gate double-charges the SAME money and
         // wrongly refuses a valid egress. Every other rung (pause/expiry/epoch/allowlist/caps) STILL re-runs,
         // so a tighten between queue and execute can only DENY, never extend executability.
-        if (!spokeConfigured[r.destSelector]) revert MandateRefused(REASON_SPENDER_NOT_ALLOWED);
+        if (!spokeConfigured[r.destSelector]) revert MandateRefused(REASON_SPOKE_NOT_CONFIGURED);
         (bool ok, bytes32 reason) = _checkReserved(
             r.agent, r.token, r.amount, address(0), r.epochAtQueue, r.reservedBucket, true, true
         );

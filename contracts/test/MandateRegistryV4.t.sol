@@ -493,12 +493,63 @@ contract MandateRegistryV4Test {
     function test_Timelock_Queue_UnconfiguredSpoke_Refused() public {
         _configTimelock();
         VM.startPrank(AGENT);
+        // The unconfigured spoke gets its OWN dedicated reason (SPOKE_NOT_CONFIGURED), NOT the generic
+        // address-spender deny -- the verifier reads the bridge boundary honestly (typed-spoke default-deny).
         VM.expectRevert(
             abi.encodeWithSelector(
-                MandateRegistryV4.MandateRefused.selector, reg.REASON_SPENDER_NOT_ALLOWED()
+                MandateRegistryV4.MandateRefused.selector, reg.REASON_SPOKE_NOT_CONFIGURED()
             )
         );
         reg.queueBridgeOut(TOKEN, 1, SEL_ARB, RECIPIENT); // SEL_ARB unconfigured -> default-deny.
+        VM.stopPrank();
+    }
+
+    // The new SPOKE_NOT_CONFIGURED reason is DISTINCT from the generic SPENDER_NOT_ALLOWED (the address
+    // spender/router allowlist deny) -- they are different bytes32 tags so the verifier never conflates the
+    // typed-spoke bridge boundary with the on-hub address-spender path.
+    function test_SpokeNotConfigured_DistinctFromSpenderNotAllowed() public view {
+        _assertTrue(
+            reg.REASON_SPOKE_NOT_CONFIGURED() != reg.REASON_SPENDER_NOT_ALLOWED(),
+            "SPOKE_NOT_CONFIGURED must be a distinct reason from SPENDER_NOT_ALLOWED"
+        );
+        _assertTrue(
+            reg.REASON_SPOKE_NOT_CONFIGURED() == "SPOKE_NOT_CONFIGURED",
+            "SPOKE_NOT_CONFIGURED tag is the stable ASCII bytes32"
+        );
+    }
+
+    // A CONFIGURED spoke is UNAFFECTED -- it queues + executes normally (the new reason only fires on the
+    // default-deny branch; the happy path is untouched).
+    function test_Timelock_ConfiguredSpoke_Unaffected_ByNewReason() public {
+        _configTimelock(); // configures SEL_ETH with a cap.
+        VM.prank(AGENT);
+        uint256 q = reg.queueBridgeOut(TOKEN, 500_000, SEL_ETH, RECIPIENT); // configured -> queues fine.
+        _assertTrue(q == 1, "a configured spoke queues unaffected by the new reason");
+        VM.warp(T0 + 3600);
+        VM.prank(AGENT);
+        reg.executeBridgeOut(q); // configured at execute too -> Executed, no SPOKE_NOT_CONFIGURED.
+        _assertTrue(
+            reg.statusOf(q) == MandateRegistryV4.LockStatus.Executed,
+            "a configured spoke executes unaffected by the new reason"
+        );
+    }
+
+    // RE-GATE at execute: if the spoke is CLEARED (back to default-deny) between queue and execute, the
+    // execute re-gate surfaces the dedicated SPOKE_NOT_CONFIGURED (not the generic spender deny).
+    function test_Timelock_Execute_SpokeClearedAfterQueue_SpokeNotConfigured() public {
+        _configTimelock();
+        VM.prank(AGENT);
+        uint256 q = reg.queueBridgeOut(TOKEN, 500_000, SEL_ETH, RECIPIENT);
+        VM.warp(T0 + 3600);
+        VM.prank(OWNER);
+        reg.clearSpoke(SEL_ETH); // restore default-deny between queue and execute (a tighten).
+        VM.startPrank(AGENT);
+        VM.expectRevert(
+            abi.encodeWithSelector(
+                MandateRegistryV4.MandateRefused.selector, reg.REASON_SPOKE_NOT_CONFIGURED()
+            )
+        );
+        reg.executeBridgeOut(q); // re-gate -> the dedicated reason on the spoke default-deny branch.
         VM.stopPrank();
     }
 
@@ -700,8 +751,10 @@ contract MandateRegistryV4Test {
         r2.setSpenderAllowlistEnabled(true);
         VM.stopPrank();
         VM.startPrank(AGENT);
+        // Even with the ADDRESS allowlist on, the typed-spoke default-deny still fires its OWN dedicated
+        // reason (SPOKE_NOT_CONFIGURED) -- it is the spoke gate, not the address spender deny.
         VM.expectRevert(
-            abi.encodeWithSelector(MandateRegistryV4.MandateRefused.selector, r2.REASON_SPENDER_NOT_ALLOWED())
+            abi.encodeWithSelector(MandateRegistryV4.MandateRefused.selector, r2.REASON_SPOKE_NOT_CONFIGURED())
         );
         r2.queueBridgeOut(NATIVE, 1, SEL_ARB, RECIPIENT); // SEL_ARB unconfigured -> still default-deny.
         VM.stopPrank();

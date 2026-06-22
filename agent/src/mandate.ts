@@ -60,8 +60,9 @@
  * The KILL-SWITCH is reason-AGNOSTIC: the gate refuses on ANY `ok !== true` (fail-closed), so a NEW
  * reason tag the contract introduces is enforced PRE-broadcast automatically -- this map only gives the
  * journal/UI a human label. The consolidated registry's hardened tags (NOT_STARTED, EPOCH_STALE,
- * BELOW_MIN_SPEND, SPENDER_NOT_ALLOWED, OVER_DEST_CAP, OVER_PERIOD_CAP, OVER_TXCOUNT_CAP,
- * PRICE_UNAVAILABLE, BELOW_MIN_USD, OVER_USD_CAP, AGENT_PAUSED) are listed here for that rendering.
+ * BELOW_MIN_SPEND, SPENDER_NOT_ALLOWED, SPOKE_NOT_CONFIGURED, OVER_DEST_CAP, OVER_PERIOD_CAP,
+ * OVER_TXCOUNT_CAP, PRICE_UNAVAILABLE, BELOW_MIN_USD, OVER_USD_CAP, AGENT_PAUSED) are listed here for
+ * that rendering.
  *
  * HONEST framing (advisory + verifier-enforced + non-custodial): "the mandate blocks it pre-broadcast
  * and the verifier proves it", NEVER "physically can't overspend".
@@ -87,8 +88,14 @@ export const MANDATE_REASON = {
   BELOW_MIN_SPEND: "BELOW_MIN_SPEND",
   /** `token` is not on the allowlist. */
   TOKEN_NOT_ALLOWED: "TOKEN_NOT_ALLOWED",
-  /** `spender` (router/destination/spoke) is not allowlisted / is an unconfigured spoke (default-deny). */
+  /** `spender` (router/destination) is not on the address spender/router allowlist (default-deny). */
   SPENDER_NOT_ALLOWED: "SPENDER_NOT_ALLOWED",
+  /**
+   * The TYPED bridge SPOKE (`destSelector`) is unconfigured -- the bridge-out path's OWN default-deny,
+   * distinct from the address spender allowlist. A dedicated machine-readable tag so the verifier's
+   * two-source story reads honestly at the bridge boundary (never folded into SPENDER_NOT_ALLOWED).
+   */
+  SPOKE_NOT_CONFIGURED: "SPOKE_NOT_CONFIGURED",
   /** `amount` exceeds the global per-transaction cap. */
   OVER_TX_CAP: "OVER_TX_CAP",
   /** `amount` exceeds this token's per-asset sub-cap. */

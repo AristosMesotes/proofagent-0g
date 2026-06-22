@@ -56,8 +56,10 @@ fn hardened_tiers_each_confirm_from_their_recorded_gate_read() {
         probe(Tier::MinSpend, AGENT, NATIVE, 40, ExpectedGate::blocked("BELOW_MIN_SPEND"));
     let staleness =
         probe(Tier::UsdStaleness, AGENT, NATIVE, 1_000_000, ExpectedGate::blocked("PRICE_UNAVAILABLE"));
+    // The TYPED-spoke default-deny now reads back its OWN dedicated reason at the bridge boundary
+    // (SPOKE_NOT_CONFIGURED), distinct from the address spender/router deny -- the honest two-source story.
     let spoke_deny =
-        probe(Tier::SpokeDefaultDeny, AGENT, NATIVE, 60, ExpectedGate::blocked("SPENDER_NOT_ALLOWED"));
+        probe(Tier::SpokeDefaultDeny, AGENT, NATIVE, 60, ExpectedGate::blocked("SPOKE_NOT_CONFIGURED"));
 
     let mut tape = MandateTape::new();
     tape = record(tape, &not_started, false, "NOT_STARTED");
@@ -65,7 +67,7 @@ fn hardened_tiers_each_confirm_from_their_recorded_gate_read() {
     tape = record(tape, &txcount, false, "OVER_TXCOUNT_CAP");
     tape = record(tape, &min_spend, false, "BELOW_MIN_SPEND");
     tape = record(tape, &staleness, false, "PRICE_UNAVAILABLE");
-    tape = record(tape, &spoke_deny, false, "SPENDER_NOT_ALLOWED");
+    tape = record(tape, &spoke_deny, false, "SPOKE_NOT_CONFIGURED");
 
     for p in [&not_started, &epoch, &txcount, &min_spend, &staleness, &spoke_deny] {
         let report = confirm_tier_via(p, &mut tape);
@@ -85,7 +87,7 @@ fn epoch_tier_refuted_when_the_gate_lets_a_stale_epoch_pass() {
 #[test]
 fn spoke_default_deny_refuted_when_an_unconfigured_spoke_is_allowed() {
     // An unconfigured spoke must authorize nothing; a gate that allows it -> Refuted.
-    let spoke = probe(Tier::SpokeDefaultDeny, AGENT, NATIVE, 1, ExpectedGate::blocked("SPENDER_NOT_ALLOWED"));
+    let spoke = probe(Tier::SpokeDefaultDeny, AGENT, NATIVE, 1, ExpectedGate::blocked("SPOKE_NOT_CONFIGURED"));
     let mut tape = record(MandateTape::new(), &spoke, true, "");
     let report = confirm_tier_via(&spoke, &mut tape);
     assert_eq!(report.verdict, TierVerdict::Refuted, "an unconfigured spoke that passes refutes default-deny");

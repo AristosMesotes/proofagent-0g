@@ -237,6 +237,7 @@ test("the consolidated-hardened (V4) reason tags are present in MANDATE_REASON",
     "EPOCH_STALE",
     "BELOW_MIN_SPEND",
     "SPENDER_NOT_ALLOWED",
+    "SPOKE_NOT_CONFIGURED",
     "OVER_DEST_CAP",
     "OVER_PERIOD_CAP",
     "OVER_TXCOUNT_CAP",
@@ -261,6 +262,7 @@ test("a hardened V4 reason decodes round-trip and the kill-switch fails CLOSED (
     "OVER_PERIOD_CAP",
     "OVER_TXCOUNT_CAP",
     "SPENDER_NOT_ALLOWED",
+    "SPOKE_NOT_CONFIGURED",
     "PRICE_UNAVAILABLE",
   ]) {
     // The raw decoder reads the exact ASCII tag.
