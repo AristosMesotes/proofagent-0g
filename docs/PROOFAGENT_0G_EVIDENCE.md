@@ -4,8 +4,9 @@
 > This is the single evidence dossier for ProofAgent-0G, written as a **feature → proof matrix**: every
 > feature in the build maps to a **concrete, reproducible proof** — a live tx hash on
 > [`chainscan-galileo.0g.ai`](https://chainscan-galileo.0g.ai), a named `forge` test, an independent
-> verifier verdict, a gate-ladder result, or the headless fullstack-UI screenshot + two-source
-> reconciliation. **Nothing here is unproven.** Where a capability is honestly deferred (operator-gated,
+> verifier verdict, a gate-ladder result, or the headless fullstack-target screenshots + two-source
+> reconciliation (all three proofs — NEG · RAILS · SETTLED — driven through the real UI, zero human).
+> **Nothing here is unproven.** Where a capability is honestly deferred (operator-gated,
 > roadmap, bracket-delta) it is labelled as such and the row says *why it is not claimed live* — never a
 > green stamp it has not earned. The design itself lives in
 > [`docs/PROOFAGENT_0G_DESIGN.md`](PROOFAGENT_0G_DESIGN.md); the settlement-truth journal in
@@ -13,7 +14,7 @@
 
 | | |
 |---|---|
-| **Status** | **GREEN — FULL consolidated build.** MVP three proofs + swap/route/**bridge** + the four-tier MandateRegistryV3 + the **consolidated, hardened MandateRegistryV4** (V3 + the egress time-lock folded into ONE non-custodial gate, nine-lens adversarial review) + the **I14-R spend reconciler** + the **TimelockGuard** + the **gas-floor / net-worth-floor** money-safety suite + the **Engine** + the **0G-only** gate + the headless **fullstack-UI** two-source proof |
+| **Status** | **GREEN — FULL consolidated build.** MVP three proofs + swap/route/**bridge** + the four-tier MandateRegistryV3 + the **consolidated, hardened MandateRegistryV4** (V3 + the egress time-lock folded into ONE non-custodial gate, nine-lens adversarial review) + the **I14-R spend reconciler** + the **TimelockGuard** + the **gas-floor / net-worth-floor** money-safety suite + the **Engine** + the **0G-only** gate + the headless **fullstack-UI** two-source proof, now the **formal three-proof fullstack target** (NEG · RAILS · SETTLED all driven *through* the real UI, zero human, each reconciled against its independent source) |
 | **Chain** | 0G Galileo testnet — chain id `16602` (mainnet Aristotle `16661`, operator-gated) |
 | **RPC** | `https://evmrpc-testnet.0g.ai` (read independently, raw JSON-RPC) |
 | **Explorer** | [`https://chainscan-galileo.0g.ai`](https://chainscan-galileo.0g.ai) |
@@ -22,7 +23,7 @@
 | **MandateRegistryV4 (consolidated, hardened)** | built + Foundry-tested (61) + verifier-confirmed; deploy operator-gated ($0 on `16602`, your own contract; `[mandate_v4].address=""` until pinned) |
 | **TimelockGuard (egress lock + per-spoke caps)** | built + tape-tested (29 + 6 isolation); deploy operator-gated ($0 on `16602`, your own contract) |
 | **Agent / demo wallet** | `0xc7Af61A1399Aca0bee648D7853AE93f96B86866a` (testnet only; key is gitignored `.env`, never committed) |
-| **Gate digest (proofagent-0g)** | **`fnv1a64:4d67b9590d260e8d`** — the 14-check ladder (build · clippy · forge · tsc · tests · the two clean-room surface-gates · the gas/net-worth presence gates · docs-links · the headless **fullstack-UI** leg) |
+| **Gate digest (proofagent-0g)** | **`fnv1a64:b61ebdb7aeb04e8e`** — the 14-check ladder (build · clippy · forge · tsc · tests · the two clean-room surface-gates · the gas/net-worth presence gates · docs-links · the headless **fullstack-target** leg now driving all three proofs) |
 | **Self-gate digest** | **`fnv1a64:2c3e4fb0f18f1db4`** — the gating engine's own build·test·clippy + the generic↔specific firewall pair + verdict-authority + its own docs-links |
 | **Settlement truth** | [`LEDGER.md`](../LEDGER.md) — the full verifier-verdict surface, generated from the append-only journal, never the UI |
 
@@ -42,8 +43,10 @@
 > `#[non_exhaustive]`, no `Default`, so an absent read can only become a loud `unverified`, never a
 > fabricated success;
 > **(d) a gate result** (the zero-defect gate ladder for this repo) with its deterministic digest;
-> **(e) the headless fullstack-UI proof** — the screenshot + the on-screen verdict reconciled against the
-> independent verifier on the same hash.
+> **(e) the headless fullstack-target proof** — for EACH of the three proofs (NEG · RAILS · SETTLED), the
+> before/after screenshot + the on-screen `data-verdict` reconciled against an INDEPENDENT second source on
+> the same hash/contract (the verifier for NEG + SETTLED; an independent `eth_call` of `checkTransfer` for
+> RAILS).
 
 ---
 
@@ -58,7 +61,7 @@ live chain read uses `cast` inline, mirroring the verifier's `LiveSource` raw-JS
 
 | # | Gate check (id) | Kind | Command / mechanism | Result |
 |---|---|---|---|---|
-| 1 | **cleanroom-firewall** (money) | security | the out-of-tree scanner (maintained out-of-tree by design — a firewall names the very identifiers it forbids) | **PASS** — 113 publishable files scanned, **0 forbidden references** |
+| 1 | **cleanroom-firewall** (money) | security | the out-of-tree scanner (maintained out-of-tree by design — a firewall names the very identifiers it forbids) | **PASS** — 116 publishable files scanned, **0 forbidden references** |
 | 2 | **0g-only** (money) | security | `scripts/0g_only_gate.ps1` (in-tree, public) | **PASS** — the LIVE surface is 100% 0G (`16661`/`16602`); 0 cross-chain settlements claimed live |
 | 3 | **verifier-build** | build | `cargo build` | **PASS** (exit 0) |
 | 4 | **verifier-test** | unit | `cargo test -p verifier` | **PASS — 289** (232 lib + 55 integration across 9 suites + 2 doctests), 0 failed |
@@ -67,20 +70,24 @@ live chain read uses `cast` inline, mirroring the verifier's `LiveSource` raw-JS
 | 7 | **contracts-test** (money) | unit | `forge test` | **PASS — 181 / 9 suites**, 0 failed |
 | 8 | **agent-typecheck** | typecheck | `tsc --noEmit` (agent/) | **PASS** (exit 0) |
 | 9 | **web-typecheck** | typecheck | `tsc --noEmit` (web/) | **PASS** (exit 0) |
-| 10 | **fullstack-ui** | integration | headless Edge (CDP) drives the real UI; on-screen verdict reconciled vs the independent verifier on the same hash | **PASS** — UI `unverified` == verifier `unverified`; a fabricated `settled` is caught LOUD (exit 1) |
-| 11 | **docs-links** | docs | the hermetic markdown link check (offline, no network) | **PASS — 21 link(s) clickable** (every internal file/anchor resolves; every external URL well-formed) |
+| 10 | **fullstack-target** | integration | headless Edge (CDP) drives the real UI through ALL THREE proofs (NEG · RAILS · SETTLED), zero human; each on-screen `data-verdict` reconciled vs an independent source (verifier for NEG/SETTLED; `eth_call` of `checkTransfer` for RAILS) | **PASS** — UI `unverified`==verifier `unverified`, UI `OVER_TX_CAP`==contract `OVER_TX_CAP`, UI `settled`==verifier `settled`; a fabricated `settled` is caught LOUD (exit 1) |
+| 11 | **docs-links** | docs | the hermetic markdown link check (offline, no network) | **PASS — 22 link(s) clickable** (every internal file/anchor resolves; every external URL well-formed) |
 | 12 | **gas-floor-gateway** (money) | security | presence check: `await checkGasFloor(` wired into `agent/src/gateway.ts` PRE-submit | **PASS** — `gateway.ts:396` |
 | 13 | **gas-floor-verifier** (money) | security | presence check: `pub fn adjudicate_gas_floor` in `verifier/src/gasfloor.rs` | **PASS** — `gasfloor.rs:208` |
 | 14 | **net-worth-floor-verifier** (money) | security | presence check: `pub fn adjudicate_net_worth` in `verifier/src/networth.rs` | **PASS** — `networth.rs:432` |
 
-**The zero-defect gate for this repo ⇒ GREEN (rc 0), digest `fnv1a64:4d67b9590d260e8d`** (stable across
-re-runs). **The self-gate on the gating engine itself ⇒ GREEN (rc 0), digest `fnv1a64:2c3e4fb0f18f1db4`**
+**The zero-defect gate for this repo ⇒ GREEN (rc 0), digest `fnv1a64:b61ebdb7aeb04e8e`** (stable across
+re-runs; the digest moved from the prior `4d67b959…` because the bespoke single-proof `fullstack-ui` leg
+was replaced by the formal three-proof `fullstack-target` leg — the verdict log changed, so the determinism
+key did too). **The self-gate on the gating engine itself ⇒ GREEN (rc 0), digest `fnv1a64:2c3e4fb0f18f1db4`**
 (the engine's own build·test·clippy + the generic↔specific firewall pair + verdict-authority + docs-links).
 
-> **No code regression in the consolidation.** The documentation merges are **docs-only** — no verifier /
-> contract / agent code moved. Every code-bearing leg's verdict is unchanged, which is exactly why the
-> digest is stable across the docs edits (a docs-only change that altered a code verdict would move the
-> digest).
+> **No code regression in the consolidation.** No verifier / contract / agent code moved — every
+> code-bearing leg's verdict (build · clippy · forge · tsc · tests · the money-safety presence gates) is
+> unchanged. The digest moved (`4d67b959…` → `b61ebdb7…`) for ONE honest reason: the integration leg #10
+> was swapped from the bespoke single-proof `fullstack-ui` (NEG-only) to the formal three-proof
+> `fullstack-target` (NEG · RAILS · SETTLED), changing the ordered verdict log. A docs-only change that
+> altered a code verdict WOULD move the digest — none did; only the deliberate leg upgrade did.
 
 ### 0a. Test corpora behind the gate (the raw counts)
 
@@ -95,10 +102,11 @@ re-runs). **The self-gate on the gating engine itself ⇒ GREEN (rc 0), digest `
 
 ## 1. The FEATURE → PROOF matrix — can't-lie · settlement · mandate · money-safety · cross-chain · Engine · gates
 
-Every feature in one table, each row mapped to its concrete proof. **No row is unproven.** The four proof
+Every feature in one table, each row mapped to its concrete proof. **No row is unproven.** The proof
 kinds in the *Proof* column are: **live tx** (confirmable on the explorer), **forge test** (a named
 Solidity test), **verifier verdict** (an independent Rust read), **gate** (a ladder check + digest), and
-**fullstack-UI** (screenshot + two-source reconciliation).
+**fullstack-target** (per-proof before/after screenshot + on-screen `data-verdict` reconciled against an
+independent source, all three of NEG · RAILS · SETTLED driven through the real UI, zero human).
 
 ### 1a. Can't-lie — the verdict monopoly + two-source + never-fabricate (the moat)
 
@@ -107,17 +115,17 @@ Solidity test), **verifier verdict** (an independent Rust read), **gate** (a lad
 | **Verdict monopoly** — only the verifier mints a verdict | `enum Verdict` is `#[non_exhaustive]`, all four minting fns are `pub(crate)`, no `Default` impl | `verifier/src/verdict.rs:32` (enum), `:90/:95/:100/:105` (minting); test `canonical_strings_are_exact_snake_case` |
 | **Two-source truth** — `adjudicate(Claim, Observation)`; the agent's word is one input, checked against the chain | the claim/observation seam; the agent never mints a verdict | `verifier/src/adjudicate.rs`; `agent/src/connector.ts` (gateway never mints) |
 | **Never-fabricate** — an absent/unreadable read degrades LOUD to `unverified`, never a silent `settled` | the keystone: `None → Verdict::unverified()` evaluated **first** | `verifier/src/adjudicate.rs:121-126`; verifier-test `fabricated_unknown_hash_stamps_unverified_never_settled` |
-| **Deterministic** — same reads ⇒ same verdict + same digest; no wall-clock, no unordered state | `TapeSource` over an ordered `BTreeMap`; pure lookups; gate digest stable across re-runs (`4d67b959…`) | `verifier/src/source.rs`; gate digest in §0 |
+| **Deterministic** — same reads ⇒ same verdict + same digest; no wall-clock, no unordered state | `TapeSource` over an ordered `BTreeMap`; pure lookups; gate digest stable across re-runs (`b61ebdb7…`) | `verifier/src/source.rs`; gate digest in §0 |
 | **Exact-integer money** — no float on the money path | `i128`/`bigint` only, exact-integer tolerance band `15/100` | `proofagent.toml [verifier.tolerance]`; `verifier/src/config.rs` |
-| **The NEG case** (the proof the proof is real) — a fabricated hash → `unverified`, on screen | live `verify-tx 0xdeadbeef…0000 → unverified` (exit 1); the fullstack-UI shows the on-screen `UNVERIFIED` stamp | §2 PROOF 3; §1g fullstack-UI; `LEDGER.md` §1 |
+| **The NEG case** (the proof the proof is real) — a fabricated hash → `unverified`, on screen | live `verify-tx 0xdeadbeef…0000 → unverified` (exit 1); the fullstack-target drives it *through* the UI and reconciles the on-screen `UNVERIFIED` stamp against the verifier (`data-verdict="unverified"` == verifier `unverified`) | §2 PROOF 3; §1g fullstack-target; `LEDGER.md` §1 |
 
 ### 1b. Settlement — NEG / RAILS / SETTLED / V3 (the on-chain proofs)
 
 | Feature | Concrete proof | Where |
 |---|---|---|
-| **SETTLED** — a within-cap native transfer the chain confirms moved exactly as claimed | **live tx** `0x8c59…bfb0` (block 39996100, status `0x1`, value `1000000` wei) → verifier `settled` (Δ `0`); a second `0xfb18…6290` (block 39996470) | §2 PROOF 1; [explorer](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0); `LEDGER.md` §1 |
-| **RAILS** — an over-cap transfer blocked PRE-broadcast (a refused spend leaves no footprint) | **live** `checkTransfer(agent, sentinel, 3000000) → (false, OVER_TX_CAP)`, a zero-gas `eth_call` on the deployed MVP registry — no tx exists | §2 PROOF 2; `LEDGER.md` §3 (claim, kept separate) |
-| **NEG** — a fabricated hash → `unverified` (never rubber-stamped) | **live** `verify-tx 0xdeadbeef…0000 → unverified` (`eth_getTransactionReceipt → null`, exit 1) | §2 PROOF 3; `LEDGER.md` §1 (NEG row) |
+| **SETTLED** — a within-cap native transfer the chain confirms moved exactly as claimed | **live tx** `0x8c59…bfb0` (block 39996100, status `0x1`, value `1000000` wei) → verifier `settled` (Δ `0`); a second `0xfb18…6290` (block 39996470); **also driven *through* the UI** by the fullstack-target — on-screen `data-verdict="settled"` reconciled == verifier `settled` (`settled_after.png`) | §2 PROOF 1; §1g fullstack-target; [explorer](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0); `LEDGER.md` §1 |
+| **RAILS** — an over-cap transfer blocked PRE-broadcast (a refused spend leaves no footprint) | **live** `checkTransfer(agent, sentinel, 3000000) → (false, OVER_TX_CAP)`, a zero-gas `eth_call` on the deployed MVP registry — no tx exists; **also driven *through* the UI** by the fullstack-target — on-screen `data-verdict="OVER_TX_CAP"` reconciled == the harness's OWN independent `eth_call` reason `OVER_TX_CAP` (`rails_after.png`) | §2 PROOF 2; §1g fullstack-target; `LEDGER.md` §3 (claim, kept separate) |
+| **NEG** — a fabricated hash → `unverified` (never rubber-stamped) | **live** `verify-tx 0xdeadbeef…0000 → unverified` (`eth_getTransactionReceipt → null`, exit 1); **also driven *through* the UI** by the fullstack-target — on-screen `data-verdict="unverified"` reconciled == verifier `unverified` (`neg_after.png`) | §2 PROOF 3; §1g fullstack-target; `LEDGER.md` §1 (NEG row) |
 | **V3 four-tier gate — LIVE** (period/expiry+dest/asset+USD+pause/atomic) | **live deploy** `0x81fe…154c` (block 40044208) + tier config txs; `checkTransfer` first-failing-reason precedence proven by `forge test`; each tier verifier-confirmed | §3; `contracts/test/MandateRegistryV3.t.sol`; `verifier/tests/mandate_tiers.rs` |
 | **Period-cap looping-drain block (the headline)** | **live** `gateAndRecord(1M)` accrue `0x44e5…8556` (block 40044471), then `checkTransfer(1M) → (false, OVER_PERIOD_CAP)` read back via `cast` ($0 — moves no value) | §4; `demo/EVIDENCE_MANDATE_V3.md` |
 
@@ -223,26 +231,32 @@ operator-gated, needs an explicit opt-in AND a wired dispatcher, and fails **CLO
 error otherwise — never a fabricated tx hash / order id / CCIP `messageId`. Full evidence:
 `demo/EVIDENCE_SWAP.md`, `demo/EVIDENCE_ROUTE.md`, `demo/EVIDENCE_BRIDGE.md`, `demo/EVIDENCE_ENGINE.md`.
 
-### 1g. The clean-room firewall · 0G-only gate · the two-source gate · the fullstack-UI proof
+### 1g. The clean-room firewall · 0G-only gate · the two-source gate · the fullstack-target proof
 
 | Feature | Concrete proof | Where |
 |---|---|---|
-| **Clean-room firewall** — fails RED on any proprietary identifier / private path / secret | gate #1: **113 publishable files, 0 forbidden refs**; **negative-tested** — planting a forbidden internal identifier into a publishable file → `RED README.md:NN` (exit 1), restored → GREEN | the out-of-tree scanner (maintained out-of-tree by design) |
+| **Clean-room firewall** — fails RED on any proprietary identifier / private path / secret | gate #1: **116 publishable files, 0 forbidden refs**; **negative-tested** — planting a forbidden internal identifier into a publishable file → `RED README.md:NN` (exit 1), restored → GREEN | the out-of-tree scanner (maintained out-of-tree by design) |
 | **0G-only gate** — asserts the entire LIVE surface is 0G; flags any non-0G chain id / RPC / explorer | gate #2: live surface 100% 0G; **negative-tested** — `[swap].chain_id 16661→1` → `RED — NON-0G chain id 1 on the LIVE surface` (exit 1), restored → GREEN | `scripts/0g_only_gate.ps1` (in-tree, public) |
 | **The two-source gate** — the gating engine catches + KILL-SWITCHES every planted money-critical defect deterministically | every money-critical check negative-tested plant→RED→restore→GREEN, the digest returning to baseline; the verdict-authority check catches a planted fabricated-verdict mint | the zero-defect gate ladder + the self-gate's generic-firewall + verdict-authority checks |
-| **Fullstack-UI proof** — headless Edge (CDP) drives the REAL UI; the on-screen verdict is reconciled against the independent verifier on the same hash | **before/after screenshots** (the after-shot shows the on-screen `UNVERIFIED` stamp), a verdict record, and an events log; UI `data-verdict="unverified"` == verifier `unverified`; a **doctored** UI fabricating `settled` is caught LOUD (`FABRICATED SETTLED DETECTED — HARD FAIL`, exit 1) | gate #10 (`fullstack-ui`); the harness + evidence live out-of-tree (so this repo stays clean) |
+| **Fullstack-target proof (all three)** — headless Edge (CDP) drives the REAL UI through NEG · RAILS · SETTLED, zero human; each on-screen `data-verdict` is reconciled against an INDEPENDENT second source | **per-proof before/after screenshots** (`{neg,rails,settled}_{before,after}.png` — the after-shots show the amber `UNVERIFIED`, amber `OVER_TX_CAP`, and green `SETTLED` stamps), a per-proof verdict record, and an events log (overall `PASS`); **NEG** UI `unverified`==verifier `unverified`, **RAILS** UI `OVER_TX_CAP`==the harness's OWN `eth_call` reason `OVER_TX_CAP`, **SETTLED** UI `settled`==verifier `settled`; a **doctored** UI fabricating `settled` is caught LOUD (exit 1) | gate #10 (`fullstack-target`); the harness + evidence live out-of-tree (so this repo stays clean) |
 
-> **The fullstack-UI is the headline two-source proof.** The on-screen UI verdict is **never trusted** — the
-> independent verifier re-derives it on the same hash, and a fabricated `settled` is caught LOUD (exit 1),
-> never passed. The harness clicks the REAL NEG control with a user gesture, captures `Page.captureScreenshot`
-> (before + after), reads the DOM stamp + the on-screen verdict, runs the verifier on the same hash, and
-> reconciles. The negative-path was proven: with the UI temporarily doctored to fabricate a `settled`, the
-> harness caught it loudly and the verifier stayed `unverified`.
+> **The fullstack-target is the headline two-source proof — now all three proofs.** The on-screen UI verdict
+> is **never trusted** — an independent second source re-derives it on the same hash/contract, and a fabricated
+> `settled` is caught LOUD (exit 1), never passed. For EACH of NEG · RAILS · SETTLED the harness scrolls the
+> REAL control into view, screenshots BEFORE, clicks it with a user gesture, polls the durable DOM
+> `data-verdict` stamp (the render-gate) to a terminal value, screenshots AFTER, then reconciles: the Rust
+> verifier `verify-tx` for NEG (`unverified`) + SETTLED (`settled`), and the harness's OWN independent
+> `eth_call` of the deployed `checkTransfer` over-cap probe for RAILS (`OVER_TX_CAP`). `settled` is the only
+> green verdict and PASSes ONLY when the independent source also confirms `settled`; a proof whose independent
+> source is unreachable is honestly **INFRA-GATED** (flagged, never faked into a PASS).
 >
-> **Scope (honest):** the browser-driven leg currently drives the **NEG** scenario only — the one interactive
-> UI control on the page. **RAILS** (`OVER_TX_CAP`) and **SETTLED** are proven *below* the UI at the
-> contract / CLI layer (the gate ladder above + §2), not yet *through* the UI. Driving all three proofs
-> through the real UI is the formal fullstack-target upgrade tracked for the next milestone.
+> **Scope (honest, post-upgrade):** **all three** published proofs — **NEG**, **RAILS** (`OVER_TX_CAP`), and
+> **SETTLED** — are now driven *through* the real UI under headless automation (zero human) and each reconciled
+> against its independent source. The single-proof (NEG-only) `fullstack-ui` leg this section previously
+> described has been **replaced** by the three-proof `fullstack-target` leg, which is what gate #10 now runs.
+> The independent sources remain authoritative: RAILS/SETTLED are STILL also proven below the UI (the deployed
+> `checkTransfer` `eth_call` / the verifier `verify-tx`, §2) — the UI leg adds the on-screen, reconciled
+> rendering on top, it does not replace the chain/CLI ground truth.
 
 ---
 
@@ -278,7 +292,9 @@ The verifier is pointed at a fabricated, well-formed-but-unknown hash `0xdeadbee
 returns `eth_getTransactionReceipt → null` (independently confirmed: `cast rpc eth_getTransactionReceipt →
 null`), so the verifier degrades **loudly** to `unverified` — it never rubber-stamps a `settled` for an
 off-record hash. This is the single most convincing proof that the verifier reads the chain, not the
-agent's word — and it is the row the headless fullstack-UI drives on screen (§1g).
+agent's word — and it is one of the three rows the headless fullstack-target drives on screen and reconciles
+(§1g): NEG renders the on-screen `UNVERIFIED` stamp, reconciled `data-verdict="unverified"` == verifier
+`unverified`.
 
 ```
 ALL THREE PROOFS LIVE  ✅   SETTLED / RAILS / NEG  — all confirmable on chainscan-galileo.0g.ai
@@ -472,9 +488,11 @@ Every gate leg is GREEN together — the **0G-only** gate + the clean-room firew
 hardened-V4 tiers + the I14-R reconciler + gas-floor + net-worth + timelock), the on-chain mandate + guard
 (`forge` build·test, **181 tests**, incl. the V3 four-tier suite + the consolidated V4 suite + the
 TimelockGuard + the spoke-isolation suite), the agent + web typechecks + tests (**202 + 8**), the gas-floor
-+ net-worth money-critical presence gates, the headless **fullstack-UI** two-source proof, the hermetic
-docs link check (**21 links**), and **the zero-defect gate on this repo ALL GREEN** (digest
-**`fnv1a64:4d67b9590d260e8d`**), with the **self-gate still GREEN** (digest **`fnv1a64:2c3e4fb0f18f1db4`**).
++ net-worth money-critical presence gates, the headless **fullstack-target** two-source proof (all three of
+NEG · RAILS · SETTLED driven through the real UI, zero human, each reconciled against its independent
+source), the hermetic docs link check (**22 links**), and **the zero-defect gate on this repo ALL GREEN**
+(digest **`fnv1a64:b61ebdb7aeb04e8e`**), with the **self-gate still GREEN** (digest
+**`fnv1a64:2c3e4fb0f18f1db4`**).
 The four-tier `MandateRegistryV3` is **deployed + tier-configured + period-cap-proven LIVE** on 0G Galileo
 `16602` at $0; the consolidated `MandateRegistryV4` is **built + tested + verifier-confirmed**, its deploy
 operator-gated. Every value-bearing live execution is an operator-gated §8 item, none performed here.

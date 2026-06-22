@@ -216,8 +216,8 @@ chain confirms it. These are recorded here, distinct from the chain-observed ver
 
 | Proof | Agent's claim | Independent on-chain confirmation | Result |
 |---|---|---|---|
-| **RAILS (over-cap blocked)** | "an over-cap transfer of `3_000_000` wei (> `perTxCap 2_000_000`) will be **blocked pre-broadcast**, nothing broadcast" | `eth_call checkTransfer(agent, sentinel, 3000000)` on the deployed `MandateRegistry` (`0x675FF5053F434AA3f1d48574813BFc1696FBD345`) → `(false, OVER_TX_CAP)`, a zero-gas read; **no transaction exists** (a refused spend leaves no on-chain footprint) | ✅ claim upheld on-chain — *no §1 settlement row, because nothing settled (and nothing was lost)* |
-| **SETTLED (within-cap transfer)** | "a `1_000_000`-wei transfer settled" | the verifier's independent read → `settled` (§1 rows) | ✅ promoted to §1 (chain-confirmed) |
+| **RAILS (over-cap blocked)** | "an over-cap transfer of `3_000_000` wei (> `perTxCap 2_000_000`) will be **blocked pre-broadcast**, nothing broadcast" | `eth_call checkTransfer(agent, sentinel, 3000000)` on the deployed `MandateRegistry` (`0x675FF5053F434AA3f1d48574813BFc1696FBD345`) → `(false, OVER_TX_CAP)`, a zero-gas read; **no transaction exists** (a refused spend leaves no on-chain footprint). Also re-derived *through* the real UI under headless automation (the fullstack-target leg): on-screen `data-verdict="OVER_TX_CAP"` reconciled == an INDEPENDENT `eth_call` reason `OVER_TX_CAP` (the UI is never the source of truth — the independent `eth_call` is) | ✅ claim upheld on-chain — *no §1 settlement row, because nothing settled (and nothing was lost)* |
+| **SETTLED (within-cap transfer)** | "a `1_000_000`-wei transfer settled" | the verifier's independent read → `settled` (§1 rows). Also re-derived *through* the real UI under headless automation: on-screen `data-verdict="settled"` reconciled == the independent verifier `verify-tx 0x8c59…bfb0 → settled` | ✅ promoted to §1 (chain-confirmed) |
 | **Brain (TEE-attested model)** | *not claimed live* — the brain is an honestly-labelled hosted-LLM stub (web stamp = `PENDING / Phase-2 (Depth)`, `web/src/proofs.ts`) | — (0G Compute TEE attestation is the §9 **Depth** bracket-delta; not on-chain yet) | ⏳ honestly deferred, never pre-claimed |
 
 > The RAILS proof is an **agent/on-chain claim**, not a §1 settlement: a *blocked* spend produces no
@@ -226,6 +226,13 @@ chain confirms it. These are recorded here, distinct from the chain-observed ver
 > the public registry. The mandate is the **rails** proof; the journal is the **settlement** proof; the
 > money-safety / cross-chain / tier / reconciler adjudicators (§2–§5) are the **safety** proofs — all kept in
 > different sections so the agent's word is never laundered into a chain-truth table.
+>
+> **All three published proofs (NEG · RAILS · SETTLED) were also re-derived *through* the real web UI** under
+> headless automation (zero human — the fullstack-target leg), each on-screen `data-verdict` reconciled
+> against its independent source (the verifier for NEG/SETTLED, an independent `eth_call` for RAILS). This
+> does **not** change this ledger: it is still generated from the verifier's journal, never the UI — the UI
+> rendering is *reconciled against* the same independent truth, never promoted into §1 on its own word. The
+> two `settled` rows and the one NEG `unverified` row stand exactly as journalled.
 
 ---
 

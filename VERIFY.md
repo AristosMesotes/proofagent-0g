@@ -68,9 +68,9 @@ The ledger is generated from the verifier's append-only journal — **never from
 ---
 
 ## Honest scope (we claim only what's live)
-- **NEG** is driven *through* the real web UI and reconciled against the independent verifier.
-- **RAILS** and **SETTLED** are verified *below* the UI (contract `checkTransfer` / verifier `verify-tx`), not yet as interactive UI buttons.
-- Driving all three through the real UI under headless automation (zero human input) is the next-milestone upgrade; this runbook will be expanded to capture that automated run.
+- **All three proofs — NEG, RAILS, SETTLED — are now driven *through* the real web UI** under headless automation (zero human input), and each on-screen `data-verdict` is reconciled against an independent second source: the Rust verifier `verify-tx` for **NEG** (`unverified`) and **SETTLED** (`settled`), and an independent `eth_call` of the deployed `checkTransfer` over-cap probe for **RAILS** (`OVER_TX_CAP`).
+- The UI is still **never trusted**: **RAILS** and **SETTLED** remain independently verifiable *below* the UI too (contract `checkTransfer` / verifier `verify-tx`, the buttons above) — the UI leg adds the reconciled on-screen rendering, it does not replace the chain/CLI ground truth. `settled` is the only green verdict and passes ONLY when the independent source also confirms `settled`; a fabricated `settled` on either side is a loud failure, and a proof whose independent source is unreachable is honestly infra-gated, never faked.
+- This formal three-proof fullstack target (the next-milestone upgrade) is now done; its per-proof before/after screenshots + reconciliation journal are the evidence behind gate #10 in [`docs/PROOFAGENT_0G_EVIDENCE.md`](./docs/PROOFAGENT_0G_EVIDENCE.md) §1g.
 
 ## Learn more
 [`docs/PROOFAGENT_0G_DESIGN.md`](./docs/PROOFAGENT_0G_DESIGN.md) — architecture · [`docs/PROOFAGENT_0G_EVIDENCE.md`](./docs/PROOFAGENT_0G_EVIDENCE.md) — the feature→proof matrix + gate results · [`LEDGER.md`](./LEDGER.md) — the settlement truth.

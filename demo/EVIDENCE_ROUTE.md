@@ -61,7 +61,7 @@ empty route is `unverified`, never a vacuous `settled`.
 | `npm test` | `agent/` (incl. the route leg) | ✅ **202**, 0 failed |
 | `forge build` / `forge test` | `contracts/` (incl. MandateRegistryV3) | ✅ **181**, 0 failed |
 | `npx tsc --noEmit` / `npm test` | `web/` | ✅ clean / **8** pass |
-| clean-room firewall | whole repo (113 publishable files) | ✅ GREEN |
+| clean-room firewall | whole repo (116 publishable files) | ✅ GREEN |
 
 > The `live` build (`LiveRouteSource`, a real `eth_getTransactionReceipt` reader) is **feature-gated**:
 > it cannot *link* on this windows-gnu host (no `as.exe`), but the feature-gated code is exercised by the

@@ -69,7 +69,7 @@ independent verifier's monopoly (design §3 #2); a defect is never fabricated in
 | `cargo test` (default/offline) | verifier (incl. integration) | ✅ **289**, 0 failed |
 | `forge build` / `forge test` | `contracts/` | ✅ **181**, 0 failed |
 | `npx tsc --noEmit` / `npm test` | `web/` | ✅ clean / **8** pass |
-| clean-room firewall | whole repo (113 publishable files) | ✅ GREEN |
+| clean-room firewall | whole repo (116 publishable files) | ✅ GREEN |
 
 > **No regression.** The Engine is a refactor: the existing swap/route/bridge legs (`swap.ts` / `route.ts` /
 > `bridge.ts`) and their tests are **untouched and still green** — the adapters *wrap* them, reusing the

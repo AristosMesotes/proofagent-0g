@@ -65,7 +65,7 @@ failure). An empty journey is `unverified`, never a vacuous `settled`. This is t
 | `cargo test` | verifier (incl. `bridge_verdict`) | ✅ **289**, 0 failed |
 | `npx tsc --noEmit` | `agent/` (incl. `bridge.ts`) | ✅ clean |
 | `npm test` | `agent/` (incl. the bridge legs) | ✅ **202**, 0 failed |
-| clean-room firewall | whole repo (113 publishable files) | ✅ GREEN |
+| clean-room firewall | whole repo (116 publishable files) | ✅ GREEN |
 
 > The `live` build (`LiveBridgeSource`, a **TWO-chain** `eth_getTransactionReceipt` reader) is
 > **feature-gated**: it cannot *link* on this windows-gnu host (no `as.exe`), but the feature-gated code is
