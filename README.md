@@ -26,6 +26,15 @@ You don't trust the agent. You check the chain.
 Point the verifier at a **fabricated** transaction hash and it stamps **`UNVERIFIED`** — not `SETTLED`.
 It isn't rubber-stamping; it's reading the chain.
 
+### Run the agent without spending a cent (dry-run)
+The web **Verification Console** (`web/dashboard.html`) has a **"Run the agent (dry-run)"** card that walks the
+full agent loop READ-ONLY — **no wallet, no signing, nothing broadcast**. It plans three demo trades, gates each
+**per asset** with a real zero-gas `checkTransfer` `eth_call` on the deployed mandate (an allowlisted asset under
+its cap → **ALLOWED**; over its cap → **OVER_TX_CAP**; a non-allowlisted asset → **TOKEN_NOT_ALLOWED**), and
+produces a **RUN LEDGER** in the verifier's own journal format. A dry-run broadcasts nothing, so every leg is
+honestly `unverified` — never a fabricated `settled`. The Brain stamp stays **PENDING** (its green flip is
+operator-gated on a real TEE attestation).
+
 ### Stack
 Rust (verifier) · Solidity (mandate) · TypeScript (agent · 0G SDKs · web).
 Self-contained, MIT, talks to 0G only through public SDKs.

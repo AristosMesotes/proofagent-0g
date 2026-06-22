@@ -58,6 +58,24 @@ cargo run -p verifier -- verify-tx 0x8c59d0e8beabc492f24e1726903388a852c96413779
 # → settled   (exit 0)   — cross-check the explorer link in the Quick-look above
 ```
 
+### Run the agent (dry-run) — on screen, no wallet, no broadcast
+Open the **Verification Console** and click **"Run the agent (dry-run)"**:
+```bash
+cd web && npm install && npm run build && npx serve -l 3100 .   # then open http://localhost:3100/dashboard.html
+```
+It walks the full agent loop READ-ONLY — **no wallet, no signing, nothing broadcast** (the only chain access is the
+same zero-gas `checkTransfer` `eth_call` as Proof 2). It plans three demo trades and gates each **per asset** against
+the deployed mandate, live:
+- an **allowlisted** asset (native sentinel) **under** its cap → `(true, OK)` → **ALLOWED**;
+- the **same** asset **over** its cap → `(false, OVER_TX_CAP)` → **BLOCKED (over the asset's cap)**;
+- a **non-allowlisted** asset (USDC.E) → `(false, TOKEN_NOT_ALLOWED)` → **BLOCKED (asset not on the allowlist)**.
+
+The same agent gets a **different** decision per asset — the mandate is enforced **by asset**. Because a dry-run
+broadcasts nothing, every leg's settlement verdict is `unverified` (never a fabricated `settled`), and the card
+prints a **RUN LEDGER** in the verifier's own journal format (`{"hash","kind","claimed","observed","recorded","verdict"}`
++ the `ledger` status line) — the identical artifact a real `verifier verify-tx … --journal` + `verifier ledger`
+produces. Confirm the gate answers yourself with the `cast call` from Proof 2 (vary the asset/amount).
+
 ### Audit the ledger
 ```bash
 cargo run -p verifier -- ledger    # the full verifier-verdict journal

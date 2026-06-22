@@ -1,8 +1,15 @@
 # web/ -- the thin demo UI
 
-One static screen (design §4): the **three honest proof stamps** + **three driveable controls** -- the
-**NEG case** and two READ-ONLY on-chain checks (**RAILS** + **SETTLED**), so the headless harness can drive
-all three proofs through the real UI.
+Two static screens (design §4):
+
+- **`index.html`** -- the original thin proof page: the **three honest proof stamps** + **three driveable
+  controls** -- the **NEG case** and two READ-ONLY on-chain checks (**RAILS** + **SETTLED**), so the headless
+  harness can drive all three proofs through the real UI (loads `dist/main.js`).
+- **`dashboard.html`** -- the interactive **Verification Console**: the four proof cards (NEG · BRAIN · RAILS ·
+  SETTLEMENT) + the paste-any-hash **Playground** + the **"Run the agent (dry-run)"** card + the live verdict
+  feed + the evidence drawer (loads `dist/dashboard.js`). The console mounts dynamically; it adds no new trust
+  surface -- every verdict it paints is reconciled against an independent source, and only `settled`/`live` is
+  green.
 
 | Stamp | What it shows | Honesty (design §7/§8) |
 |---|---|---|
@@ -48,6 +55,44 @@ same receipt + value and rerun the adjudication (or `verify-tx` against the inde
 Both on-chain controls read the public 0G Galileo endpoint (`https://evmrpc-testnet.0g.ai`) and link the
 public testnet explorer (`https://chainscan-galileo.0g.ai`); the RPC URL is read at run time, never a
 private endpoint, and there is **no signing/broadcast surface** in the read transport by construction.
+
+## The "Run the agent (dry-run)" card (dashboard only — design §5 the loop · §6 the run ledger)
+
+The Verification Console adds a **"Run the agent (dry-run)"** affordance (`web/src/dryrun.ts` +
+`web/src/dryrunView.ts`) that walks the **full agent function** READ-ONLY: **NO wallet, NO signing, NOTHING
+broadcast**. The only chain access is the SAME key-less, zero-gas `checkTransfer` `eth_call` the RAILS proof
+uses. It runs the loop `plan → mandate-gate (per asset) → verify` (mirroring the agent's own dry-run loop in
+`agent/src/loop.ts`, which broadcasts nothing) and produces a **RUN LEDGER**:
+
+1. **plan** — three deterministic demo intents over ONE agent that EXERCISE the mandate **per asset**:
+   an under-cap trade on the allowlisted native asset, an over-cap trade on the SAME asset, and a trade on a
+   **non-allowlisted** asset (the public USDC.E).
+2. **mandate-gate (BY ASSET)** — each intent is gated by a real read-only `checkTransfer(agent, token, amount)`
+   against the deployed `MandateRegistry`, reusing `runMandateCheck` (no copy). The deployed registry answers,
+   live and reconciled against an independent re-read:
+
+   | Intent (same agent) | asset | amount | on-chain `(ok, reason)` | dry-run decision |
+   |---|---|---|---|---|
+   | under-cap, allowed asset | native sentinel `0xEeee…EEeE` | `1_000_000` | `(true, OK)` | **ALLOWED** |
+   | over its per-asset cap, allowed asset | native sentinel `0xEeee…EEeE` | `3_000_000` | `(false, OVER_TX_CAP)` | **BLOCKED — over the asset's cap** |
+   | non-allowlisted asset | USDC.E `0x1f3AA82…473E` | `1_000_000` | `(false, TOKEN_NOT_ALLOWED)` | **BLOCKED — asset not on the allowlist** |
+
+   Same agent → three **different** gate decisions: the mandate is enforced **per asset**. (For the native
+   sentinel the per-asset sub-cap equals the global per-tx cap (both `2_000_000`), so the over-cap block
+   surfaces as the first-failing rung `OVER_TX_CAP` — the honest on-chain answer, never relabelled.)
+3. **verify** — a dry-run broadcasts nothing, so there is **no observation** → the verifier's published rule
+   stamps **`unverified`** for every leg (the keystone — never a fabricated `settled`), exactly as the agent
+   loop honestly skips the verify leg in a dry-run.
+
+**RESULT — the RUN LEDGER.** The run produces an append-only journal of each leg + verdict in the verifier's
+**OWN** canonical format — one JSONL record per leg, byte-identical to `verifier/src/journal.rs` `to_line()`
+(`{"hash","kind","claimed","observed","recorded","verdict"}`) — plus the `verifier ledger` projection's
+status-at-a-glance (the `verifier/src/ledger.rs` `LedgerSummary::status_line()` format). A judge sees the
+**identical artifact** a real `verifier verify-tx … --journal` + `verifier ledger` run produces. A dry-run leg
+has no real broadcast hash, so its journal `hash` is an honest, clearly-tagged `dryrun:`-prefixed synthetic
+(never mistakable for a real `0x` tx hash) and its `observed` is JSON `null` (the loud absence — never a
+fabricated `0`). The status line reads `DEFECTS … 3 unverified` honestly — an all-`unverified` dry-run is
+**NOT green**, and `audit` would surface those rows loud (exit 1).
 
 ## Build & run (offline, no framework, no CDN)
 

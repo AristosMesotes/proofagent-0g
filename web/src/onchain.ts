@@ -48,8 +48,8 @@ import { VERDICT, type Verdict } from "./proofs.js";
  * unchanged against the same values -- same surface, one source.
  * ------------------------------------------------------------------------------------------------ */
 
-import { GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN } from "./spine.js";
-export { GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN };
+import { GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN, MANDATE_ASSETS } from "./spine.js";
+export { GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN, MANDATE_ASSETS };
 
 /* ------------------------------------------------------------------------------------------------ *
  * The read-only transport seam (a thin JSON-RPC reader). A live browser `fetch` reader and an
@@ -226,19 +226,40 @@ export interface RailsResult {
   readonly reproduceCommand: string;
 }
 
+/** A PER-ASSET mandate probe: the agent + asset + amount one read-only `checkTransfer` eth_call gates. */
+export interface MandateProbe {
+  /** The agent address proposing the spend (must equal the registry's mandated `agent`). */
+  readonly agent: string;
+  /** The asset to probe (the per-asset surface — an allowlisted or a non-allowlisted token). */
+  readonly token: string;
+  /** The amount to probe, MINOR units (wei). */
+  readonly amount: bigint;
+}
+
 /**
- * Run the RAILS control (design §2 Rails): a READ-ONLY `eth_call` of `checkTransfer(agent, native,
- * OVER-cap amount)` against the deployed registry. The chain answers `(false, OVER_TX_CAP)` -- a
- * zero-gas, pre-broadcast block -- and this returns that decoded verdict. NO key, NO broadcast: a pure
- * read. The verdict is the decoded on-chain reason, re-derivable by anyone replaying the same call.
+ * Run ONE per-asset mandate check (the generalized RAILS read): a READ-ONLY `eth_call` of
+ * `checkTransfer(agent, token, amount)` against the deployed registry, decoded into the on-chain
+ * `(ok, reason)` verdict. NO key, NO broadcast — a pure read. The verdict is ALWAYS the decoded on-chain
+ * reason, re-derivable by anyone replaying the same call: `OK` when the chain allows, else the first-failing
+ * reason (`OVER_TX_CAP` / `OVER_ASSET_CAP` over a cap, `TOKEN_NOT_ALLOWED` for a non-allowlisted asset).
+ *
+ * This is the single generalized primitive both the RAILS control and the dry-run's mandate-BY-ASSET leg
+ * read through — same codec, same transport seam, no duplicated logic — so swapping the asset/amount never
+ * changes what a verdict MEANS.
  *
  * @param transport the read-only RPC seam (a live browser reader, or a test double).
- * @returns the rails result whose `verdict` is the decoded on-chain reason (`OVER_TX_CAP` when blocked).
+ * @param probe the per-asset probe (agent, token, amount).
+ * @param registry the deployed registry to read (defaults to the spine's pinned MandateRegistry).
+ * @returns the rails result whose `verdict` is the decoded on-chain reason for THIS asset+amount.
  * @throws {OnChainReadError} on a transport failure or a malformed reply (a loud degrade, never an allow).
  */
-export async function runRailsCheck(transport: RpcTransport): Promise<RailsResult> {
-  const { registry, agent, nativeSentinel, overCapAmount, perTxCap } = RAILS_ONCHAIN;
-  const calldata = encodeCheckTransfer(agent, nativeSentinel, overCapAmount);
+export async function runMandateCheck(
+  transport: RpcTransport,
+  probe: MandateProbe,
+  registry: string = RAILS_ONCHAIN.registry,
+): Promise<RailsResult> {
+  const { agent, token, amount } = probe;
+  const calldata = encodeCheckTransfer(agent, token, amount);
   const raw = await transport.ethCall(registry, calldata);
   const decoded = decodeCheckTransfer(raw);
   const blocked = !decoded.ok;
@@ -246,19 +267,48 @@ export async function runRailsCheck(transport: RpcTransport): Promise<RailsResul
     blocked,
     verdict: decoded.reason,
     agent,
-    token: nativeSentinel,
-    amount: overCapAmount,
+    token,
+    amount,
     calldata,
     explanation: blocked
-      ? `The on-chain MandateRegistry rejected the over-cap spend BEFORE broadcast: ` +
-        `checkTransfer(agent, native, ${overCapAmount.toString()} wei) returned (false, ${decoded.reason}) ` +
-        `as a zero-gas eth_call -- ${overCapAmount.toString()} > the ${perTxCap.toString()}-wei per-tx cap. ` +
-        `No transaction was broadcast; the block is the proof.`
-      : `Unexpected: the chain ALLOWED an over-cap spend (ok=true, reason=${decoded.reason}). ` +
-        `That contradicts the pinned per-tx cap -- treat as a LOUD anomaly, never a pass.`,
+      ? `The on-chain MandateRegistry rejected this spend BEFORE broadcast: ` +
+        `checkTransfer(agent, ${token}, ${amount.toString()} wei) returned (false, ${decoded.reason}) ` +
+        `as a zero-gas eth_call. No transaction was broadcast; the block is the proof.`
+      : `The on-chain MandateRegistry ALLOWED this spend as a zero-gas eth_call: ` +
+        `checkTransfer(agent, ${token}, ${amount.toString()} wei) returned (true, ${decoded.reason}) — ` +
+        `within the per-asset sub-cap and the global per-tx cap. Nothing is broadcast in a dry-run.`,
     reproduceCommand:
       `cast call ${registry} "checkTransfer(address,address,uint256)" ` +
-      `${agent} ${nativeSentinel} ${overCapAmount.toString()} --rpc-url $OG_RPC`,
+      `${agent} ${token} ${amount.toString()} --rpc-url $OG_RPC`,
+  };
+}
+
+/**
+ * Run the RAILS control (design §2 Rails): a READ-ONLY `eth_call` of `checkTransfer(agent, native,
+ * OVER-cap amount)` against the deployed registry. The chain answers `(false, OVER_TX_CAP)` -- a
+ * zero-gas, pre-broadcast block -- and this returns that decoded verdict. NO key, NO broadcast: a pure
+ * read. The verdict is the decoded on-chain reason, re-derivable by anyone replaying the same call.
+ *
+ * It now delegates to the generalized {@link runMandateCheck} (the over-cap probe is one per-asset check),
+ * so the existing RAILS behaviour is byte-identical — same calldata, same decoded verdict — but the over-cap
+ * explanation/anomaly framing is preserved here for the RAILS card's copy.
+ *
+ * @param transport the read-only RPC seam (a live browser reader, or a test double).
+ * @returns the rails result whose `verdict` is the decoded on-chain reason (`OVER_TX_CAP` when blocked).
+ * @throws {OnChainReadError} on a transport failure or a malformed reply (a loud degrade, never an allow).
+ */
+export async function runRailsCheck(transport: RpcTransport): Promise<RailsResult> {
+  const { registry, agent, nativeSentinel, overCapAmount, perTxCap } = RAILS_ONCHAIN;
+  const result = await runMandateCheck(transport, { agent, token: nativeSentinel, amount: overCapAmount }, registry);
+  return {
+    ...result,
+    explanation: result.blocked
+      ? `The on-chain MandateRegistry rejected the over-cap spend BEFORE broadcast: ` +
+        `checkTransfer(agent, native, ${overCapAmount.toString()} wei) returned (false, ${result.verdict}) ` +
+        `as a zero-gas eth_call -- ${overCapAmount.toString()} > the ${perTxCap.toString()}-wei per-tx cap. ` +
+        `No transaction was broadcast; the block is the proof.`
+      : `Unexpected: the chain ALLOWED an over-cap spend (ok=true, reason=${result.verdict}). ` +
+        `That contradicts the pinned per-tx cap -- treat as a LOUD anomaly, never a pass.`,
   };
 }
 

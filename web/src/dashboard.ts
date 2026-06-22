@@ -65,9 +65,12 @@ import {
   type IndependentResult,
   type ReconcileState,
 } from "./reconcile.js";
+// (ReconcileState is used by the dry-run listeners below to record each leg's real reconciliation state.)
 import { buildPlayground, type VerdictListener } from "./playground.js";
 import { FeedStore, FeedView, type VerdictSource } from "./feed.js";
 import { EvidenceDrawer, type EvidenceRecord } from "./evidence.js";
+import { buildDryRun, type DryRunListeners } from "./dryrunView.js";
+import { type DryRunResult } from "./dryrun.js";
 
 /* ------------------------------------------------------------------------------------------------ *
  * Identity copy (the header rail -- design §3/§4.1).
@@ -115,22 +118,26 @@ const cardStatus: Record<CardKey, CardStatus> = {
 const feedStore = new FeedStore();
 const drawer = new EvidenceDrawer();
 
+/** A drawer-evidence key — the four cards + the playground + the dry-run. */
+type EvidenceKey = CardKey | "playground" | "dryrun";
+
 /** One card's accumulated evidence, updated each run so the drawer can show the LATEST reads for it. */
-const evidence: Record<CardKey | "playground", EvidenceRecord> = {
+const evidence: Record<EvidenceKey, EvidenceRecord> = {
   neg: emptyEvidence("neg", "NEG — refuse a fabricated tx"),
   brain: emptyEvidence("brain", "BRAIN — which model ran (0G Compute TEE)"),
   rails: emptyEvidence("rails", "RAILS — it cannot overspend"),
   settlement: emptyEvidence("settlement", "SETTLEMENT — the trade really happened"),
   playground: emptyEvidence("playground", "Playground — paste ANY 0G tx hash"),
+  dryrun: emptyEvidence("dryrun", "Run the agent (dry-run) — the run ledger"),
 };
 
 /** An empty evidence record (the honest "not run yet" default the drawer renders before any check). */
-function emptyEvidence(key: CardKey | "playground", title: string): EvidenceRecord {
+function emptyEvidence(key: EvidenceKey, title: string): EvidenceRecord {
   return { key, title, rawJson: "(no read yet — run the check to populate this evidence.)", calldata: null, reproduce: [], reconLog: [] };
 }
 
 /** Record/replace a surface's latest evidence so the drawer shows its most recent reads + reconciliation. */
-function setEvidence(key: CardKey | "playground", record: Omit<EvidenceRecord, "key">): void {
+function setEvidence(key: EvidenceKey, record: Omit<EvidenceRecord, "key">): void {
   evidence[key] = { key, ...record };
 }
 
@@ -911,6 +918,42 @@ export function boot(): void {
     appendFeed("Playground", result.verdict, "verifier", result.hash, reconcile);
   };
   renderPlayground(mount, transport, onPlaygroundVerdict);
+  // D2. the Run-the-agent (dry-run) card — walk plan → mandate-by-asset → verifier verdict READ-ONLY, then
+  // project the RUN LEDGER in the verifier's own format. Each leg stamps a `0G RPC` feed row (the per-asset
+  // gate verdict, reconciled vs an independent re-read); the run records the run-ledger evidence in the drawer.
+  // The per-leg reconcile state, captured as legs resolve, so the run-ledger evidence reflects the REAL
+  // reconciliation per leg (never a fabricated all-green — an infra-gated leg is recorded honestly).
+  const dryRunReconcile = new Map<string, ReconcileState>();
+  const dryRunListeners: DryRunListeners = {
+    onLeg: (leg, reconcile) => {
+      dryRunReconcile.set(leg.intent.id, reconcile);
+      // The per-asset mandate verdict came from an independent 0G RPC read — stamp it into the live feed.
+      appendFeed(`Dry-run ${leg.intent.id}`, leg.mandateReason, "0G RPC", null, reconcile);
+    },
+    onLedger: (result: DryRunResult) => {
+      // Record the WHOLE run ledger (the verifier-journal lines + the projection) as the dry-run evidence.
+      setEvidence("dryrun", {
+        title: "Run the agent (dry-run) — the run ledger",
+        rawJson:
+          result.journalLines.join("\n") +
+          `\n\n# verifier ledger --journal <run.journal>\n${result.statusLine}`,
+        calldata: null,
+        reproduce: result.legs.map((l) => l.mandateReproduce),
+        reconLog: result.legs.map((l) => {
+          const state = dryRunReconcile.get(l.intent.id) ?? RECONCILE.PENDING;
+          return {
+            surface: `Dry-run ${l.intent.id}`,
+            painted: l.mandateReason,
+            // The independent re-read agreed iff the leg reconciled; otherwise it is unavailable/disagreed.
+            independent: state === RECONCILE.RECONCILED ? l.mandateReason : null,
+            state,
+          };
+        }),
+      });
+    },
+  };
+  const dryRun = buildDryRun(transport, dryRunListeners);
+  mount.appendChild(dryRun.root);
   // E. the live verdict feed (newest-first; every checked verdict this session stamps a row).
   const feedView = new FeedView(feedStore, flashCopied);
   mount.appendChild(feedView.element());

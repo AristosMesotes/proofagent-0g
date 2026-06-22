@@ -234,6 +234,27 @@ chain confirms it. These are recorded here, distinct from the chain-observed ver
 > rendering is *reconciled against* the same independent truth, never promoted into §1 on its own word. The
 > two `settled` rows and the one NEG `unverified` row stand exactly as journalled.
 
+### §6a — The "Run the agent (dry-run)" RUN LEDGER (a DRY-RUN projection — NOT a §1 settlement)
+
+The Verification Console's **"Run the agent (dry-run)"** card (`web/src/dryrun.ts`) walks the full agent loop
+**READ-ONLY** — no wallet, no signing, nothing broadcast — and produces a **RUN LEDGER** in *this exact
+format*: one canonical JSONL record per leg (`{"hash","kind","claimed","observed","recorded","verdict"}`,
+byte-identical to `verifier/src/journal.rs`) + the `LedgerSummary::status_line()` projection
+(`verifier/src/ledger.rs`). It is a **dry-run** projection, kept strictly out of the §1 chain-truth table:
+
+- It gates three demo intents **per asset** with real read-only `checkTransfer` `eth_call`s — an allowlisted
+  asset under its cap (`OK`), the same asset over its cap (`OVER_TX_CAP`), and a non-allowlisted asset
+  (`TOKEN_NOT_ALLOWED`) — proving the mandate is enforced **by asset** (§6 RAILS claim, generalized).
+- A dry-run **broadcasts nothing**, so each leg's `observed` is `null` (the loud absence — never a fabricated
+  `0`), its synthetic `hash` is a clearly-tagged `dryrun:…` (never a real `0x` tx hash), and its verdict is
+  **`unverified`** — so the run-ledger status line reads, honestly, `DEFECTS -- 3 verdict(s): 0 settled / 0
+  hollow / 0 mismatch / 3 unverified (3 defect(s))`. An all-`unverified` dry-run is **NOT** green, and `audit`
+  over it would exit `1` — it can **never** mint a `settled` (design §3 #2/#3, §13).
+
+This RUN LEDGER is the **identical artifact** a real `verifier verify-tx … --journal` + `verifier ledger`
+run produces, so a judge sees the same settlement-truth shape — but it claims **nothing** in §1, because a
+dry-run settles nothing (and nothing was lost).
+
 ---
 
 ## Status at a glance

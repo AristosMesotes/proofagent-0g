@@ -1099,6 +1099,128 @@ code {
   }
 }
 
+/* ================================================================================================ *
+ * The "Run the agent (dry-run)" card (design §5 the loop · §6 the run ledger · §8 honesty). Additive:
+ * ONLY the dashboard references these classes; the demo page (index.html) references NONE of them.
+ * Reuses the honesty colour grammar verbatim (only .is-settled is green; .is-mismatch LOUD red; grey).
+ * ================================================================================================ */
+
+.dryrun {
+  margin: 1.25rem 0;
+}
+.dryrun .card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.dryrun__lead {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+.dryrun__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  font-size: 0.78rem;
+}
+.dryrun__facts dt {
+  color: var(--ink-dim);
+}
+.dryrun__facts dd {
+  margin: 0;
+  word-break: break-all;
+}
+.dryrun__legs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* --- one dry-run leg: the planned intent + the per-asset gate decision + the verdict --- */
+.dryrun-leg {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.dryrun-leg__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dryrun-leg__title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.dryrun-leg__plan {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  word-break: break-all;
+}
+.dryrun-leg__recon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* --- the run ledger: the verifier's own journal + projection --- */
+.dryrun-ledger {
+  border-top: 1px dashed var(--line);
+  padding-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.dryrun-ledger__heading {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+.dryrun-ledger__note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+.dryrun-ledger__subtitle {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+.dryrun-ledger__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+}
+.dryrun-ledger__table th,
+.dryrun-ledger__table td {
+  border: 1px solid var(--line);
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  word-break: break-all;
+}
+.dryrun-ledger__table th {
+  color: var(--ink-dim);
+  font-weight: 700;
+}
+.dryrun-ledger__journal {
+  margin: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #06090d;
+  color: var(--ink-dim);
+  font-size: 0.74rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* --- accessibility: honour a reduced-motion preference (drop the background-only transitions) --- */
 @media (prefers-reduced-motion: reduce) {
   .feed-row {
@@ -1110,6 +1232,7 @@ code {
   .pill,
   .ghost-btn,
   .proof-card__button,
+  .dryrun__button,
   .pg-check,
   .drawer__close {
     transition: none;

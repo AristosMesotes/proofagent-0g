@@ -115,6 +115,46 @@ export const RAILS_ONCHAIN = {
 } as const;
 
 /**
+ * The PER-ASSET mandate surface the dry-run's mandate-BY-ASSET leg probes, mirroring `[mandate]` in
+ * proofagent.toml + `demo/EVIDENCE.md` (the on-chain `setAssetCap` allowlist). All PUBLIC. The deployed
+ * MVP `MandateRegistry` enforces a per-asset allowlist + per-asset sub-caps: ONLY the native sentinel was
+ * allowlisted on-chain (`setAssetCap(0xEeee…EEeE, 2_000_000, true)`), so a DIFFERENT asset is rejected
+ * `TOKEN_NOT_ALLOWED` — the same agent gets a DIFFERENT gate decision per asset. The amounts below make
+ * the per-asset enforcement visible against the LIVE registry, each as a real read-only `eth_call`:
+ *
+ *  - the native sentinel UNDER its sub-cap → `(true, OK)`        (allowed asset under cap → ALLOWED);
+ *  - the native sentinel OVER  its sub-cap → `(false, OVER_TX_CAP)` (allowed asset over its per-asset cap;
+ *    for this asset the per-asset sub-cap EQUALS the global per-tx cap (both 2_000_000), so the first-
+ *    failing rung the chain returns is `OVER_TX_CAP` — the honest on-chain over-cap block);
+ *  - a NON-allowlisted asset (the public USDC.E token) → `(false, TOKEN_NOT_ALLOWED)` (per-asset allowlist).
+ *
+ * These are read-only probes (no key, no broadcast); the rendered verdict is always the decoded on-chain
+ * `(ok, reason)`, never fabricated — an unexpected answer surfaces loud, never softened to an allow.
+ */
+export const MANDATE_ASSETS = {
+  /** Deployed MandateRegistry on Galileo (same address the RAILS leg reads — `[mandate].address`). */
+  registry: "0x675FF5053F434AA3f1d48574813BFc1696FBD345",
+  /** The demo agent the mandate is bound to (the registry's mandated `agent`; PUBLIC). */
+  agent: "0xc7Af61A1399Aca0bee648D7853AE93f96B86866a",
+  /** The allowlisted native-asset sentinel the cap is enforced against (`[mandate].native_asset_sentinel`). */
+  nativeSentinel: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+  /**
+   * A NON-allowlisted asset on the deployed registry — the public USDC.E token on 0G
+   * (`[bridge].usdce_token`). It was never `setAssetCap`-allowlisted on this MVP registry, so the gate
+   * rejects it `TOKEN_NOT_ALLOWED` for the same agent — proving the mandate is enforced PER ASSET.
+   */
+  nonAllowlistedAsset: "0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E",
+  /** The native sentinel's on-chain per-asset sub-cap, MINOR units (wei) — `assetCap[sentinel]` (`[mandate]`). */
+  perAssetCap: 2_000_000n,
+  /** An UNDER-cap probe amount, MINOR units (wei). 1_000_000 < the 2_000_000 sub-cap → the chain answers `(true, OK)`. */
+  underCapAmount: 1_000_000n,
+  /** An OVER-cap probe amount, MINOR units (wei). 3_000_000 > the 2_000_000 sub-cap → the chain answers `(false, OVER_TX_CAP)`. */
+  overCapAmount: 3_000_000n,
+  /** The amount probed against the NON-allowlisted asset (rejected on the allowlist rung BEFORE any cap). */
+  nonAllowlistedAmount: 1_000_000n,
+} as const;
+
+/**
  * The PINNED, already-settled tx the SETTLED read confirms, mirroring `[[verifier.corpus]]` in
  * proofagent.toml + `demo/EVIDENCE.md` PROOF 1. A genuine native 0G transfer on Galileo: `status 0x1`
  * (Success) and a native `value` of `claimed` wei, so the verifier's adjudication is `settled`.

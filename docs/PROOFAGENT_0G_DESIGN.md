@@ -139,6 +139,23 @@ A failing mandate verdict means **the agent does not execute** — the cap is a 
 
 The wow widens the **action** (swap → route → bridge) and **deepens the mandate** (one per-tx cap → the four-tier gate), but the loop's shape is invariant: every leg is `mandate-gate → execute → verify`, and the Engine (§10.5) makes that loop **protocol-agnostic** — the agent expresses one intent, the gateway picks/prices/gates/dispatches, and the verifier still holds the sole verdict.
 
+**The dry-run is on screen too (the "Run the agent (dry-run)" card).** The Verification Console
+(`web/dashboard.html`) drives this exact loop READ-ONLY — **NO wallet, NO signing, NOTHING broadcast** — as a
+*"Run the agent (dry-run)"* affordance (`web/src/dryrun.ts` + `dryrunView.ts`), the in-page twin of the
+agent's own dry-run loop (`agent/src/loop.ts`, `ExecuteMode.DRY_RUN`, which broadcasts nothing). It (1)
+**plans** three demo intents that exercise the mandate **per asset** — an under-cap trade on an allowlisted
+asset, an over-cap trade on the same asset, and a trade on a **non-allowlisted** asset; (2) **gates each PER
+ASSET** with a real read-only `checkTransfer(agent, token, amount)` `eth_call` against the deployed registry
+(reusing the RAILS leg's `checkTransfer` codec, no copy), so the *same* agent gets a *different* decision per
+asset — `OK` (allowed) · `OVER_TX_CAP`/`OVER_ASSET_CAP` (over the per-asset cap) · `TOKEN_NOT_ALLOWED`
+(non-allowlisted) — each reconciled against an independent re-read; and (3) derives the **verifier verdict
+that would settle** — `unverified` for every leg, because a dry-run broadcasts nothing so there is no
+observation (the keystone, never a fabricated `settled`). The **RESULT is a RUN LEDGER** in the verifier's
+OWN journal/ledger format (§6) — one canonical JSONL record per leg + the `LedgerSummary::status_line()`
+projection — so a judge sees the **identical artifact** a real `verifier verify-tx … --journal` + `verifier
+ledger` run produces. It is labelled a dry-run, it mints no verdict, and it can never reach a green
+`settled` — exactly the honesty doctrine (§3 #2/#3, §13), made visible on a single click.
+
 ---
 
 ## 6. The settlement-truth LEDGER — the journal, the projection, the audit
