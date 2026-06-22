@@ -755,3 +755,363 @@ code {
   font-size: 0.76rem;
   word-break: break-all;
 }
+
+/* ================================================================================================ *
+ * P3 -- the LIVE VERDICT FEED (design §4.5) + the single responsive EVIDENCE DRAWER (design §4.6) +
+ * the polish pass (design §10 P4). Additive: ONLY the dashboard references these classes; the demo
+ * page (index.html) references NONE of them, so the existing screen is unchanged. The honesty colour
+ * grammar is reused verbatim (only .is-settled is green; .is-mismatch is LOUD red; .is-read-error grey).
+ * ================================================================================================ */
+
+/* --- a generic ghost button (the small copy / explorer / clear / evidence affordances) --- */
+.ghost-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: var(--transition-bg);
+}
+.ghost-btn:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.ghost-btn.flash-success {
+  border-color: var(--green);
+  color: var(--text-success);
+}
+
+/* the per-card "raw evidence ↗" affordance sits beside the reconciliation badge */
+.proof-card__evidence {
+  margin-left: auto;
+}
+
+/* --- the live verdict feed (newest-first; an accumulating signed verdict log) --- */
+.feed {
+  margin: 1.25rem 0;
+}
+.feed__titlebar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.feed__titlebar > span:first-child {
+  flex: 1 1 auto;
+}
+.feed__count {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  padding: 0 0.5rem;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.feed__clear {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.feed__empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.feed__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.feed-row {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  padding: 0.6rem 0.75rem;
+  /* a subtle slide-in only on the newest (background-only motion; respects reduced-motion below) */
+  animation: feed-in 200ms ease both;
+}
+@keyframes feed-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.feed-row__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.feed-row__action {
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+.feed-chip {
+  font-size: 0.72rem;
+  gap: 0.3rem;
+  height: 1.35rem;
+  padding: 0 0.55rem;
+}
+.feed-chip.is-settled {
+  border-color: var(--green);
+  color: var(--green);
+}
+.feed-chip.is-mismatch {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.feed-chip.is-pending,
+.feed-chip.is-read-error {
+  color: var(--ink-dim);
+}
+.feed-chip__glyph {
+  font-weight: 700;
+}
+.feed-row__time {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.feed-row__sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}
+.feed-row__hash {
+  color: var(--ink-dim);
+}
+.feed-row__recon {
+  margin-left: auto;
+  font-size: 0.7rem;
+}
+.feed-row__recon.is-settled {
+  color: var(--green);
+}
+.feed-row__recon.is-mismatch {
+  color: var(--danger);
+}
+.feed-row__recon.is-read-error,
+.feed-row__recon.is-pending {
+  color: var(--muted);
+}
+
+/* --- the single responsive evidence drawer (slide-over on wide; bottom-sheet on narrow) --- */
+.drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+.drawer[hidden] {
+  display: none;
+}
+.drawer__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 5, 9, 0.6);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.drawer--open .drawer__scrim {
+  opacity: 1;
+}
+.drawer__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(440px, 92vw);
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 200ms ease;
+  overflow: hidden;
+}
+.drawer--open .drawer__panel {
+  transform: translateX(0);
+}
+.drawer__header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.drawer__title {
+  margin: 0;
+  font-size: 0.95rem;
+  flex: 1 1 auto;
+  word-break: break-word;
+}
+.drawer__close {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 1.2rem;
+  line-height: 1;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-bg);
+}
+.drawer__close:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.drawer__body {
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.drawer__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.drawer__sectiontitle {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.drawer__pre {
+  margin: 0;
+  padding: 0.6rem 0.7rem;
+  background: #06090d;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+.drawer__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.drawer__reconlog {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.drawer__reconline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+  font-size: 0.76rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  background: var(--panel-2);
+}
+.drawer__reconsurface {
+  font-weight: 700;
+}
+.drawer__recondetail {
+  color: var(--ink-dim);
+  font-size: 0.72rem;
+}
+.drawer__reconstate {
+  margin-left: auto;
+  font-weight: 700;
+}
+.drawer__reconstate.is-settled {
+  color: var(--green);
+}
+.drawer__reconstate.is-mismatch {
+  color: var(--danger);
+}
+.drawer__reconstate.is-read-error,
+.drawer__reconstate.is-pending {
+  color: var(--muted);
+}
+
+/* --- polish: a visible, accessible focus ring on every interactive surface --- */
+.proof-card__button:focus-visible,
+.proof-card__evidence:focus-visible,
+.pg-check:focus-visible,
+.pg-input:focus-visible,
+.ghost-btn:focus-visible,
+.feed__clear:focus-visible,
+.drawer__close:focus-visible,
+.feed-row__explorer:focus-visible,
+.spine__facts a:focus-visible,
+.foot a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- responsive: on a narrow viewport the grid collapses + the drawer becomes a bottom sheet --- */
+@media (max-width: 640px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
+  .dash-header--rail {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+  .drawer__panel {
+    top: auto;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    width: 100%;
+    height: min(82vh, 40rem);
+    border-left: none;
+    border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0;
+    transform: translateY(100%);
+  }
+  .drawer--open .drawer__panel {
+    transform: translateY(0);
+  }
+}
+
+/* --- accessibility: honour a reduced-motion preference (drop the background-only transitions) --- */
+@media (prefers-reduced-motion: reduce) {
+  .feed-row {
+    animation: none;
+  }
+  .drawer__scrim,
+  .drawer__panel,
+  .status-dot,
+  .pill,
+  .ghost-btn,
+  .proof-card__button,
+  .pg-check,
+  .drawer__close {
+    transition: none;
+  }
+}

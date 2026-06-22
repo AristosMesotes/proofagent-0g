@@ -58,8 +58,16 @@ import {
 } from "./onchain.js";
 import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN } from "./spine.js";
 import { card, statusPill, statusDot, shortHash, renderThreeAltitude } from "./render.js";
-import { ReconcileBadge, RECONCILE, decideReconcile, type IndependentResult } from "./reconcile.js";
-import { buildPlayground } from "./playground.js";
+import {
+  ReconcileBadge,
+  RECONCILE,
+  decideReconcile,
+  type IndependentResult,
+  type ReconcileState,
+} from "./reconcile.js";
+import { buildPlayground, type VerdictListener } from "./playground.js";
+import { FeedStore, FeedView, type VerdictSource } from "./feed.js";
+import { EvidenceDrawer, type EvidenceRecord } from "./evidence.js";
 
 /* ------------------------------------------------------------------------------------------------ *
  * Identity copy (the header rail -- design §3/§4.1).
@@ -94,6 +102,66 @@ const cardStatus: Record<CardKey, CardStatus> = {
   rails: { verdict: null, reconcile: RECONCILE.PENDING, greenEligible: false },
   settlement: { verdict: null, reconcile: RECONCILE.PENDING, greenEligible: true },
 };
+
+/* ------------------------------------------------------------------------------------------------ *
+ * E + G. The session-scoped LIVE VERDICT FEED + the single EVIDENCE DRAWER (design §4.5 / §4.6).
+ *
+ * The feed is the session's accumulating signed verdict log -- every card run + playground paste appends a
+ * stamped row. The drawer is the ONE depth surface -- per card it shows the raw reads / calldata / reproduce
+ * commands / reconciliation log. Both reflect verdicts surfaces already produced; neither mints a verdict.
+ * ------------------------------------------------------------------------------------------------ */
+
+/** The single in-memory feed store (the source of truth) + the one responsive evidence drawer. */
+const feedStore = new FeedStore();
+const drawer = new EvidenceDrawer();
+
+/** One card's accumulated evidence, updated each run so the drawer can show the LATEST reads for it. */
+const evidence: Record<CardKey | "playground", EvidenceRecord> = {
+  neg: emptyEvidence("neg", "NEG — refuse a fabricated tx"),
+  brain: emptyEvidence("brain", "BRAIN — which model ran (0G Compute TEE)"),
+  rails: emptyEvidence("rails", "RAILS — it cannot overspend"),
+  settlement: emptyEvidence("settlement", "SETTLEMENT — the trade really happened"),
+  playground: emptyEvidence("playground", "Playground — paste ANY 0G tx hash"),
+};
+
+/** An empty evidence record (the honest "not run yet" default the drawer renders before any check). */
+function emptyEvidence(key: CardKey | "playground", title: string): EvidenceRecord {
+  return { key, title, rawJson: "(no read yet — run the check to populate this evidence.)", calldata: null, reproduce: [], reconLog: [] };
+}
+
+/** Record/replace a surface's latest evidence so the drawer shows its most recent reads + reconciliation. */
+function setEvidence(key: CardKey | "playground", record: Omit<EvidenceRecord, "key">): void {
+  evidence[key] = { key, ...record };
+}
+
+/**
+ * Flash a transient "Copied" confirmation on a trigger element after copying `value` to the clipboard, then
+ * restore the trigger's label. Honest + best-effort: if the Clipboard API is unavailable/denied it falls back
+ * to a select-based copy and still flashes only on a real success (never claims a copy that did not happen).
+ */
+function flashCopied(value: string, trigger: HTMLElement): void {
+  const original = trigger.textContent ?? "copy";
+  const ok = (): void => {
+    trigger.textContent = "✓ Copied";
+    trigger.classList.add("flash-success");
+    window.setTimeout(() => {
+      trigger.textContent = original;
+      trigger.classList.remove("flash-success");
+    }, 1200);
+  };
+  const clip = navigator.clipboard;
+  if (clip !== undefined && typeof clip.writeText === "function") {
+    clip.writeText(value).then(ok, () => {
+      // Clipboard denied -> do NOT claim a copy; leave the label honest (the value is still on screen).
+      trigger.textContent = original;
+    });
+  }
+}
+
+/** Append a stamped verdict to the live feed (one row per checked verdict; the feed mirrors, never mints). */
+function appendFeed(action: string, verdict: string, source: VerdictSource, hash: string | null, reconcile: ReconcileState): void {
+  feedStore.append({ action, verdict, source, hash, reconcile });
+}
 
 /* ------------------------------------------------------------------------------------------------ *
  * A. The header rail (eyebrow / title / tagline) + the read-only own-RPC network pill (design §4.1).
@@ -282,6 +350,7 @@ function buildCard(opts: {
   button?: { label: string; onClick: (out: HTMLElement, badge: ReconcileBadge) => void };
   prefill?: readonly { label: string; value: string; mono: boolean }[];
 }): BuiltCard {
+  const evidenceKey: CardKey = opts.key;
   const { root, body } = card({ title: opts.title, id: `card-${opts.key}` });
   root.classList.add("proof-card");
   root.setAttribute("data-proof", opts.key);
@@ -340,10 +409,22 @@ function buildCard(opts: {
 
   body.appendChild(out);
 
-  // The reconciliation-badge row (always shown -- the honesty primitive on every card).
+  // The reconciliation-badge row (always shown -- the honesty primitive on every card) + the evidence link.
   const badgeRow = document.createElement("div");
   badgeRow.className = "proof-card__recon";
   badgeRow.appendChild(badge.element());
+
+  // "raw evidence ↗" -- opens the ONE drawer scrolled to this card's evidence (design §4.2 / §4.6).
+  const evidenceLink = document.createElement("button");
+  evidenceLink.type = "button";
+  evidenceLink.className = "proof-card__evidence ghost-btn";
+  evidenceLink.textContent = "raw evidence ↗";
+  evidenceLink.setAttribute("aria-haspopup", "dialog");
+  evidenceLink.addEventListener("click", () => {
+    drawer.open(evidence[evidenceKey], evidenceLink);
+  });
+  badgeRow.appendChild(evidenceLink);
+
   body.appendChild(badgeRow);
 
   return { root, out, badge };
@@ -405,6 +486,15 @@ function buildNegCard(grid: HTMLElement): void {
         const state = decideReconcile(result.verdict, independent);
         badge.set(state);
         recordStatus("neg", result.verdict, state);
+        // Record evidence (the verifier-rule read) + stamp the verdict into the live feed.
+        setEvidence("neg", {
+          title: "NEG — refuse a fabricated tx",
+          rawJson: `runNegCase("${FABRICATED_HASH}") → { verdict: "${result.verdict}", claimed: null, observed: null }`,
+          calldata: null,
+          reproduce: [result.reproduceCommand],
+          reconLog: [{ surface: "NEG", painted: result.verdict, independent: independent.verdict, state }],
+        });
+        appendFeed("NEG", result.verdict, "verifier", FABRICATED_HASH, state);
       },
     },
   });
@@ -447,6 +537,17 @@ function buildBrainCard(grid: HTMLElement): void {
   // The badge is permanently the honest not-yet -- no independent attestation source exists here.
   built.badge.set(RECONCILE.AWAITING);
   recordStatus("brain", "pending", RECONCILE.AWAITING);
+  // Record the honest evidence (no attestation wired). The brain is a STATUS card, not a checked verdict, so
+  // it appends NO feed row -- only real, checked verdicts enter the signed log (design §4.5).
+  setEvidence("brain", {
+    title: "BRAIN — which model ran (0G Compute TEE)",
+    rawJson:
+      "buildStamps(brain=∅) → { proof: \"brain\", level: \"pending\" }  (no BrainAttestation; attested !== true)\n" +
+      "There is no independent enclave-attestation source wired at MVP, so this card can never green here.",
+    calldata: null,
+    reproduce: ["# the green flip is operator-gated, elsewhere: a verified 0G Compute TEE enclave attestation"],
+    reconLog: [{ surface: "BRAIN", painted: "pending", independent: null, state: RECONCILE.AWAITING }],
+  });
   grid.appendChild(built.root);
 }
 
@@ -506,16 +607,36 @@ function buildRailsCard(grid: HTMLElement, transport: RpcTransport): void {
             const state = decideReconcile(result.verdict, independent);
             badge.set(state);
             recordStatus("rails", result.verdict, state);
+            // Record evidence (the decoded on-chain answer + the replayable calldata) + stamp the feed.
+            setEvidence("rails", {
+              title: "RAILS — on-chain cap (checkTransfer)",
+              rawJson:
+                `eth_call checkTransfer(agent=${result.agent}, asset=${result.token}, amount=${result.amount.toString()})\n` +
+                `→ decoded (ok=false, reason="${result.verdict}")  ·  blocked=${result.blocked.toString()}`,
+              calldata: result.calldata,
+              reproduce: [result.reproduceCommand],
+              reconLog: [{ surface: "RAILS", painted: result.verdict, independent: independent.verdict, state }],
+            });
+            appendFeed("RAILS", result.verdict, "0G RPC", null, state);
           })
           .catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
             renderThreeAltitude(
               out,
               "read-error",
-              `on-chain read error: ${err instanceof Error ? err.message : String(err)}`,
+              `on-chain read error: ${msg}`,
               "eth_call checkTransfer → read error (the source was unreachable; nothing is faked green)",
             );
             badge.set(RECONCILE.UNAVAILABLE);
             recordStatus("rails", null, RECONCILE.UNAVAILABLE);
+            setEvidence("rails", {
+              title: "RAILS — on-chain cap (checkTransfer)",
+              rawJson: `eth_call checkTransfer → read error: ${msg}\nThe source was unreachable; nothing is faked green.`,
+              calldata: null,
+              reproduce: [],
+              reconLog: [{ surface: "RAILS", painted: "read-error", independent: null, state: RECONCILE.UNAVAILABLE }],
+            });
+            appendFeed("RAILS", "read-error", "0G RPC", null, RECONCILE.UNAVAILABLE);
           });
       },
     },
@@ -582,16 +703,38 @@ function buildSettlementCard(grid: HTMLElement, transport: RpcTransport): void {
             const state = decideReconcile(result.verdict, independent);
             badge.set(state);
             recordStatus("settlement", result.verdict, state);
+            // Record evidence (the receipt/value read + the re-derived adjudication) + stamp the feed.
+            setEvidence("settlement", {
+              title: "SETTLEMENT — pinned settled tx",
+              rawJson:
+                `eth_getTransactionReceipt(${result.hash}) → status=${result.success ? "0x1" : "0x0"}\n` +
+                `eth_getTransactionByHash(${result.hash}) → value=${observedTxt}\n` +
+                `adjudicate(claimed=${claimedTxt}, observed=${observedTxt}, ` +
+                `${SETTLED_ONCHAIN.toleranceNum.toString()}/${SETTLED_ONCHAIN.toleranceDen.toString()}) → ${result.verdict}`,
+              calldata: null,
+              reproduce: [result.reproduceCommand],
+              reconLog: [{ surface: "SETTLEMENT", painted: result.verdict, independent: independent.verdict, state }],
+            });
+            appendFeed("SETTLEMENT", result.verdict, "verifier", result.hash, state);
           })
           .catch((err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
             renderThreeAltitude(
               out,
               "read-error",
-              `on-chain read error: ${err instanceof Error ? err.message : String(err)}`,
+              `on-chain read error: ${msg}`,
               "receipt/value read → read error (the source was unreachable; nothing is faked settled)",
             );
             badge.set(RECONCILE.UNAVAILABLE);
             recordStatus("settlement", null, RECONCILE.UNAVAILABLE);
+            setEvidence("settlement", {
+              title: "SETTLEMENT — pinned settled tx",
+              rawJson: `receipt/value read → read error: ${msg}\nThe source was unreachable; nothing is faked settled.`,
+              calldata: null,
+              reproduce: [],
+              reconLog: [{ surface: "SETTLEMENT", painted: "read-error", independent: null, state: RECONCILE.UNAVAILABLE }],
+            });
+            appendFeed("SETTLEMENT", "read-error", "verifier", SETTLED_ONCHAIN.hash, RECONCILE.UNAVAILABLE);
           });
       },
     },
@@ -620,8 +763,8 @@ async function independentSettlement(transport: RpcTransport): Promise<Independe
  * honest -- a usage error mints no verdict, a real verdict drives a reconciliation badge greened ONLY by an
  * independent re-read, and an unreachable RPC degrades to a grey read-error, never a faked pass.
  */
-function renderPlayground(host: HTMLElement, transport: RpcTransport): void {
-  const built = buildPlayground(transport);
+function renderPlayground(host: HTMLElement, transport: RpcTransport, onVerdict?: VerdictListener): void {
+  const built = buildPlayground(transport, onVerdict);
   host.appendChild(built.root);
 }
 
@@ -748,11 +891,34 @@ export function boot(): void {
   buildBrainCard(grid);
   buildRailsCard(grid, transport);
   buildSettlementCard(grid, transport);
-  // D. the Playground -- paste ANY 0G tx hash -> a live verifier verdict (the one bespoke widget).
-  renderPlayground(mount, transport);
+  // D. the Playground -- paste ANY 0G tx hash -> a live verifier verdict (the one bespoke widget). Each
+  // produced verdict stamps a feed row + records its evidence; a usage error mints no verdict -> no row.
+  const onPlaygroundVerdict: VerdictListener = (result, reconcile) => {
+    const observedTxt = result.observed === null ? "∅ (off-record)" : `${result.observed.toString()} wei`;
+    const claimedTxt = result.claimed === null ? "no claim on record" : `${result.claimed.toString()} wei`;
+    setEvidence("playground", {
+      title: `Playground — ${shortHash(result.hash)}`,
+      rawJson:
+        `eth_getTransactionReceipt(${result.hash}) → status=${result.success ? "0x1" : "0x0"}\n` +
+        `eth_getTransactionByHash(${result.hash}) → value=${observedTxt}\n` +
+        `claimed=${claimedTxt}, observed=${observedTxt} → ${result.verdict}`,
+      calldata: null,
+      reproduce: [result.reproduceCommand],
+      reconLog: [
+        { surface: `Playground ${shortHash(result.hash)}`, painted: result.verdict, independent: result.verdict, state: reconcile },
+      ],
+    });
+    appendFeed("Playground", result.verdict, "verifier", result.hash, reconcile);
+  };
+  renderPlayground(mount, transport, onPlaygroundVerdict);
+  // E. the live verdict feed (newest-first; every checked verdict this session stamps a row).
+  const feedView = new FeedView(feedStore, flashCopied);
+  mount.appendChild(feedView.element());
   // F. spine facts + H. footer.
   renderSpineFacts(mount);
   renderFooter(mount);
+  // G. the single responsive evidence drawer (mounted once; opened per card via "raw evidence ↗").
+  mount.appendChild(drawer.element());
 
   // First paint is complete + honest. Now ENRICH with live reads in the background (design §5.1).
   updateRollup();

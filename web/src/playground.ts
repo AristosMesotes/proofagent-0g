@@ -37,7 +37,13 @@
 import { runSettledCheck, type RpcTransport, type SettledResult } from "./onchain.js";
 import { card, renderThreeAltitude, statusDot } from "./render.js";
 import { verdictCopyFor } from "./verdictCopy.js";
-import { ReconcileBadge, RECONCILE, decideReconcile, type IndependentResult } from "./reconcile.js";
+import {
+  ReconcileBadge,
+  RECONCILE,
+  decideReconcile,
+  type IndependentResult,
+  type ReconcileState,
+} from "./reconcile.js";
 
 /* ------------------------------------------------------------------------------------------------ *
  * Hash validation -- a usage error is NOT a verdict (design §4.3 / §5.2).
@@ -169,8 +175,13 @@ export interface BuiltPlayground {
   readonly root: HTMLElement;
 }
 
-/** A callback fired with each PRODUCED verdict (a usage error does NOT fire it -- no verdict was minted). */
-export type VerdictListener = (result: SettledResult) => void;
+/**
+ * A callback fired with each PRODUCED verdict (a usage error does NOT fire it -- no verdict was minted). It
+ * receives BOTH the settled result AND the resolved reconciliation state, so a host (the live feed / the
+ * evidence drawer) can stamp the verdict WITH the reconciliation outcome the playground already computed --
+ * never re-deriving it (the badge state is mirrored, not recomputed).
+ */
+export type VerdictListener = (result: SettledResult, reconcile: ReconcileState) => void;
 
 /** Build the empty two-source skeleton rows (design §4.3 -- teach the verdict shape before any paste). */
 function buildTwoSource(): { panel: HTMLElement; claimedEl: HTMLElement; observedEl: HTMLElement } {
@@ -345,7 +356,9 @@ export function buildPlayground(transport: RpcTransport, onVerdict?: VerdictList
         badge.set(state);
         setWait(PLAYGROUND_STATE.CONFIRMED);
         if (onVerdict !== undefined) {
-          onVerdict(result); // hand the produced verdict to the host (e.g. the feed) -- only on a real verdict.
+          // Hand the produced verdict + its resolved reconciliation state to the host (e.g. the feed) -- only
+          // on a real verdict (never for a usage error), and the host mirrors the state, never re-derives it.
+          onVerdict(result, state);
         }
       })
       .catch((err: unknown) => {
