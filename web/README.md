@@ -6,7 +6,7 @@ all three proofs through the real UI.
 
 | Stamp | What it shows | Honesty (design §7/§8) |
 |---|---|---|
-| **Brain** | which model ran | `PENDING / Phase-2` -- 0G Compute TEE attestation is the *Depth* bracket; at MVP the brain is a hosted LLM. **Never green here.** |
+| **Brain** | which model ran | `PENDING / Phase-2` in the **default offline build** -- 0G Compute TEE attestation is the *Depth* bracket. The stamp lifts to a green `LIVE / TEE-attested` ONLY when `buildStamps(brain)` is handed a real verified attestation (`attested === true`) -- a `trusted` provider-service attestation AND a verified per-response enclave signature, neither from the model's words. The brain leg itself is built + offline-tested in the agent (`agent/src/zerog/compute.ts`); the live broker call is **operator-gated** (a funded 0G Compute sub-account + a TEE provider), so by default this stamp is **PENDING until one live verified attestation**. |
 | **Rails** | it cannot overspend | the on-chain per-tx cap, enforced pre-broadcast. `ARMED` until the MandateRegistry address is pinned on-chain; `LIVE` (with an explorer link) once it is. |
 | **Settlement** | the trade really happened | the independent verifier's verdict. Asserts **no** `settled` while the corpus is empty; the live, runnable proof is the **NEG case**. |
 
@@ -65,5 +65,6 @@ npm test               # tsc + node --test (the honesty invariants)
 ## Honesty (design §3, §8)
 
 The UI mints **no** verdict (the verdict monopoly belongs to the verifier) and fabricates **no** success.
-Every constant mirrors the public data spine `proofagent.toml`; the brain stamp is never green at MVP; the
-NEG case is faithful to `verifier/src/adjudicate.rs` (off-record -> `unverified`).
+Every constant mirrors the public data spine `proofagent.toml`; the brain stamp is **never green by default**
+and lifts to green ONLY on a real verified TEE attestation (`attested === true`), never on the mere presence
+of a verdict; the NEG case is faithful to `verifier/src/adjudicate.rs` (off-record -> `unverified`).

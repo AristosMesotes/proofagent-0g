@@ -40,7 +40,7 @@ AI agents are now trusted with money and decisions — but you have to take the 
 
 | Proof | The claim it kills | Mechanism (all on 0G) |
 |---|---|---|
-| **Brain** | "you can't know which model ran" | **0G Compute TEE attestation** — the inference call returns a verifiable *"this exact model ran in a hardware enclave"* verdict |
+| **Brain** | "you can't know which model ran" | **0G Compute TEE attestation** — the inference call returns a verifiable *"this exact model ran in a hardware enclave"* verdict. *Built + offline-tested (`agent/src/zerog/compute.ts`); the verdict is `attested:true` only when a `trusted` service attestation AND a verified per-response enclave signature both hold — never the model's own words. The live broker call is operator-gated (a funded 0G Compute sub-account + a TEE provider), so at MVP the stamp stays **PENDING** until one live verified attestation (§9 Depth).* |
 | **Rails** | "the agent could overspend" | an on-chain **MandateRegistry** — `checkTransfer()` rejects any spend over the cap, **before broadcast**, as a zero-gas `eth_call` |
 | **Settlement** | "the dashboard could be lying" | an **independent Rust verifier** reads 0G via raw JSON-RPC and stamps each trade `settled / hollow / mismatch / unverified` — it never trusts the UI |
 
@@ -85,9 +85,11 @@ proofagent-0g/                  (MIT · fully public · talks to 0G only via pub
 │   ├─ src/MandateRegistryV4.sol   the consolidated, hardened mandate — folds V3 + TimelockGuard into one (§10.4b)
 │   ├─ src/TimelockGuard.sol       the value-tiered outbound time-lock + per-spoke caps (§11.2/§11.3)
 │   └─ script/Deploy*.s.sol        Foundry deploy + a 0G broadcast
-├─ zerog/                        [BRACKET-DELTA — not MVP] DIRECT calls to 0G public SDKs
-│   ├─ compute.ts                  TEE inference (§9 Depth): request headers → call → verify response
-│   └─ storage.ts                  verdict-bundle storage (§9 Wow): upload(bytes) → rootHash ; verify
+├─ agent/src/zerog/              DIRECT calls to 0G public SDKs (the Depth/Wow legs)
+│   ├─ compute.ts                  [BUILT · Depth] TEE inference: service-attest → infer → verify
+│   │                                response signature; attestInference → BrainVerdict{attested}.
+│   │                                Live broker call OPERATOR-GATED (funded sub-account + TEE provider)
+│   └─ storage.ts                  [NOT BUILT · Wow] verdict-bundle storage: upload(bytes) → rootHash
 ├─ agent/                        minimal autonomous loop  (TS package; sources under agent/src/)
 │   └─ src/
 │       ├─ plan.ts                 LLM: query → { chain, allocations }
@@ -103,17 +105,21 @@ proofagent-0g/                  (MIT · fully public · talks to 0G only via pub
                                   "provable" stamps + the NEG case
 ```
 
-> **Bracket note (§9, "claim only what's live").** The `zerog/` module is **not built in the MVP** — its
-> two legs are honestly-deferred bracket-deltas: **`compute.ts`** (0G Compute TEE inference) lands in the
-> **Depth** bracket, **`storage.ts`** (publishing the verdict bundle to 0G Storage) in the **Wow** bracket.
-> Until then the brain is a hosted LLM, honestly labelled (the web brain stamp renders `PENDING / Phase-2`,
-> never green). The `agent/` and `web/` TypeScript packages keep their sources under a conventional `src/`
-> subdirectory (`agent/src/plan.ts`, …); the paths above name the modules, not a flat layout.
+> **Bracket note (§9, "claim only what's live").** The `zerog/` Depth/Wow legs are honestly-bracketed.
+> **`compute.ts`** (0G Compute TEE inference, the **Depth** bracket) is now **built + offline-tested** as an
+> original clean-room implementation on the public `@0glabs/0g-serving-broker` SDK — it lives in the agent at
+> `agent/src/zerog/{compute,types}.ts` (the agent is already Node, so it calls the public SDK directly; no
+> bridge). Its `attested:true` verdict requires a real enclave proof, and the **live broker call is
+> operator-gated** (a funded 0G Compute sub-account + a TEE provider), so the default offline build keeps the
+> web brain stamp at `PENDING / Phase-2` (never green) until one live verified attestation lifts it.
+> **`storage.ts`** (publishing the verdict bundle to 0G Storage, the **Wow** bracket) is **not built**. The
+> `agent/` and `web/` TypeScript packages keep their sources under a conventional `src/` subdirectory
+> (`agent/src/plan.ts`, `agent/src/zerog/compute.ts`, …); the paths above name the modules, not a flat layout.
 
 **Module responsibilities**
 - **`verifier/`** — the "agent can't lie" engine. Reads 0G independently; never trusts the app UI. Carries a corpus of real, already-settled transactions so the demo verifies genuine settlements. Hosts the swap/route/bridge verdict extensions, the unified connector-settlement entry (§10.5), and the gas-floor / net-worth / timelock confirmations (§11–§12).
 - **`contracts/`** — the "agent can't overspend" engine. The cap is enforced on-chain; the UI links to the public explorer so viewers confirm it themselves. Hosts the MVP `MandateRegistry`, the four-tier `MandateRegistryV3` (§10.4), the `TimelockGuard` (§11), and the consolidated, hardened `MandateRegistryV4` (§10.4b — folds the MVP registry + V3 + `TimelockGuard` into one).
-- **`zerog/`** — the 0G-native depth: TEE-verified inference + auditable storage, both on public SDKs. **[Bracket-delta — not MVP]**: `compute.ts` is the §9 *Depth* leg, `storage.ts` the §9 *Wow* leg; neither is built in the MVP (the brain is a hosted LLM, honestly labelled, until the TEE verdict is on screen).
+- **`zerog/`** — the 0G-native depth: TEE-verified inference + auditable storage, both on public SDKs. The TEE-inference leg (`compute.ts`) is the §9 *Depth* bracket and is **built + offline-tested** as an original clean-room implementation on 0G's public `@0glabs/0g-serving-broker` SDK — the agent-side seam (`AttestationProvider`), the `attestInference` verdict, the TTL service-attestation allowlist, and the settle-window retry. Its `attested:true` verdict needs a real enclave proof, and the **live broker call is operator-gated** (a funded 0G Compute sub-account + a TEE provider), so the default offline build keeps the brain **PENDING** until one live verified attestation is on screen. `storage.ts` (publishing the verdict bundle to 0G Storage) is the §9 *Wow* leg and is **not built** (the verifier emits its report in-process only). **[Bracket-delta]**: the live attestation flip is operator-gated, not MVP-default.
 - **`agent/`** — a small, readable loop that plans, gates against the mandate, executes, and asks the verifier for a verdict. The Engine (§10.5) gives it one protocol-agnostic entrypoint over every wow leg.
 - **`web/`** — one screen, three green stamps (brain / rails / settlement) + the fabricated-hash → `UNVERIFIED` moment.
 
@@ -208,8 +214,8 @@ Read top-to-bottom they compose into the lifecycle: **verify the code** before i
 
 The build is layered so a small, honest MVP ships first and depth is added in clearly-labelled increments. **Every capability is claimed only once it is live on screen** — additions are labelled as build-deltas, never pre-claimed.
 
-- **MVP** — `verify-tx → SETTLED` against the on-chain corpus; the on-chain mandate cap, clickable on the explorer; the agent loop (plan → mandate-gate → execute → verify); the thin UI with the **NEG case → `UNVERIFIED`**. Brain is a hosted LLM at this stage, honestly labelled.
-- **Depth** — port **0G Compute TEE inference**; surface a real green "brain" verdict on screen for a live plan call.
+- **MVP** — `verify-tx → SETTLED` against the on-chain corpus; the on-chain mandate cap, clickable on the explorer; the agent loop (plan → mandate-gate → execute → verify); the thin UI with the **NEG case → `UNVERIFIED`**. The default brain is the deterministic offline planner stub (honestly labelled `brain: "stub"`); the **Depth** TEE leg is built behind the same seam but the web brain stamp stays `PENDING` until a live attestation lifts it.
+- **Depth** — **0G Compute TEE inference** — *built + offline-tested* (`agent/src/zerog/compute.ts`, an original clean-room implementation on the public `@0glabs/0g-serving-broker` SDK): the `attestInference` verdict, the TTL service-attestation allowlist, and the settle-window retry, all driven offline by a stub double. It surfaces a real green "brain" verdict on screen ONLY when a live verified attestation backs it (`attested === true`); the live broker call is **operator-gated** (a funded 0G Compute sub-account + a TEE provider), so the MVP default stays PENDING.
 - **Wow** — the **wow features** (§10): scale the action (swap → route → bridge) and deepen the mandate (the four-tier `MandateRegistryV3`), then collapse them behind the **Engine**; publish the verifier's verdict bundle to **0G Storage** (independent proof that itself lives on 0G); a shareable companion/arena skin; mint the agent as an on-chain Agentic ID.
 
 > **The wow is the *proof*, not the DeFi.** The MVP proves the pattern — *one capped action, independently
@@ -606,7 +612,7 @@ Every amount is exact-integer `i128` value units (`balance minor-units × price 
 
 - **Testnet / dev only** for live legs; small recycled balances; a **per-trade cap**; a **fresh demo wallet** distinct from any other.
 - **Never commit secrets** — no keys, no `.env`, no wallet private material, in any commit.
-- **Claim only what is live** — the pitch leads with the legs that are provable on screen; every later 0G capability is an honestly-labelled bracket-delta. The cross-chain roadmap hardenings (§11.4) and the `zerog/` Depth/Wow legs are design-only until built and gated GREEN.
+- **Claim only what is live** — the pitch leads with the legs that are provable on screen; every later 0G capability is an honestly-labelled bracket-delta. The cross-chain roadmap hardenings (§11.4) and the `zerog/` *Wow* storage leg are design-only until built and gated GREEN. The `zerog/` *Depth* leg (`compute.ts`, the TEE brain) is **built + offline-tested** but its live attestation flip is **operator-gated** (a funded 0G Compute sub-account + a TEE provider), so the brain stamp stays PENDING by default and only goes green on a real verified attestation — built, but not *claimed live* until one runs.
 - **Zero-loss** — every claimed settlement is chain-verified (`settled / hollow / mismatch / unverified` in the journal); a defect (`hollow` / `mismatch`) is surfaced LOUD and prescribes a heal, never silently counted as success.
 - **Demo-safety** — lead with the no-settlement NEG case; verify against the proven corpus rather than fresh live settlements on camera.
 

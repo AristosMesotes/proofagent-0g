@@ -95,8 +95,15 @@ key did too). **The self-gate on the gating engine itself ⇒ GREEN (rc 0), dige
 |---|---|---|---|
 | verifier (Rust) | `cargo test -p verifier` | **289** (232 lib + 55 integration + 2 doctests) | 0 failed |
 | contracts (Solidity) | `forge test` | **181** across 9 suites | 0 failed |
-| agent (TS) | `node --test` (agent/) | **202** | 0 failed |
-| web (TS) | `node --test` (web/) | **8** | 0 failed |
+| agent (TS) | `node --test` (agent/) | **230** | 0 failed |
+| web (TS) | `node --test` (web/) | **29** | 0 failed |
+
+> **Note (the Brain-TEE Depth leg, added after the §0 digest snapshot).** The agent (230) and web (29) counts
+> above include the **0G Compute TEE-attestation** tests (§1h) — the `attestInference` verdict, the TTL
+> service-attestation allowlist, the settle-window retry, and the web brain-stamp / `attestPlan` honesty tests.
+> These tests landed *after* the §0 gate ladder's recorded digest (`b61ebdb7…`) was minted, so they raised the
+> TS counts (agent 202 → 230, web 8 → 29) without touching any verifier/contract verdict; the §0 digest is
+> re-minted on the next full out-of-tree gate run. `tsc --noEmit` (agent + web) and both TS suites are GREEN.
 
 ---
 
@@ -118,6 +125,7 @@ independent source, all three of NEG · RAILS · SETTLED driven through the real
 | **Deterministic** — same reads ⇒ same verdict + same digest; no wall-clock, no unordered state | `TapeSource` over an ordered `BTreeMap`; pure lookups; gate digest stable across re-runs (`b61ebdb7…`) | `verifier/src/source.rs`; gate digest in §0 |
 | **Exact-integer money** — no float on the money path | `i128`/`bigint` only, exact-integer tolerance band `15/100` | `proofagent.toml [verifier.tolerance]`; `verifier/src/config.rs` |
 | **The NEG case** (the proof the proof is real) — a fabricated hash → `unverified`, on screen | live `verify-tx 0xdeadbeef…0000 → unverified` (exit 1); the fullstack-target drives it *through* the UI and reconciles the on-screen `UNVERIFIED` stamp against the verifier (`data-verdict="unverified"` == verifier `unverified`) | §2 PROOF 3; §1g fullstack-target; `LEDGER.md` §1 |
+| **The Brain attestation is a fact, not the model's word** — `attested` is the AND of a `trusted` service attestation and a verified per-response enclave signature; the reply text is a CLAIM, never an input — the same never-fabricate rule, applied to "which model ran" | agent test (model output never leaks into the verdict); only a trusted-service + valid-signature path returns `attested:true`; otherwise a loud PENDING | §1h Brain-TEE; `agent/src/zerog/compute.ts`; `compute.test.ts` |
 
 ### 1b. Settlement — NEG / RAILS / SETTLED / V3 (the on-chain proofs)
 
@@ -257,6 +265,49 @@ error otherwise — never a fabricated tx hash / order id / CCIP `messageId`. Fu
 > The independent sources remain authoritative: RAILS/SETTLED are STILL also proven below the UI (the deployed
 > `checkTransfer` `eth_call` / the verifier `verify-tx`, §2) — the UI leg adds the on-screen, reconciled
 > rendering on top, it does not replace the chain/CLI ground truth.
+
+### 1h. Brain — 0G Compute TEE attestation (design §9 Depth, built + offline-tested; live flip operator-gated)
+
+The **Brain** proof kills the claim *"you can't know which model ran"*. It is an **ORIGINAL clean-room
+implementation** (`agent/src/zerog/compute.ts` + `types.ts`) built on 0G's **public**
+`@0glabs/0g-serving-broker` SDK + the public 0G Compute docs — **no internal dependency, no copied code**.
+The honest answer is **NOT the model's own words** (a model can say anything): the verdict's `attested` flag
+is `true` ONLY when **two independent cryptographic facts** both hold, NEITHER taken from the reply text — a
+verified provider-**service** attestation (the serving node's remote-attestation report proves its model image
+runs in a genuine TEE) AND a verified per-**response** enclave signature (the attested enclave's key signed
+THIS response). Any gap — un-allowlisted provider, failed service attestation, unverified signature, missing
+SDK, unreachable network — yields `attested:false` with a loud reason: the brain degrades LOUDLY to PENDING,
+exactly as an unreadable settlement degrades to UNVERIFIED (design §3 #3, never fabricate). There is **no code
+path on which an unproven brain reports `attested:true`.**
+
+| Feature (the Brain invariant) | Concrete proof | Where |
+|---|---|---|
+| **Attested = a cryptographic fact, NOT the model's output** — `attested` is the AND of `service.trusted` and `signature.signatureValid`; the reply `content` is a CLAIM, never an input to the verdict | agent test — model output never leaks into the verdict; only the trusted-service + valid-signature path returns `attested:true` | `agent/src/zerog/compute.ts` (`attestInference`); `compute.test.ts` |
+| **Service-attestation pre-check + TTL allowlist** — a provider is admitted for inference ONLY after its service attestation verifies `trusted`; cached, re-attested after a TTL (default 1h), case-insensitive, never pre-seeded | agent tests — caches once, re-attests after TTL, rejects a non-positive TTL; an un-trusted service ⇒ PENDING, never infers | `compute.ts` (`AttestationAllowlist`, injected `Clock`); `compute.test.ts` |
+| **Settle-window retry** — the per-response enclave signature is not fetchable the instant a response completes; retry with exponential backoff over the documented "not ready / 404" errors, while a definitive `signatureValid:false` is a real verdict (not retried) | agent tests — ready-now, retry-then-succeed, definitive-false-not-retried, fatal-error-immediate, exhaustion, exact exponential waits (injected `Sleeper`, zero real timers) | `compute.ts` (`retryResponseSignature`); `compute.test.ts` |
+| **Fail-closed degrade** — every transport throw / missing response handle / unverified signature ⇒ a loud PENDING verdict; a malformed provider address ⇒ a loud `BrainError` | agent tests — each throw → PENDING; missing response handle → PENDING; malformed provider throws; determinism | `compute.ts` (`attestInference`, `pending`); `compute.test.ts` |
+| **Web brain stamp lifts green ONLY on a real attestation** — `buildStamps()` (no arg, the default offline build) renders `PENDING / Phase-2`; the stamp lifts to a green `LIVE / TEE-attested` ONLY when `attested === true` is injected | web tests — never green at the offline default; lifts green ONLY on `attested:true`; STAYS PENDING for `attested:false` | `web/src/proofs.ts` (`buildStamps`, `BrainAttestation`); `proofs.test.ts` |
+| **Agent plan honesty label** — `plan()` always returns `brain:"stub"`; `attestPlan` re-labels a plan `brain:"tee"` ONLY when handed an `attested:true` verdict, and throws `PlanError` otherwise (a stub plan is never dressed up as TEE-verified) | agent tests — default plan is `"stub"`; `attestPlan` lifts to `"tee"` only on an attested verdict; refuses (throws) a non-attested verdict; does not mutate its input; chain/allocations byte-identical | `agent/src/plan.ts` (`attestPlan`); `plan.test.ts` |
+| **Live broker path — OPERATOR-GATED, honestly** | `liveAttestationProvider(config, infer)` dynamically imports the **public** `@0glabs/0g-serving-broker` + `ethers` ONLY on the opt-in path; `verifyService` + `verifyResponse` (the two legs that MINT the proof) are fully implemented against the public broker; the metered `infer` HTTP leg is operator-wired at deploy. Needs a **funded 0G Compute sub-account + a TEE/TeeML provider**. The broker wallet key lives only in a gitignored `.env` (documented, no secrets, in `.env.example`) | `compute.ts` (`liveAttestationProvider`, `loadPublicBroker`); `.env.example` `STEP DEPTH-BRAIN` knobs |
+
+**Honesty bar (the can't-lie doctrine, applied to ourselves).** The Brain stamp goes LIVE/green ONLY when a
+REAL enclave attestation verifies. The live broker call (needs a funded 0G sub-account + a TEE/TeeML provider)
+is operator-gated behind the `BRAIN_LIVE` env knob, and the **default offline build keeps the Brain stamp
+PENDING**. We NEVER fabricate an attestation; the broker wallet key is never printed or committed. **What an
+operator must do to flip it green:** (1) fund a 0G Compute sub-account broker wallet + pick a TEE/TeeML serving
+provider; (2) fill the gitignored `.env` `STEP DEPTH-BRAIN` knobs (`BRAIN_LIVE=1`, `OG_COMPUTE_PROVIDER`,
+`OG_COMPUTE_WALLET_KEY`, `OG_COMPUTE_RPC_URL`, `OG_COMPUTE_MODEL`, `OG_COMPUTE_ATTEST_DIR`); (3) wire the
+metered `infer` HTTP leg + run the live attestation once. A single verified `attested:true` then lifts the web
+brain stamp to green `LIVE / TEE-attested` and lets `attestPlan` label the plan `brain:"tee"`.
+
+> **Offline-tested without the SDK or the network (the seam).** The Brain leg is built against ONE narrow
+> original boundary — `AttestationProvider` (`verifyService` → `ServiceAttestation`, `infer` →
+> `InferenceResponse`, `verifyResponse` → `ResponseAttestation`) — mirroring the verifier's `Source` /
+> mandate-gate `EthCallTransport` seam pattern. An offline **stub double** satisfies the seam for every test;
+> the real public `@0glabs/0g-serving-broker` is dynamically imported ONLY on the operator-gated live path. So
+> `tsc --noEmit` and the agent + web test suites run with **no SDK installed, no network, and no real timers**
+> (the `Clock` and `Sleeper` are injected). The build keeps the clean-room firewall GREEN — the only external
+> names are the PUBLIC 0G Compute SDK package + its documented broker concepts.
 
 ---
 
@@ -440,7 +491,7 @@ the design doc to the real code layout — no code change.
 
 | Capability | Bracket | State |
 |---|---|---|
-| **0G Compute TEE-attested brain** (`zerog/compute.ts`) | **Depth** | brain is a deterministic offline stub; web brain stamp renders `PENDING / Phase-2 (Depth)`, never green (`web/src/proofs.ts:11-15,109-110`) |
+| **0G Compute TEE-attested brain** (`agent/src/zerog/compute.ts`) | **Depth** | **BUILT + offline-tested** (original clean-room impl on the public `@0glabs/0g-serving-broker` SDK): `attestInference` mints `attested:true` ONLY when a `trusted` service attestation AND a verified per-response enclave signature both hold (never the model's words). The default brain is the deterministic offline stub; the web brain stamp lifts green ONLY on `attested === true` and otherwise renders `PENDING / Phase-2 (Depth)` (`web/src/proofs.ts`). The **live broker call is operator-gated** (a funded 0G Compute sub-account + a TEE provider), so the default build keeps the stamp PENDING — see §1h |
 | **0G Storage verdict-bundle publish** (`zerog/storage.ts`) | **Wow** | not built; verifier emits the report in-process only |
 | **Live JSON-RPC / `eth_call` / capped-swap broadcast legs** | MVP-live, operator-gated | the `live` reader / transport / broadcaster fail CLOSED with a loud not-wired error (`agent/src/connector.ts:32,261,267`), never fabricate |
 
@@ -478,6 +529,15 @@ performed; none blocks the testnet evidence above:
 9. **Rust `--features live` binary on this host** — install the MinGW assembler/binutils, then
    `cargo build --features live -p verifier`. Functionally redundant with the `cast` live reads already
    proven above (it cannot link on this windows-gnu host — no `as.exe`).
+10. **Flip the Brain stamp green — the live 0G Compute TEE attestation (§1h, design §9 Depth).** The brain
+    leg (`agent/src/zerog/compute.ts`) is BUILT + offline-tested; the default build keeps the stamp PENDING.
+    To go green: (a) fund a 0G Compute sub-account broker wallet + pick a TEE/TeeML serving provider; (b) fill
+    the gitignored `.env` `STEP DEPTH-BRAIN` knobs (`BRAIN_LIVE=1`, `OG_COMPUTE_PROVIDER`,
+    `OG_COMPUTE_WALLET_KEY`, `OG_COMPUTE_RPC_URL`, `OG_COMPUTE_MODEL`, `OG_COMPUTE_ATTEST_DIR`); (c) wire the
+    metered `infer` HTTP leg + run the live attestation once. A single verified `attested:true` lifts the web
+    brain stamp to green `LIVE / TEE-attested` and lets `attestPlan` label the plan `brain:"tee"`. The broker
+    wallet key lives only in the gitignored `.env` — never printed, never committed. **We never fabricate an
+    attestation.**
 
 ---
 
@@ -487,7 +547,8 @@ Every gate leg is GREEN together — the **0G-only** gate + the clean-room firew
 (build·test·clippy, **289 tests**, incl. swap + route + bridge + connector-unify + mandate-tier + the
 hardened-V4 tiers + the I14-R reconciler + gas-floor + net-worth + timelock), the on-chain mandate + guard
 (`forge` build·test, **181 tests**, incl. the V3 four-tier suite + the consolidated V4 suite + the
-TimelockGuard + the spoke-isolation suite), the agent + web typechecks + tests (**202 + 8**), the gas-floor
+TimelockGuard + the spoke-isolation suite), the agent + web typechecks + tests (**230 + 29**, incl. the §1h
+Brain-TEE attestation suite), the gas-floor
 + net-worth money-critical presence gates, the headless **fullstack-target** two-source proof (all three of
 NEG · RAILS · SETTLED driven through the real UI, zero human, each reconciled against its independent
 source), the hermetic docs link check (**22 links**), and **the zero-defect gate on this repo ALL GREEN**
