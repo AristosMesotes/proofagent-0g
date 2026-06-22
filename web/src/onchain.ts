@@ -311,14 +311,18 @@ export function parseHexQuantity(label: string, hex: string): bigint {
 
 /** The rendered SETTLED outcome -- the verdict derived from the receipt + value the chain returned. */
 export interface SettledResult {
-  /** The verifier's adjudication of the pinned tx -- `settled` when status 0x1 + value in band. */
+  /** The verifier's adjudication of the tx -- `settled` when status 0x1 + value in band against a claim. */
   readonly verdict: Verdict;
   /** `true` iff the receipt reported `status === "0x1"` (Success). */
   readonly success: boolean;
-  /** The pinned tx hash that was read. */
+  /** The tx hash that was read (the pinned default, or the pasted hash). */
   readonly hash: string;
-  /** The agent's recorded claim, minor units (wei). */
-  readonly claimed: bigint;
+  /**
+   * The recorded claim, minor units (wei), or `null` when NO claim is on record (a pasted hash the spine
+   * corpus does not pin). A `null` claim means there is nothing to verify the observation AGAINST -> the
+   * symmetric keystone: no claim on record -> `unverified` (never a fabricated settled, never a false mismatch).
+   */
+  readonly claimed: bigint | null;
   /** The independent on-chain Observation (the native `value` moved), minor units (wei); `null` if off-record. */
   readonly observed: bigint | null;
   /** A loud, honest one-line explanation of the receipt status + the adjudication. */
@@ -329,37 +333,62 @@ export interface SettledResult {
 
 /**
  * Run the SETTLED control (design §2 Settlement): a READ-ONLY `eth_getTransactionReceipt` +
- * `eth_getTransactionByHash` of the PINNED settled tx. A successful receipt (`status 0x1`) and the
- * native `value` are read independently, then the verifier's PUBLISHED adjudication is recomputed in
- * the open -> `settled`. NO key, NO broadcast: a pure read. The verdict is re-derivable by anyone who
- * fetches the same receipt/value and reruns `adjudicate`.
+ * `eth_getTransactionByHash` of a settled tx -- the PINNED tx by default, or any pasted hash for the
+ * playground. A successful receipt (`status 0x1`) and the native `value` are read independently, then
+ * the verifier's PUBLISHED adjudication is recomputed in the open -> `settled`. NO key, NO broadcast: a
+ * pure read. The verdict is re-derivable by anyone who fetches the same receipt/value and reruns
+ * `adjudicate`.
+ *
+ * ## Generalized for the playground (design §4.3, §11)
+ *
+ * The pinned-tx behaviour is the BACKWARD-COMPATIBLE default: called with no `hash`, it reads exactly the
+ * spine's `SETTLED_ONCHAIN.hash` against its recorded `claimed`, byte-identically to before. Passing a
+ * `hash` (the playground's pasted hash) reads THAT tx instead -- a thin generalization, not a reinvention:
+ * the SAME receipt+value+`adjudicate` pipeline runs.
+ *
+ * A pasted hash has NO recorded claim in the spine corpus, so its `claimed` is `null` -- and the SYMMETRIC
+ * keystone applies: just as no OBSERVATION yields `unverified` (nothing to confirm), no CLAIM ON RECORD
+ * yields `unverified` (nothing to verify the observation AGAINST). The web does not invent a claim of zero
+ * and then call a real transfer a `mismatch` against it -- that would fabricate a false anomaly. So a pasted
+ * hash can ONLY ever reach `unverified` (off-record, or no claim on record to verify against) or `mismatch`
+ * (a genuinely FAILED receipt); it can NEVER reach a fabricated `settled` for a hash the spine does not pin.
+ * This preserves the verdict monopoly (the web mints no verdict) and the never-fabricate rule. Only the
+ * PINNED default, which carries a real recorded claim, can re-derive `settled`.
  *
  * Honesty (design §3 #3): an off-record hash (`receipt == null`) degrades LOUDLY to `unverified`, and a
  * FAILED receipt (`status != 0x1`) is NEVER rendered as `settled` -- it is surfaced loud, never softened.
  *
  * @param transport the read-only RPC seam (a live browser reader, or a test double).
- * @returns the settled result whose `verdict` is the re-derived adjudication of the pinned tx.
+ * @param hash OPTIONAL tx hash to read (the playground's pasted hash). Omitted -> the pinned settled tx
+ *   (the backward-compatible default). A pasted hash is validated to the `0x + 64 hex` shape and carries a
+ *   `null` (no-record) claim, so it can only reach `unverified`/`mismatch`, never a fabricated `settled`.
+ * @returns the settled result whose `verdict` is the re-derived adjudication of the read tx.
  * @throws {OnChainReadError} on a transport failure or a malformed reply (a loud degrade, never a fabrication).
  */
-export async function runSettledCheck(transport: RpcTransport): Promise<SettledResult> {
-  const { hash, claimed, toleranceNum, toleranceDen } = SETTLED_ONCHAIN;
-  if (!TX_HASH_RE.test(hash)) {
-    throw new OnChainReadError(`pinned hash is not a 0x + 64-hex tx hash: ${hash}`);
+export async function runSettledCheck(transport: RpcTransport, hash?: string): Promise<SettledResult> {
+  const pinned = hash === undefined;
+  // The pinned default carries the spine's recorded claim; a pasted hash has NO claim on record (`null`), so
+  // there is nothing to verify the observation against -> the symmetric keystone yields `unverified`.
+  const targetHash = pinned ? SETTLED_ONCHAIN.hash : hash;
+  const claimed: bigint | null = pinned ? SETTLED_ONCHAIN.claimed : null;
+  const { toleranceNum, toleranceDen } = SETTLED_ONCHAIN;
+  if (!TX_HASH_RE.test(targetHash)) {
+    throw new OnChainReadError(`hash is not a 0x + 64-hex tx hash: ${targetHash}`);
   }
-  const receipt = await transport.getTransactionReceipt(hash);
+  const receipt = await transport.getTransactionReceipt(targetHash);
 
   // Off-record: no receipt -> no independent observation -> unverified (the keystone, never settled).
   if (receipt === null) {
     return {
       verdict: VERDICT.UNVERIFIED,
       success: false,
-      hash,
+      hash: targetHash,
       claimed,
       observed: null,
       explanation:
-        `The chain has no receipt on record for ${hash} -- the verifier has nothing confirming a ` +
+        `The chain has no receipt on record for ${targetHash} -- the verifier has nothing confirming a ` +
         `settlement, so it stamps unverified, NEVER settled (it reads the chain; it does not rubber-stamp).`,
-      reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${hash}`,
+      reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${targetHash}`,
     };
   }
 
@@ -369,45 +398,65 @@ export async function runSettledCheck(transport: RpcTransport): Promise<SettledR
     return {
       verdict: VERDICT.MISMATCH,
       success: false,
-      hash,
+      hash: targetHash,
       claimed,
       observed: 0n,
       explanation:
-        `The receipt for ${hash} reports status ${String(receipt.status)} (NOT 0x1/Success). ` +
+        `The receipt for ${targetHash} reports status ${String(receipt.status)} (NOT 0x1/Success). ` +
         `A failed transaction moved no settled value -- surfaced loud, NEVER rendered as settled.`,
-      reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${hash}`,
+      reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${targetHash}`,
     };
   }
 
   // Success -> read the native value moved (the independent Observation) and adjudicate it.
-  const tx = await transport.getTransactionByHash(hash);
+  const tx = await transport.getTransactionByHash(targetHash);
   if (tx === null) {
     return {
       verdict: VERDICT.UNVERIFIED,
       success,
-      hash,
+      hash: targetHash,
       claimed,
       observed: null,
       explanation:
-        `The receipt for ${hash} is Success (0x1) but the tx body is unreadable -- the value cannot ` +
+        `The receipt for ${targetHash} is Success (0x1) but the tx body is unreadable -- the value cannot ` +
         `be observed, so the verifier degrades LOUDLY to unverified rather than guess a settlement.`,
-      reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${hash}`,
+      reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${targetHash}`,
     };
   }
   const observed = parseHexQuantity("tx.value", tx.value);
+
+  // No claim on record (a pasted hash the spine does not pin): the tx is REAL and Success, but there is
+  // nothing recorded to verify its value AGAINST. The symmetric keystone -> `unverified` (never a fabricated
+  // settled, and never a FALSE mismatch against an invented zero claim). The observation is shown honestly.
+  if (claimed === null) {
+    return {
+      verdict: VERDICT.UNVERIFIED,
+      success,
+      hash: targetHash,
+      claimed: null,
+      observed,
+      explanation:
+        `The chain confirms ${targetHash}: receipt status 0x1 (Success) and native value ${observed.toString()} wei. ` +
+        `But this hash has NO claim on record in the verifier's corpus, so there is nothing to verify the ` +
+        `observed value against -- the verifier stamps unverified (it will not invent a claim, and it will ` +
+        `not call a real transfer settled without one). Pin this tx in the corpus to adjudicate it.`,
+      reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${targetHash}`,
+    };
+  }
+
   const verdict = adjudicate(claimed, observed, toleranceNum, toleranceDen);
   return {
     verdict,
     success,
-    hash,
+    hash: targetHash,
     claimed,
     observed,
     explanation:
-      `The chain confirms ${hash}: receipt status 0x1 (Success) and native value ${observed.toString()} wei. ` +
+      `The chain confirms ${targetHash}: receipt status 0x1 (Success) and native value ${observed.toString()} wei. ` +
       `The verifier reads that independently and adjudicates claimed ${claimed.toString()} vs observed ` +
       `${observed.toString()} within the ${toleranceNum.toString()}/${toleranceDen.toString()} band -> ` +
       `${verdict}. The verdict is re-derivable: fetch the same receipt+value and rerun adjudicate.`,
-    reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${hash}`,
+    reproduceCommand: `cargo run -p verifier --features live -- verify-tx ${targetHash}`,
   };
 }
 

@@ -600,3 +600,158 @@ code {
 .recon-badge.is-read-error {
   color: var(--muted);
 }
+
+/* ================================================================================================ *
+ * P2 -- the Playground (design §4.3): the one bespoke widget. Additive: only the dashboard
+ * (dashboard.html -> dist/dashboard.js) references these classes; the demo page (index.html) references
+ * NONE of them, so the existing screen is unchanged. The honesty colour grammar is reused verbatim --
+ * the playground's verdict block uses the SAME .verdict-headline / .verdict-* faces and recon-badge as the
+ * cards (only .is-settled is green; .is-mismatch is LOUD red; .is-read-error is grey).
+ * ================================================================================================ */
+
+.playground {
+  margin: 1.25rem 0;
+}
+.playground .card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.pg-lead {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+
+/* --- the input row: a 0x… hash field + a Check button --- */
+.pg-inputrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.pg-input {
+  flex: 1 1 22rem;
+  min-width: 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+.pg-input::placeholder {
+  color: var(--muted);
+}
+.pg-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.pg-check {
+  appearance: none;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-bg);
+}
+.pg-check:hover {
+  background: rgba(74, 168, 255, 0.12);
+}
+.pg-check:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* --- the named-wait line (a sentence, never a bare spinner) --- */
+.pg-wait {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+/* --- the loud usage diagnostic (a usage error is NOT a verdict; no data-verdict is minted) --- */
+.pg-diag {
+  margin: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  background: var(--amber-ink);
+  color: var(--amber);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+/* --- the empty skeleton (teach the completed-verdict shape before any paste) --- */
+.pg-skeleton__pill {
+  display: inline-block;
+  margin: 0 0 0.6rem;
+  padding: 0.2rem 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-pill);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.pg-skeleton__rows {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.9rem;
+  margin: 0;
+  font-size: 0.8rem;
+}
+.pg-skeleton__rows dt {
+  color: var(--ink-dim);
+}
+.pg-skeleton__rows dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* --- the two-source (claimed | observed) panel: the cross-check IS the verdict --- */
+.pg-twosource {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+}
+.pg-twosource__col {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 0.7rem 0.8rem;
+}
+.pg-twosource__title {
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.pg-twosource__value {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  word-break: break-all;
+}
+.pg-twosource__sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+/* --- the persistent, verbatim result line (never truncated -- the canonical, copy-safe evidence) --- */
+.pg-verbatim {
+  margin: 0;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #06090d;
+  color: var(--ink-dim);
+  font-size: 0.76rem;
+  word-break: break-all;
+}

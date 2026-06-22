@@ -2,12 +2,15 @@
 <!--
   ProofAgent-0G -- the interactive Verification Console (design §3 IA, §4 components, §5 flows, §8 honesty).
 
-  P1 IA SHELL + the FOUR proof cards: a sticky header rail + a read-only own-RPC network pill; the
-  at-a-glance reconciliation rollup strip; the responsive auto-fit card grid with the four proof cards --
-  NEG (-> UNVERIFIED), BRAIN (honest PENDING, never green here), RAILS (-> OVER_TX_CAP), SETTLEMENT
-  (-> SETTLED); each card is a three-altitude verdict block + a "reconciled vs an independent source"
-  badge. Live reads ENRICH on load; they never block first paint. The playground, the live feed, and the
-  evidence drawer arrive in later phases. The original demo page remains index.html (untouched).
+  IA SHELL + the FOUR proof cards + the PLAYGROUND: a sticky header rail + a read-only own-RPC network
+  pill; the at-a-glance reconciliation rollup strip; the responsive auto-fit card grid with the four proof
+  cards -- NEG (-> UNVERIFIED), BRAIN (honest PENDING, never green here), RAILS (-> OVER_TX_CAP), SETTLEMENT
+  (-> SETTLED); and the P2 PLAYGROUND -- paste ANY 0G tx hash and watch the same verifier pipeline stamp a
+  verdict live (settled / unverified / hollow / mismatch), with named wait states, a two-source
+  (claimed | observed) panel, and a verdict-code dictionary. Each verdict surface is a three-altitude block
+  + a "reconciled vs an independent source" badge. Live reads ENRICH on load; they never block first paint.
+  The live feed and the evidence drawer arrive in later phases. The original demo page remains index.html
+  (untouched).
 
   Offline + static: no framework, no CDN, no network. The page loads the compiled ESM at dist/dashboard.js
   (build it with `npm run build` in this directory). Honesty: only live/settled is green; the BRAIN card

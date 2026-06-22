@@ -8,10 +8,19 @@
  *   A. a slim, sticky HEADER RAIL (eyebrow / title / tagline) + a read-only own-RPC NETWORK PILL,
  *   B. an AT-A-GLANCE ROLLUP STRIP narrating the aggregate reconciliation result,
  *   C. the responsive auto-fit CARD GRID with the FOUR proof cards, each a three-altitude verdict block
- *      + a reconciliation badge, and
+ *      + a reconciliation badge,
+ *   D. the PLAYGROUND -- the one bespoke widget (paste ANY 0G tx hash -> a live verifier verdict), and
  *   H. the FOOTER + the spine facts.
- * The playground (D), the live feed (E), and the evidence drawer (G) arrive in later phases; nothing here
- * paints them, so nothing here over-claims them.
+ * The live feed (E) and the evidence drawer (G) arrive in later phases; nothing here paints them, so
+ * nothing here over-claims them.
+ *
+ * ## P2: the paste-any-hash PLAYGROUND (design §4.3)
+ *
+ * The Playground ({@link ./playground.ts}) is mounted below the card grid: a judge pastes ANY 0G tx hash and
+ * watches the SAME verifier pipeline (the GENERALIZED `runSettledCheck(transport, hash)`) stamp a verdict
+ * live, with named wait states, a two-source (claimed | observed) panel, and a verdict-code dictionary
+ * ({@link ./verdictCopy.ts}) mapping each verdict to honest plain language. It reuses the reconciliation
+ * badge (greened ONLY by an independent re-read) and emits the SAME `data-verdict` lifecycle as every card.
  *
  * It REUSES the existing, proven building blocks verbatim rather than reinventing them (design §7):
  *   - the four proof sources -- `runNegCase` / `buildStamps` / `runRailsCheck` / `runSettledCheck`,
@@ -50,6 +59,7 @@ import {
 import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN } from "./spine.js";
 import { card, statusPill, statusDot, shortHash, renderThreeAltitude } from "./render.js";
 import { ReconcileBadge, RECONCILE, decideReconcile, type IndependentResult } from "./reconcile.js";
+import { buildPlayground } from "./playground.js";
 
 /* ------------------------------------------------------------------------------------------------ *
  * Identity copy (the header rail -- design §3/§4.1).
@@ -557,12 +567,15 @@ function buildSettlementCard(grid: HTMLElement, transport: RpcTransport): void {
         runSettledCheck(transport)
           .then(async (result) => {
             const observedTxt = result.observed === null ? "∅" : `${result.observed.toString()} wei`;
+            // The SETTLEMENT card reads the PINNED tx (which carries a real recorded claim), so `claimed` is
+            // never null here; the guard keeps the evidence line honest for the (unreachable) no-claim case.
+            const claimedTxt = result.claimed === null ? "no claim on record" : result.claimed.toString();
             renderThreeAltitude(
               out,
               result.verdict,
               result.explanation,
               `receipt.status=${result.success ? "0x1" : "0x0"}, value=${observedTxt}; ` +
-                `adjudicate(${result.claimed.toString()}, observed, ${SETTLED_ONCHAIN.toleranceNum.toString()}/` +
+                `adjudicate(${claimedTxt}, observed, ${SETTLED_ONCHAIN.toleranceNum.toString()}/` +
                 `${SETTLED_ONCHAIN.toleranceDen.toString()}) → ${result.verdict}  ·  reproduce: ${result.reproduceCommand}`,
             );
             const independent = await independentSettlement(transport);
@@ -594,6 +607,22 @@ async function independentSettlement(transport: RpcTransport): Promise<Independe
   } catch {
     return { verdict: null };
   }
+}
+
+/* ------------------------------------------------------------------------------------------------ *
+ * D. The Playground -- the one bespoke widget (paste ANY 0G tx hash -> a live verifier verdict, §4.3).
+ * ------------------------------------------------------------------------------------------------ */
+
+/**
+ * Mount the Playground (design §4.3) below the card grid. It reuses the SAME read-only transport the cards
+ * read through (no new broadcast risk) and the GENERALIZED settlement pipeline, parameterized by the pasted
+ * hash. Its produced verdicts will feed the live feed (E) in a later phase; here it stands alone, fully
+ * honest -- a usage error mints no verdict, a real verdict drives a reconciliation badge greened ONLY by an
+ * independent re-read, and an unreachable RPC degrades to a grey read-error, never a faked pass.
+ */
+function renderPlayground(host: HTMLElement, transport: RpcTransport): void {
+  const built = buildPlayground(transport);
+  host.appendChild(built.root);
 }
 
 /* ------------------------------------------------------------------------------------------------ *
@@ -719,6 +748,8 @@ export function boot(): void {
   buildBrainCard(grid);
   buildRailsCard(grid, transport);
   buildSettlementCard(grid, transport);
+  // D. the Playground -- paste ANY 0G tx hash -> a live verifier verdict (the one bespoke widget).
+  renderPlayground(mount, transport);
   // F. spine facts + H. footer.
   renderSpineFacts(mount);
   renderFooter(mount);

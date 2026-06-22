@@ -211,6 +211,65 @@ test("SETTLED degrades LOUDLY on a transport failure (throws, never fabricates a
 });
 
 /* ------------------------------------------------------------------------------------------------ *
+ * P2 -- the GENERALIZED runSettledCheck(hash) for the playground: a pasted hash has NO claim on record,
+ * so it can NEVER reach a fabricated `settled`, and a real Success with no claim is `unverified`, never a
+ * FALSE `mismatch` against an invented zero claim (design §4.3, §8 -- the symmetric keystone).
+ * ------------------------------------------------------------------------------------------------ */
+
+/** A well-formed but arbitrary pasted hash (the playground's input) -- not the spine's pinned tx. */
+const PASTED_HASH = "0x" + "ab".repeat(32);
+
+test("PLAYGROUND: a pasted hash carries NO claim on record (claimed === null) -- the spine does not pin it", async () => {
+  const result = await runSettledCheck(
+    transportDouble({ receipt: { status: "0x1" }, tx: { value: "0xf4240" } }),
+    PASTED_HASH,
+  );
+  // Generalized read targets the PASTED hash, and there is no recorded claim to verify against.
+  assert.equal(result.hash, PASTED_HASH);
+  assert.equal(result.claimed, null, "a pasted hash has no claim on record");
+});
+
+test("PLAYGROUND: a real Success tx with NO claim on record is `unverified` -- never a FALSE mismatch, never settled", async () => {
+  // A genuine Success receipt + a real native value, but NO claim on record (a pasted hash) -> the symmetric
+  // keystone: nothing to verify against -> unverified. The web does NOT invent a zero claim and cry mismatch,
+  // and it does NOT fabricate a settled for a hash the spine does not pin.
+  const result = await runSettledCheck(
+    transportDouble({ receipt: { status: "0x1" }, tx: { value: "0xf4240" } }),
+    PASTED_HASH,
+  );
+  assert.equal(result.verdict, VERDICT.UNVERIFIED, "no claim on record -> unverified (the symmetric keystone)");
+  assert.notEqual(result.verdict, VERDICT.SETTLED, "NEVER a fabricated settled for an unpinned hash");
+  assert.notEqual(result.verdict, VERDICT.MISMATCH, "NEVER a FALSE mismatch against an invented zero claim");
+  assert.equal(result.observed, 1_000_000n, "the real observed value is still shown honestly");
+});
+
+test("PLAYGROUND: an off-record pasted hash (receipt == null) degrades LOUDLY to unverified, never settled", async () => {
+  const result = await runSettledCheck(transportDouble({ receipt: null }), PASTED_HASH);
+  assert.equal(result.verdict, VERDICT.UNVERIFIED);
+  assert.notEqual(result.verdict, VERDICT.SETTLED);
+  assert.equal(result.hash, PASTED_HASH);
+});
+
+test("PLAYGROUND: a FAILED pasted-hash receipt is a LOUD mismatch (a real anomaly), never softened to settled", async () => {
+  const result = await runSettledCheck(transportDouble({ receipt: { status: "0x0" } }), PASTED_HASH);
+  assert.equal(result.verdict, VERDICT.MISMATCH);
+  assert.notEqual(result.verdict, VERDICT.SETTLED);
+});
+
+test("PLAYGROUND: a malformed pasted hash throws BEFORE any read (a usage error, never a verdict)", async () => {
+  // runSettledCheck validates the hash shape and throws loudly rather than read a bad hash.
+  await assert.rejects(() => runSettledCheck(transportDouble({ receipt: null }), "not-a-hash"), OnChainReadError);
+});
+
+test("PLAYGROUND: the pinned default is UNCHANGED -- no hash arg still reads the pinned tx with its recorded claim", async () => {
+  // Backward compatibility: the no-arg form is byte-identical to before (the SETTLEMENT card path).
+  const result = await runSettledCheck(transportDouble({ receipt: { status: "0x1" }, tx: { value: "0xf4240" } }));
+  assert.equal(result.hash, SETTLED_ONCHAIN.hash);
+  assert.equal(result.claimed, SETTLED_ONCHAIN.claimed, "the pinned default still carries the recorded claim");
+  assert.equal(result.verdict, VERDICT.SETTLED, "the pinned tx still re-derives settled");
+});
+
+/* ------------------------------------------------------------------------------------------------ *
  * Clean-room / live-surface constants are 0G-only (no private path, no non-0G host).
  * ------------------------------------------------------------------------------------------------ */
 
