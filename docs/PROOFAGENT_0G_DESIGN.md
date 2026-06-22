@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Status** | Design — MVP scaffold live; the swap/route/bridge wow legs + the four-tier mandate + the consolidated, hardened `MandateRegistryV4` (folds V3 + TimelockGuard, with the I14-R spend reconciler) built & tested (V4 deploy operator-gated) |
+| **Status** | Design — MVP scaffold live; the swap/route/bridge wow legs + the four-tier mandate built & tested; the consolidated, hardened `MandateRegistryV4` (folds V3 + TimelockGuard, with the I14-R spend reconciler) built, tested & **DEPLOYED LIVE on 0G Galileo `16602`** (`0x8e561a…f774`, the pinned mandate) |
 | **License** | MIT |
 | **Chain** | 0G — Aristotle (chain id `16661`); Galileo testnet (`16602`) |
 | **Stack** | Rust (verifier) · Solidity (mandate) · TypeScript (agent · 0G SDKs · web) |
@@ -165,14 +165,15 @@ badge** (0G has no branded glyph) + a tri-state **RECONCILED-vs-deployed pill** 
 **baseline**, so the card's stated config is reconciled against what `checkTransfer` actually answers on-chain
 (the two-source doctrine, §3 #1: `Reconciled` green / `Drifted` loud-red / `Unverified` grey, never a faked
 green); a **global period-cap bar** carrying the consolidated `MandateRegistryV4` (§10.4b) rolling-window cap,
-shown as the **V4 spec, built-not-deployed** (its deploy is operator-gated; `[mandate_v4].address=""`) and
-labelled so — never a live-enforced number (§8 claim only what's live); a **per-asset table** (state dot ·
+now **LIVE + tier-configured on-chain** (`[mandate_v4].address=0x8e561a…f774`; `setPeriodConfig(3600,1_500_000)`
+confirmed), so it reads a **live (V4)** figure (the V4 USD cap stays opt-in/off by default, labelled so — never
+a number the bar does not read; §8 claim only what's live); a **per-asset table** (state dot ·
 symbol · truncated address · decimals · per-tx cap; a non-allowlisted asset greyed with a `—`, capped-scroll);
 and a **wallet-free `checkTransfer` simulator** (asset dropdown + amount → a real zero-gas `eth_call` → a
 tri-state **`ALLOWED` / `BLOCKED` / `UNVERIFIED`** verdict naming the binding on-chain reason — no wallet, no
 broadcast; a usage error mints no verdict; an unreachable RPC is `UNVERIFIED`, never a faked allow). The chain
 is threaded as one `{chainId, registryAddress}` **context object** (`MANDATE_CARD` in `web/src/spine.ts`), so
-bringing the consolidated V4 registry live is a **data change** (repoint the context), not a redesign;
+bringing the consolidated V4 registry live WAS a **data change** (the context repointed to `0x8e561a…f774`), not a redesign;
 by-chain is the **single 0G badge** only — one enforcement chain, proven by `scripts/0g_only_gate.ps1` — with
 deliberately **no chain selector**. Footer: *"Read independently from chain — not the agent's UI."*
 
@@ -183,7 +184,7 @@ mandate card (per-asset rules + the wallet-free `checkTransfer` sim) → how the
 run drives the same controls with no human — is the step-by-step **fullstack judge/voter guide** in
 `VERIFY.md` ("Verify it yourself, in the browser"). It is zero-trust, zero-wallet: every verdict it tells a
 judge to expect is the *reconciled* one, with honest scope stated inline (the Brain stays PENDING until a real
-attestation; the dry-run signs/broadcasts nothing; `MandateRegistryV4` is built-not-deployed).
+attestation; the dry-run signs/broadcasts nothing; `MandateRegistryV4` is now LIVE on `16602`, the pinned mandate).
 
 ---
 
@@ -387,7 +388,7 @@ The four-tier gate (§10.4) and the value-tiered outbound time-lock (§11.2) pro
 
 The fixed-precedence list above is the **`checkTransfer` view-gate's** first-failing reason. The **typed-spoke bridge path** (`queueBridgeOut` / `executeBridgeOut`) runs the same view core but adds **one bridge-boundary reason ahead of it**: an **unconfigured spoke** (`spokeConfigured == false`) is `SPOKE_NOT_CONFIGURED` — a dedicated tag distinct from the view-gate's `SPENDER_NOT_ALLOWED` (the address spender/router deny), so the bridge default-deny is never conflated with the on-hub address-allowlist deny.
 
-**Verifier two-source.** `verifier/src/mandate.rs` extends the `Tier` set with the hardened labels (`NotStarted · Epoch · TxCountCap · MinSpend · MinUsd · UsdStaleness · SpokeDefaultDeny · ExecuteReGate · EgressReservation`), each confirmed via the same `confirm_tier` gate-read algebra (the new reason codes surface on the frozen `checkTransfer` shape, and the `SpokeDefaultDeny` tier reads back the dedicated `SPOKE_NOT_CONFIGURED` at the bridge boundary, so no new read seam is needed); `verifier/src/reconciler.rs` adds the named I14-R reconciler. `contracts/test/MandateRegistryV4.t.sol` proves one invariant per row; the deploy is operator-gated (`contracts/script/DeployV4.s.sol`, 0G-only chain guard), pinned in `proofagent.toml [mandate_v4]` once confirmed.
+**Verifier two-source.** `verifier/src/mandate.rs` extends the `Tier` set with the hardened labels (`NotStarted · Epoch · TxCountCap · MinSpend · MinUsd · UsdStaleness · SpokeDefaultDeny · ExecuteReGate · EgressReservation`), each confirmed via the same `confirm_tier` gate-read algebra (the new reason codes surface on the frozen `checkTransfer` shape, and the `SpokeDefaultDeny` tier reads back the dedicated `SPOKE_NOT_CONFIGURED` at the bridge boundary, so no new read seam is needed); `verifier/src/reconciler.rs` adds the named I14-R reconciler. `contracts/test/MandateRegistryV4.t.sol` proves one invariant per row; the deploy has now **landed LIVE** on 0G Galileo `16602` via `contracts/script/DeployV4.s.sol` (0G-only chain guard) at `0x8e561a5cc096af6e570220a5228b33c7d889f774`, pinned in `proofagent.toml [mandate_v4]` and confirmed FROM-CHAIN (owner == agent == `0x4850417aE8aEDD5D67344FE98c86515cfb5F393b`, `perTxCap`=2_000_000, native sentinel allowlisted, `setPeriodConfig(3600,1_500_000)`) — it is the pinned mandate the dashboard reconciles against.
 
 ### 10.5 The Engine: one execution contract, any protocol — *wow*
 
@@ -705,4 +706,4 @@ SDK versions are pinned in `package.json` / `Cargo.toml`. No real keys ever live
 - Khalani powers 0G Pay — https://blog.khalani.network/khalani-powers-0g-pay
 - LI.FI SDK — https://github.com/lifinance/sdk
 
-*The MandateRegistry / MandateRegistryV3 / TimelockGuard / MandateRegistryV4 addresses and the verifier corpus are pinned in `proofagent.toml` once confirmed on-chain (V4 is built & tested; its deploy + `[mandate_v4]` pin are operator-gated). The as-built evidence record — live on-chain proofs, the full gate matrix, and the design ↔ code conformance verdict: [`docs/PROOFAGENT_0G_EVIDENCE.md`](PROOFAGENT_0G_EVIDENCE.md). The adapter recipe: [`docs/ADD_AN_ADAPTER.md`](ADD_AN_ADAPTER.md).*
+*The MandateRegistry / MandateRegistryV3 / TimelockGuard / MandateRegistryV4 addresses and the verifier corpus are pinned in `proofagent.toml` once confirmed on-chain (the consolidated `MandateRegistryV4` is built, tested & **DEPLOYED LIVE** on 0G Galileo `16602` at `0x8e561a…f774`, `[mandate_v4].address` pinned — the pinned mandate the dashboard reads; the TimelockGuard deploy stays operator-gated). The as-built evidence record — live on-chain proofs, the full gate matrix, and the design ↔ code conformance verdict: [`docs/PROOFAGENT_0G_EVIDENCE.md`](PROOFAGENT_0G_EVIDENCE.md). The adapter recipe: [`docs/ADD_AN_ADAPTER.md`](ADD_AN_ADAPTER.md).*

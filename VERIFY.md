@@ -20,7 +20,7 @@ You can confirm the project is real in under a minute, with **nothing installed*
 1. **Watch the 2-minute demo** → the [`demo` release](../../releases/tag/demo) (master cut + a 30s short).
 2. **Check the chain yourself** — these are **real transactions** on the public 0G-Galileo explorer. Click and look:
    - ✅ **A real settlement** → [`0x8c59…bfb0`](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0) — should read **Success**, value **1,000,000 wei**, block 39,996,100.
-   - 🟡 **The live mandate contract** → [`0x675FF5…D345`](https://chainscan-galileo.0g.ai/address/0x675FF5053F434AA3f1d48574813BFc1696FBD345).
+   - 🟢 **The live mandate contract** (the consolidated, hardened **`MandateRegistryV4`**) → [`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) — deployed on 0G Galileo `16602`, block 40,213,222.
 
 The demo video *shows* the commands; these explorer pages are **the chain proving them**. No setup, no trust required.
 
@@ -42,14 +42,40 @@ cargo run -p verifier -- verify-tx 0xdeadbeef00000000000000000000000000000000000
 ```
 **On screen too:** `cd web && npm install && npm run build && npx serve -l 3100 .` → open `http://localhost:3100` → click **"Run the NEG case"** → the page stamps **`UNVERIFIED`**. It must equal the CLI verdict — the UI is never trusted; the verifier re-derives it from the chain.
 
-### Proof 2 — RAILS: it can't overspend  *(contract)*
+### Proof 2 — RAILS: it can't overspend  *(contract — the LIVE `MandateRegistryV4`)*
+The pinned mandate is the consolidated, hardened **`MandateRegistryV4`**, LIVE on 0G Galileo `16602` at
+`0x8e561a5cc096af6e570220a5228b33c7d889f774`. Read it yourself — read the **agent FROM-CHAIN** (never a key):
 ```bash
-cast call 0x675FF5053F434AA3f1d48574813BFc1696FBD345 \
-  "checkTransfer(address,address,uint256)(bool,bytes32)" \
-  0xc7Af61A1399Aca0bee648D7853AE93f96B86866a \
-  0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE \
-  3000000 --rpc-url https://evmrpc-testnet.0g.ai
+REG=0x8e561a5cc096af6e570220a5228b33c7d889f774
+RPC=https://evmrpc-testnet.0g.ai
+AGENT=$(cast call $REG "agent()(address)" --rpc-url $RPC)   # the mandated agent, READ FROM-CHAIN (== owner)
+NATIVE=0x0000000000000000000000000000000000000001            # the V4 native sentinel (cast call $REG "NATIVE()(address)")
+
+# the over-cap block (the headline) — 3_000_000 > the 2_000_000 per-tx cap:
+cast call $REG "checkTransfer(address,address,uint256)(bool,bytes32)" $AGENT $NATIVE 3000000 --rpc-url $RPC
 # → false  (reason decodes to OVER_TX_CAP) — over the cap, blocked pre-broadcast, zero gas
+```
+
+#### Check the live V4 yourself — the full reconciliation
+Every number the dashboard reconciles against is independently readable from the live V4 (read-only, zero gas):
+```bash
+REG=0x8e561a5cc096af6e570220a5228b33c7d889f774
+RPC=https://evmrpc-testnet.0g.ai
+NATIVE=0x0000000000000000000000000000000000000001
+AGENT=$(cast call $REG "agent()(address)" --rpc-url $RPC)
+
+cast call $REG "owner()(address)"      --rpc-url $RPC   # == agent (the demo agent owns the registry)
+cast call $REG "perTxCap()(uint256)"   --rpc-url $RPC   # → 2000000  (the global per-tx cap, wei)
+cast call $REG "assetCap(address)(uint256)" $NATIVE --rpc-url $RPC   # → 2000000  (the native sentinel sub-cap)
+cast call $REG "allowed(address)(bool)"     $NATIVE --rpc-url $RPC   # → true     (native sentinel allowlisted)
+cast call $REG "periodSeconds()(uint64)"    --rpc-url $RPC   # → 3600  (leaky-bucket window, 1h)
+cast call $REG "periodCap()(uint256)"       --rpc-url $RPC   # → 1500000 (leaky-bucket cap, wei)
+cast call $REG "paused()(bool)"             --rpc-url $RPC   # → false
+
+# the three by-asset gate answers the dry-run / mandate card reconcile against:
+cast call $REG "checkTransfer(address,address,uint256)(bool,bytes32)" $AGENT $NATIVE 1000000 --rpc-url $RPC  # → true,  (OK)            — under cap → ALLOWED
+cast call $REG "checkTransfer(address,address,uint256)(bool,bytes32)" $AGENT $NATIVE 2500000 --rpc-url $RPC  # → false, OVER_TX_CAP     — over cap → BLOCKED
+cast call $REG "checkTransfer(address,address,uint256)(bool,bytes32)" $AGENT 0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E 1000000 --rpc-url $RPC  # → false, TOKEN_NOT_ALLOWED — non-allowlisted asset → BLOCKED
 ```
 
 ### Proof 3 — SETTLED: prove a real settlement  *(CLI + explorer)*
@@ -83,9 +109,10 @@ only when the card's stated config matches the chain's own `checkTransfer` answe
 `Unverified` if the RPC is unreachable — never a faked green), a **per-asset table** (allowlist + per-tx caps;
 non-allowlisted assets greyed), and a **wallet-free `checkTransfer` simulator** — pick an asset + amount and
 the card runs the **same zero-gas `eth_call` as Proof 2**, rendering `ALLOWED` / `BLOCKED` / `UNVERIFIED` with
-the binding on-chain reason. No wallet, no signing, no broadcast. The consolidated **`MandateRegistryV4`**
-USD/period cap is shown as **built-not-deployed** (its deploy is operator-gated), labelled honestly — never as
-a live-enforced number. Confirm any verdict the simulator shows with the `cast call` from Proof 2.
+the binding on-chain reason. No wallet, no signing, no broadcast. The card now reads the consolidated
+**`MandateRegistryV4`**, **LIVE on `16602`** (`0x8e561a…f774`); its period cap reads a live-enforced figure
+(the V4 USD cap stays opt-in/off by default, labelled so). Confirm any verdict the simulator shows with the
+`cast call` from Proof 2.
 
 ### Audit the ledger
 ```bash
@@ -159,8 +186,8 @@ intents **per asset** against the deployed mandate, live and reconciled:
 
 | Intent (the *same* agent) | asset | amount | on-chain `(ok, reason)` | dry-run decision |
 |---|---|---|---|---|
-| under-cap, allowlisted | native sentinel `0xEeee…EEeE` | `1_000_000` | `(true, OK)` | **ALLOWED** |
-| over its cap, same asset | native sentinel `0xEeee…EEeE` | `3_000_000` | `(false, OVER_TX_CAP)` | **BLOCKED — over the asset's cap** |
+| under-cap, allowlisted | native sentinel `0x00…0001` | `1_000_000` | `(true, OK)` | **ALLOWED** |
+| over its cap, same asset | native sentinel `0x00…0001` | `3_000_000` | `(false, OVER_TX_CAP)` | **BLOCKED — over the asset's cap** |
 | non-allowlisted asset | USDC.E `0x1f3AA82…473E` | `1_000_000` | `(false, TOKEN_NOT_ALLOWED)` | **BLOCKED — asset not on the allowlist** |
 
 **Watch the mandate rail fire per asset:** the same agent gets a *different* decision per asset — the gate is
@@ -174,14 +201,15 @@ artifact** a real `verifier verify-tx … --journal` + `verifier ledger` produce
 (vary the asset / amount).
 
 ### 4 — Read the mandate card (per-asset rules + the wallet-free checkTransfer sim)
-The **RAILS card is the deployed mandate, read straight from chain** — a READ-ONLY mirror of the deployed
-`MandateRegistry` (still one of the four cards, not a fifth). Top to bottom it shows:
+The **RAILS card is the deployed mandate, read straight from chain** — a READ-ONLY mirror of the deployed,
+LIVE `MandateRegistryV4` (`0x8e561a…f774` on `16602`; still one of the four cards, not a fifth). Top to bottom it shows:
 - a **0G chain badge** + the tri-state **reconciled-vs-deployed pill** (the chain's own `checkTransfer` answer is
   the baseline: `Reconciled` green when the stated config matches it · `Drifted` loud if they disagree ·
   `Unverified` grey if the RPC is unreachable — never a faked green);
-- a **global period/USD-cap bar** carrying the consolidated **`MandateRegistryV4`** spec, shown as
-  **built-not-deployed** (`[mandate_v4].address=""`; its deploy is operator-gated) and labelled so — **never** a
-  live-enforced number;
+- a **global period/USD-cap bar** carrying the consolidated **`MandateRegistryV4`**, now **LIVE +
+  tier-configured on-chain** (`[mandate_v4].address=0x8e561a…f774`; `setPeriodConfig(3600, 1_500_000)`
+  confirmed), so its period figure reads **live (V4)** (the V4 USD cap stays opt-in/off by default, labelled
+  so — never a number the bar does not read);
 - a **per-asset table** — one row per asset (allowlist state · symbol · address · decimals · per-tx cap by the
   asset's decimals); a non-allowlisted asset is greyed with a `—` cap (default-deny);
 - a **wallet-free `checkTransfer` simulator** — pick an asset + amount → a real zero-gas `eth_call` →
@@ -213,8 +241,11 @@ exactly what the chain/verifier independently re-derive.
   is **operator-gated**; the default build keeps the stamp PENDING. We never fabricate an attestation.
 - **The dry-run is a dry-run.** Nothing is signed or broadcast; the only chain access is the **read-only**
   `checkTransfer` `eth_call` (a real, zero-gas read). Every dry-run leg settles to `unverified` by construction.
-- **`MandateRegistryV4` is built-not-deployed.** Its consolidated USD/period gate is shown as a spec, labelled
-  so — never as a live-enforced number — until the operator deploys it (`[mandate_v4].address=""`).
+- **`MandateRegistryV4` is now LIVE.** The consolidated, hardened gate is deployed + tier-configured on 0G
+  Galileo `16602` (`[mandate_v4].address=0x8e561a…f774`), so the per-asset gate + the period cap the dashboard
+  reconciles against are live-enforced figures, independently readable from chain (Proof 2). The V4 USD cap
+  stays opt-in/off by default, labelled so — never a number the card does not read. The MVP MandateRegistry +
+  the four-tier V3 remain on-chain as historical provenance, superseded by V4 as the pinned mandate.
 - **Nothing is faked green.** Every on-screen verdict is reconciled against an independent source; an
   unreachable source shows an honest `infra-gated` / `Unverified`, never a coerced pass.
 

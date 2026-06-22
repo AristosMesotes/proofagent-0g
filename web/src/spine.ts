@@ -43,16 +43,16 @@ export const CHAIN = {
 } as const;
 
 /**
- * The on-chain spend cap, mirroring `[mandate]` in proofagent.toml. `registryAddress` is empty until the
- * MandateRegistry is confirmed/deployed on-chain (design §8: claim only what's live). An empty address is
- * the HONEST "not yet deployed" signal -- the UI must not render a green "live on-chain" rails stamp while
- * it is empty.
+ * The on-chain spend cap, mirroring `[mandate_v4]` in proofagent.toml. `registryAddress` is now PINNED to
+ * the LIVE consolidated `MandateRegistryV4` on 0G Galileo (its operator-gated deploy has landed -- design
+ * §8: claim only what's live), so the thin index page's Rails stamp reads a green `LIVE` (an empty address
+ * was the HONEST "not yet deployed" signal; it is no longer empty because V4 is confirmed on-chain).
  */
 export const MANDATE = {
   /** Per-transaction cap, the public knob from the spine (`per_tx_cap = "2 USD"`). */
   perTxCapUsd: 2,
-  /** Deployed registry address, or "" when not yet pinned on-chain (design §8). */
-  registryAddress: "" as string,
+  /** Deployed registry address -- the LIVE `MandateRegistryV4` on 16602 (`[mandate_v4].address`; design §8). */
+  registryAddress: "0x8e561a5cc096af6e570220a5228b33c7d889f774" as string,
 } as const;
 
 /**
@@ -98,12 +98,18 @@ export const GALILEO = {
  * `OVER_TX_CAP` -- the honest, deterministic block.
  */
 export const RAILS_ONCHAIN = {
-  /** Deployed MandateRegistry on Galileo (`[mandate].address`). */
-  registry: "0x675FF5053F434AA3f1d48574813BFc1696FBD345",
-  /** The demo agent the mandate is bound to (the registry's mandated `agent`; PUBLIC). */
-  agent: "0xc7Af61A1399Aca0bee648D7853AE93f96B86866a",
-  /** The canonical native-asset sentinel the cap is enforced against (`[mandate].native_asset_sentinel`). */
-  nativeSentinel: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+  /** Deployed MandateRegistryV4 on Galileo, LIVE + pinned (`[mandate_v4].address`). */
+  registry: "0x8e561a5cc096af6e570220a5228b33c7d889f774",
+  /**
+   * The demo agent the mandate is bound to (the V4 registry's mandated `agent` == `owner`, READ
+   * FROM-CHAIN via `cast call <address> "agent()(address)"`; PUBLIC — never from a key/env).
+   */
+  agent: "0x4850417aE8aEDD5D67344FE98c86515cfb5F393b",
+  /**
+   * The canonical native-asset sentinel the cap is enforced against on V4
+   * (`[mandate_v4].native_asset_sentinel` = `0x..0001`, the V4 `NATIVE()` constant — allowlisted on-chain).
+   */
+  nativeSentinel: "0x0000000000000000000000000000000000000001",
   /** The on-chain per-tx cap, MINOR units (wei) -- `perTxCap = 2_000_000` (`[mandate]`). */
   perTxCap: 2_000_000n,
   /**
@@ -116,11 +122,11 @@ export const RAILS_ONCHAIN = {
 
 /**
  * The PER-ASSET mandate surface the dry-run's mandate-BY-ASSET leg probes, mirroring `[mandate]` in
- * proofagent.toml + `demo/EVIDENCE.md` (the on-chain `setAssetCap` allowlist). All PUBLIC. The deployed
- * MVP `MandateRegistry` enforces a per-asset allowlist + per-asset sub-caps: ONLY the native sentinel was
- * allowlisted on-chain (`setAssetCap(0xEeee…EEeE, 2_000_000, true)`), so a DIFFERENT asset is rejected
+ * proofagent.toml + `demo/EVIDENCE.md` (the on-chain allowlist). All PUBLIC. The deployed, LIVE
+ * `MandateRegistryV4` enforces a per-asset allowlist + per-asset sub-caps: ONLY the native sentinel was
+ * allowlisted on-chain (`addAllowedAsset(0x..0001, 2_000_000, 18)`), so a DIFFERENT asset is rejected
  * `TOKEN_NOT_ALLOWED` — the same agent gets a DIFFERENT gate decision per asset. The amounts below make
- * the per-asset enforcement visible against the LIVE registry, each as a real read-only `eth_call`:
+ * the per-asset enforcement visible against the LIVE V4 registry, each as a real read-only `eth_call`:
  *
  *  - the native sentinel UNDER its sub-cap → `(true, OK)`        (allowed asset under cap → ALLOWED);
  *  - the native sentinel OVER  its sub-cap → `(false, OVER_TX_CAP)` (allowed asset over its per-asset cap;
@@ -132,19 +138,19 @@ export const RAILS_ONCHAIN = {
  * `(ok, reason)`, never fabricated — an unexpected answer surfaces loud, never softened to an allow.
  */
 export const MANDATE_ASSETS = {
-  /** Deployed MandateRegistry on Galileo (same address the RAILS leg reads — `[mandate].address`). */
-  registry: "0x675FF5053F434AA3f1d48574813BFc1696FBD345",
-  /** The demo agent the mandate is bound to (the registry's mandated `agent`; PUBLIC). */
-  agent: "0xc7Af61A1399Aca0bee648D7853AE93f96B86866a",
-  /** The allowlisted native-asset sentinel the cap is enforced against (`[mandate].native_asset_sentinel`). */
-  nativeSentinel: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+  /** Deployed MandateRegistryV4 on Galileo, LIVE (same address the RAILS leg reads — `[mandate_v4].address`). */
+  registry: "0x8e561a5cc096af6e570220a5228b33c7d889f774",
+  /** The demo agent the mandate is bound to (the V4 registry's mandated `agent`, READ FROM-CHAIN; PUBLIC). */
+  agent: "0x4850417aE8aEDD5D67344FE98c86515cfb5F393b",
+  /** The allowlisted native-asset sentinel the cap is enforced against (`[mandate_v4].native_asset_sentinel`). */
+  nativeSentinel: "0x0000000000000000000000000000000000000001",
   /**
-   * A NON-allowlisted asset on the deployed registry — the public USDC.E token on 0G
-   * (`[bridge].usdce_token`). It was never `setAssetCap`-allowlisted on this MVP registry, so the gate
+   * A NON-allowlisted asset on the deployed V4 registry — the public USDC.E token on 0G
+   * (`[bridge].usdce_token`). It was never `addAllowedAsset`-allowlisted on V4, so the gate
    * rejects it `TOKEN_NOT_ALLOWED` for the same agent — proving the mandate is enforced PER ASSET.
    */
   nonAllowlistedAsset: "0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E",
-  /** The native sentinel's on-chain per-asset sub-cap, MINOR units (wei) — `assetCap[sentinel]` (`[mandate]`). */
+  /** The native sentinel's on-chain per-asset sub-cap, MINOR units (wei) — `assetCap[sentinel]` (`[mandate_v4]`). */
   perAssetCap: 2_000_000n,
   /** An UNDER-cap probe amount, MINOR units (wei). 1_000_000 < the 2_000_000 sub-cap → the chain answers `(true, OK)`. */
   underCapAmount: 1_000_000n,
@@ -161,21 +167,22 @@ export const MANDATE_ASSETS = {
  *
  * The mandate card is a READ-ONLY mirror of the deployed mandate registry. Everything chain-specific is
  * threaded as ONE `{chainId, registryAddress}` context so that bringing a NEW registry live (the
- * consolidated `MandateRegistryV4`, once its operator-gated deploy lands) is a DATA change here -- repoint
- * `chainId` + `registryAddress` -- never a card REDESIGN. By-CHAIN is the SINGLE 0G badge only (one
- * enforcement chain; the 0g-only gate proves it); there is deliberately NO chain selector. When V4's
- * `[mandate_v4].address` is pinned in `proofagent.toml`, only `registryAddress` (and the tier facts) move.
+ * consolidated `MandateRegistryV4`, whose operator-gated deploy has now LANDED) was a DATA change here --
+ * repoint `chainId` + `registryAddress` -- never a card REDESIGN. By-CHAIN is the SINGLE 0G badge only (one
+ * enforcement chain; the 0g-only gate proves it); there is deliberately NO chain selector. V4's
+ * `[mandate_v4].address` is now pinned in `proofagent.toml`, so `registryAddress` (and the tier facts) moved.
  *
- * ## What is LIVE vs BUILT-NOT-DEPLOYED (the honesty split -- design §8, claim only what's live)
+ * ## What is LIVE (the honesty split -- design §8, claim only what's live)
  *
- * The card reads the **currently-deployed** registry: the live MVP `MandateRegistry` on 0G Galileo
- * (`[mandate].address`), which enforces `checkTransfer(agent,token,amount) -> (ok,reason)` (selector
- * `0xcc1dd94f`), the asset allowlist + per-asset sub-caps, and the global per-tx cap -- the exact surface
- * the per-asset table + the wallet-free simulator read. The consolidated `MandateRegistryV4` (which folds
- * V3 + the time-lock and ADDS a global USD period cap + a leaky-bucket period cap) is BUILT + tested +
- * verifier-confirmed but its deploy is OPERATOR-GATED (`[mandate_v4].address=""`). So the card mirrors what
- * the DEPLOYED registry actually enforces and labels the V4-spec USD/period tiers honestly as
- * built-not-deployed -- it never paints a tier the live registry does not enforce as if it were live.
+ * The card reads the **currently-deployed** registry: the consolidated, hardened `MandateRegistryV4`, now
+ * LIVE on 0G Galileo (`[mandate_v4].address` = `0x8e561a…f774`), which enforces
+ * `checkTransfer(agent,token,amount) -> (ok,reason)` (selector `0xcc1dd94f`), the asset allowlist + per-asset
+ * sub-caps, the global per-tx cap, AND the leaky-bucket period cap -- the exact surface the per-asset table +
+ * the wallet-free simulator read. V4 folds the MVP `MandateRegistry` + the four-tier `MandateRegistryV3` +
+ * the TimelockGuard into ONE non-custodial gate (built + Foundry-tested + verifier-confirmed, now deployed
+ * + tier-configured on-chain). The MVP registry + V3 remain on-chain as historical provenance but V4 is the
+ * pinned mandate the card reads. The V4 USD cap stays opt-in (`usd_cap_micros = 0`, off by default), so the
+ * card labels the USD tier as a configured-off spec, never a live-enforced number it does not read.
  *
  * ## Two-source reconciliation (design §3 #1, §8)
  *
@@ -202,35 +209,36 @@ export interface MandateAsset {
 /**
  * The mandate-card context -- the deployed-registry mirror, threaded as ONE object so multi-chain is a
  * later DATA change (repoint `chainId` + `registryAddress`), not a redesign. All PUBLIC: mirrors
- * `[mandate]` (the deployed MVP registry the card reads) + `[mandate_v4]` (the consolidated successor's
- * spec, built-not-deployed). The USD/period tiers are carried as the V4 SPEC and rendered honestly as
- * built-not-deployed -- the live MVP registry enforces no USD cap and no period cap.
+ * `[mandate_v4]` (the LIVE consolidated `MandateRegistryV4` the card now reads -- `0x8e561a…f774`). The
+ * period tier is the V4's on-chain leaky-bucket cap (`setPeriodConfig(3600, 1_500_000)` confirmed), rendered
+ * as a live-enforced figure; the V4 USD cap stays opt-in (off by default), labelled so -- never a number the
+ * card does not read. The MVP registry + V3 remain on-chain as historical provenance, superseded by V4.
  */
 export const MANDATE_CARD = {
   /** The enforcement chain id -- the ONE 0G chain the deployed registry is live on (Galileo testnet). */
   chainId: 16602,
   /**
-   * The DEPLOYED registry address the card reads (`[mandate].address` -- the live MVP `MandateRegistry`).
-   * When the consolidated `MandateRegistryV4` deploy lands (operator-gated; `[mandate_v4].address`), this
-   * single field repoints -- the card is unchanged.
+   * The DEPLOYED registry address the card reads (`[mandate_v4].address` -- the LIVE consolidated
+   * `MandateRegistryV4`, `0x8e561a…f774`). This single field repointed when the V4 deploy landed -- the
+   * card is unchanged (the context-object design made it a data move, not a redesign).
    */
-  registryAddress: "0x675FF5053F434AA3f1d48574813BFc1696FBD345",
-  /** The mandated agent the registry is bound to (`[mandate]`/`[mandate_v4]` agent; PUBLIC). */
-  agent: "0xc7Af61A1399Aca0bee648D7853AE93f96B86866a",
-  /** The global per-tx cap on the DEPLOYED registry, MINOR units (`[mandate].per_tx_cap` = 2_000_000 wei). */
+  registryAddress: "0x8e561a5cc096af6e570220a5228b33c7d889f774",
+  /** The mandated agent the V4 registry is bound to (`[mandate_v4].agent`, READ FROM-CHAIN; PUBLIC). */
+  agent: "0x4850417aE8aEDD5D67344FE98c86515cfb5F393b",
+  /** The global per-tx cap on the DEPLOYED V4 registry, MINOR units (`[mandate_v4].per_tx_cap` = 2_000_000 wei). */
   perTxCap: 2_000_000n,
   /** The same cap, USD knob, for the human-readable label (`[mandate].per_tx_cap = "2 USD"`). */
   perTxCapUsd: 2,
   /**
-   * The per-asset table the card mirrors -- the deployed registry's allowlist + per-asset sub-caps. The
-   * native sentinel is allowlisted on-chain (`setAssetCap(sentinel, 2_000_000, true)`); the public USDC.E
-   * token is NOT allowlisted (the gate answers `TOKEN_NOT_ALLOWED`), so its row is greyed/blocked. These
-   * stated rows are RECONCILED against the chain's own `checkTransfer` answers (the on-chain read is truth).
+   * The per-asset table the card mirrors -- the deployed V4 registry's allowlist + per-asset sub-caps. The
+   * native sentinel (`0x..0001`) is allowlisted on-chain (`addAllowedAsset(0x..0001, 2_000_000, 18)`); the
+   * public USDC.E token is NOT allowlisted (the gate answers `TOKEN_NOT_ALLOWED`), so its row is greyed/blocked.
+   * These stated rows are RECONCILED against the chain's own `checkTransfer` answers (the on-chain read is truth).
    */
   assets: [
     {
       symbol: "0G (native)",
-      address: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
+      address: "0x0000000000000000000000000000000000000001",
       decimals: 18,
       allowed: true,
       perTxCap: 2_000_000n,
@@ -244,18 +252,19 @@ export const MANDATE_CARD = {
     },
   ] as readonly MandateAsset[],
   /**
-   * The V4-SPEC global USD period cap (`[mandate_v4]`), carried for the period-cap bar. It is
-   * BUILT-NOT-DEPLOYED: the consolidated `MandateRegistryV4` adds it, but its deploy is operator-gated and
-   * the live MVP registry enforces NO USD/period cap. The bar renders it honestly as the V4 spec, never as
-   * a live-enforced number. `usdCapMicros`/`periodCap` are 0 in `[mandate_v4]` by default (opt-in), so the
-   * spec values shown are the CONFIGURED rolling-window cap (`period_cap`) + window (`period_seconds`).
+   * The V4 global period cap (`[mandate_v4]`), carried for the period-cap bar. The consolidated
+   * `MandateRegistryV4` is now DEPLOYED + tier-configured LIVE on 16602: `setPeriodConfig(3600, 1_500_000)`
+   * is confirmed on-chain (read back via `periodSeconds()`/`periodCap()`), so the leaky-bucket period cap is
+   * a LIVE-enforced number. The USD cap stays opt-in (`usd_cap_micros = 0`, off by default), so the bar's
+   * period figures are the CONFIGURED, on-chain rolling-window cap (`period_cap`) + window (`period_seconds`);
+   * `used` reads 0 because no demo spend has accrued against the live bucket (an honest empty, not a fake).
    */
   v4Spec: {
-    /** `true` iff the consolidated V4 registry is DEPLOYED + pinned (`[mandate_v4].address` non-empty). */
-    deployed: false,
-    /** The leaky-bucket window length, seconds (`[mandate_v4].period_seconds` = 3600 = 1h). */
+    /** `true` iff the consolidated V4 registry is DEPLOYED + pinned (`[mandate_v4].address` non-empty). LIVE. */
+    deployed: true,
+    /** The leaky-bucket window length, seconds (`[mandate_v4].period_seconds` = 3600 = 1h; on-chain). */
     periodSeconds: 3600,
-    /** The leaky-bucket cumulative cap per window, MINOR units (`[mandate_v4].period_cap` = 1_500_000). */
+    /** The leaky-bucket cumulative cap per window, MINOR units (`[mandate_v4].period_cap` = 1_500_000; on-chain). */
     periodCap: 1_500_000n,
     /** The per-tx USD cap, micro-dollars (`[mandate_v4].usd_cap_micros`; 0 => opt-in, off by default). */
     usdCapMicros: 0n,

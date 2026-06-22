@@ -57,7 +57,7 @@
       <section class="neg" aria-label="The RAILS check (on-chain cap)">
         <h2 class="neg__heading">Check on-chain &mdash; RAILS (the spend cap)</h2>
         <p class="neg__lead">
-          Read-only &mdash; no key, no broadcast. Ask the deployed <code>MandateRegistry</code> on 0G to
+          Read-only &mdash; no key, no broadcast. Ask the deployed, LIVE <code>MandateRegistryV4</code> on 0G to
           <code>checkTransfer(agent, native, OVER-cap amount)</code> as a zero-gas <code>eth_call</code>.
           The chain rejects the over-cap spend <strong>before broadcast</strong> &mdash; it answers
           <code>OVER_TX_CAP</code>.
@@ -98,7 +98,7 @@
           <dd id="fact-chain">&mdash;</dd>
           <dt>Per-tx cap (Rails)</dt>
           <dd id="fact-cap">&mdash;</dd>
-          <dt>MandateRegistry</dt>
+          <dt>MandateRegistryV4</dt>
           <dd id="fact-registry">&mdash;</dd>
           <dt>Verifier corpus</dt>
           <dd id="fact-corpus">&mdash;</dd>

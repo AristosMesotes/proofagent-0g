@@ -21,7 +21,7 @@ Two static screens (design §4):
 | Stamp | What it shows | Honesty (design §7/§8) |
 |---|---|---|
 | **Brain** | which model ran | `PENDING / Phase-2` in the **default offline build** -- 0G Compute TEE attestation is the *Depth* bracket. The stamp lifts to a green `LIVE / TEE-attested` ONLY when `buildStamps(brain)` is handed a real verified attestation (`attested === true`) -- a `trusted` provider-service attestation AND a verified per-response enclave signature, neither from the model's words. The brain leg itself is built + offline-tested in the agent (`agent/src/zerog/compute.ts`); the live broker call is **operator-gated** (a funded 0G Compute sub-account + a TEE provider), so by default this stamp is **PENDING until one live verified attestation**. |
-| **Rails** | it cannot overspend | the on-chain per-tx cap, enforced pre-broadcast. `ARMED` until the MandateRegistry address is pinned on-chain; `LIVE` (with an explorer link) once it is. |
+| **Rails** | it cannot overspend | the on-chain per-tx cap, enforced pre-broadcast. Now `LIVE` (with an explorer link): the consolidated **`MandateRegistryV4`** address is pinned on-chain (`0x8e561a…f774` on 16602). |
 | **Settlement** | the trade really happened | the independent verifier's verdict. Asserts **no** `settled` while the corpus is empty; the live, runnable proof is the **NEG case**. |
 
 ## The three driveable controls (each stamps `data-verdict` for the harness)
@@ -46,11 +46,12 @@ verdict). `settled` is the only green render; everything else renders amber.
 It can only ever produce `unverified` (never a fabricated `settled`), and it prints the exact CLI command
 to reproduce the verdict against the real independent Rust verifier.
 
-**The RAILS check** (design §2 Rails): a key-less, zero-gas `eth_call` of the deployed `MandateRegistry`
-on 0G Galileo (16602), asking `checkTransfer(agent, native-sentinel, 3_000_000 wei)` -- strictly above the
-`2_000_000` per-tx cap. The chain answers `(false, OVER_TX_CAP)` **before any broadcast**; the page decodes
-that on-chain reason word into `data-verdict="OVER_TX_CAP"`. Re-derive it: replay the same `eth_call` and
-decode the second 32-byte word (`cast call <registry> "checkTransfer(address,address,uint256)" …`).
+**The RAILS check** (design §2 Rails): a key-less, zero-gas `eth_call` of the deployed, LIVE
+`MandateRegistryV4` on 0G Galileo (16602, `0x8e561a…f774`), asking
+`checkTransfer(agent, native-sentinel `0x..0001`, 3_000_000 wei)` -- strictly above the `2_000_000` per-tx
+cap. The chain answers `(false, OVER_TX_CAP)` **before any broadcast**; the page decodes that on-chain reason
+word into `data-verdict="OVER_TX_CAP"`. Re-derive it: replay the same `eth_call` and decode the second
+32-byte word (`cast call 0x8e561a5cc096af6e570220a5228b33c7d889f774 "checkTransfer(address,address,uint256)(bool,bytes32)" …`).
 
 **The SETTLED check** (design §2 Settlement): a key-less read of the **pinned** settled tx
 (`[[verifier.corpus]]` / `demo/EVIDENCE.md` PROOF 1) -- `eth_getTransactionReceipt` (`status 0x1`) +
@@ -80,8 +81,8 @@ uses. It runs the loop `plan → mandate-gate (per asset) → verify` (mirroring
 
    | Intent (same agent) | asset | amount | on-chain `(ok, reason)` | dry-run decision |
    |---|---|---|---|---|
-   | under-cap, allowed asset | native sentinel `0xEeee…EEeE` | `1_000_000` | `(true, OK)` | **ALLOWED** |
-   | over its per-asset cap, allowed asset | native sentinel `0xEeee…EEeE` | `3_000_000` | `(false, OVER_TX_CAP)` | **BLOCKED — over the asset's cap** |
+   | under-cap, allowed asset | native sentinel `0x00…0001` | `1_000_000` | `(true, OK)` | **ALLOWED** |
+   | over its per-asset cap, allowed asset | native sentinel `0x00…0001` | `3_000_000` | `(false, OVER_TX_CAP)` | **BLOCKED — over the asset's cap** |
    | non-allowlisted asset | USDC.E `0x1f3AA82…473E` | `1_000_000` | `(false, TOKEN_NOT_ALLOWED)` | **BLOCKED — asset not on the allowlist** |
 
    Same agent → three **different** gate decisions: the mandate is enforced **per asset**. (For the native
@@ -115,9 +116,10 @@ card, not a fifth. It reuses the same read-only `RpcTransport` + `runRailsCheck`
   is the only green face; a disagreement is a **loud** `Drifted`; an unreachable RPC is an honest `Unverified`
   (grey), never a faked green.
 - **Global period-cap bar** — the consolidated **`MandateRegistryV4`** rolling-window cap (used fraction +
-  reset countdown). V4 is **built-not-deployed** (its deploy is operator-gated; `[mandate_v4].address=""`),
-  so the bar shows the **V4 spec** with `0 used` and a clear *"not enforced on the deployed MVP registry"*
-  tag — it never reads as a live-enforced number.
+  reset countdown). V4 is now **LIVE + tier-configured on-chain** (`[mandate_v4].address=0x8e561a…f774`;
+  `setPeriodConfig(3600, 1_500_000)` confirmed on-chain), so the bar reads a **live (V4)** figure with
+  `0 used` (honest — no demo spend has accrued against the live bucket yet); the V4 USD cap stays opt-in/off
+  by default, labelled so — never a number the bar does not read.
 - **Per-asset table** — one row per asset: a state dot (allowed/blocked) · symbol · truncated address ·
   decimals · per-tx cap (formatted by the asset's decimals). A **blocked** (non-allowlisted) row is greyed
   with a `—` cap (the default-deny). The table body scrolls inside a fixed cap so a long allowlist never blows
@@ -130,7 +132,8 @@ card, not a fifth. It reuses the same read-only `RpcTransport` + `runRailsCheck`
 - **Footer** — *"Read independently from chain — not the agent's UI."*
 
 The chain context is threaded as one `{chainId, registryAddress, …}` **context object** (`MANDATE_CARD` in
-`web/src/spine.ts`), so bringing the consolidated V4 registry live is a **data change** (repoint the context),
+`web/src/spine.ts`), so bringing the consolidated V4 registry live WAS a **data change** (the context was
+repointed to `0x8e561a…f774` when V4's deploy landed),
 **not** a card redesign. By-chain is the single **0G** badge only — one enforcement chain (proven by
 `scripts/0g_only_gate.ps1`); there is deliberately **no chain selector**.
 

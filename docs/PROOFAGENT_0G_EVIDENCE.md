@@ -18,11 +18,11 @@
 | **Chain** | 0G Galileo testnet — chain id `16602` (mainnet Aristotle `16661`, operator-gated) |
 | **RPC** | `https://evmrpc-testnet.0g.ai` (read independently, raw JSON-RPC) |
 | **Explorer** | [`https://chainscan-galileo.0g.ai`](https://chainscan-galileo.0g.ai) |
-| **MandateRegistry (MVP)** | `0x675FF5053F434AA3f1d48574813BFc1696FBD345` (LIVE on `16602`) |
-| **MandateRegistryV3 (four-tier)** | `0xC24A325dB118cfFD586E72b9D085FB71D5202BD2` (LIVE on `16602`) |
-| **MandateRegistryV4 (consolidated, hardened)** | built + Foundry-tested (64) + verifier-confirmed; deploy operator-gated ($0 on `16602`, your own contract; `[mandate_v4].address=""` until pinned) |
+| **MandateRegistryV4 (consolidated, hardened — THE PINNED mandate)** | **`0x8e561a5cc096af6e570220a5228b33c7d889f774` (LIVE on `16602`)** — the dashboard reads + reconciles against this; deploy tx `0xd88d8a49…db50` (block 40,213,222), tier-configured in the same broadcast (`addAllowedAsset` · `setPeriodConfig(3600,1_500_000)` · `setParamDelay`) |
+| **MandateRegistry (MVP, superseded)** | `0x675FF5053F434AA3f1d48574813BFc1696FBD345` (LIVE on `16602`; historical provenance, superseded by V4) |
+| **MandateRegistryV3 (four-tier, superseded)** | `0xC24A325dB118cfFD586E72b9D085FB71D5202BD2` (LIVE on `16602`; historical provenance, superseded by V4) |
 | **TimelockGuard (egress lock + per-spoke caps)** | built + tape-tested (29 + 6 isolation); deploy operator-gated ($0 on `16602`, your own contract) |
-| **Agent / demo wallet** | `0xc7Af61A1399Aca0bee648D7853AE93f96B86866a` (testnet only; key is gitignored `.env`, never committed) |
+| **Agent / demo wallet** | V4 owner == agent == `0x4850417aE8aEDD5D67344FE98c86515cfb5F393b` (READ FROM-CHAIN via `cast call <addr> "agent()(address)"`, never a key; testnet only). The MVP/V3 demo wallet `0xc7Af61A1399Aca0bee648D7853AE93f96B86866a` bound the superseded registries. |
 | **Gate digest (proofagent-0g)** | **`fnv1a64:b61ebdb7aeb04e8e`** — the 14-check ladder (build · clippy · forge · tsc · tests · the two clean-room surface-gates · the gas/net-worth presence gates · docs-links · the headless **fullstack-target** leg now driving all three proofs) |
 | **Self-gate digest** | **`fnv1a64:2c3e4fb0f18f1db4`** — the gating engine's own build·test·clippy + the generic↔specific firewall pair + verdict-authority + its own docs-links |
 | **Settlement truth** | [`LEDGER.md`](../LEDGER.md) — the full verifier-verdict surface, generated from the append-only journal, never the UI |
@@ -136,12 +136,12 @@ independent source, all three of NEG · RAILS · SETTLED driven through the real
 | Feature | Concrete proof | Where |
 |---|---|---|
 | **SETTLED** — a within-cap native transfer the chain confirms moved exactly as claimed | **live tx** `0x8c59…bfb0` (block 39996100, status `0x1`, value `1000000` wei) → verifier `settled` (Δ `0`); a second `0xfb18…6290` (block 39996470); **also driven *through* the UI** by the fullstack-target — on-screen `data-verdict="settled"` reconciled == verifier `settled` (`settled_after.png`) | §2 PROOF 1; §1g fullstack-target; [explorer](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0); `LEDGER.md` §1 |
-| **RAILS** — an over-cap transfer blocked PRE-broadcast (a refused spend leaves no footprint) | **live** `checkTransfer(agent, sentinel, 3000000) → (false, OVER_TX_CAP)`, a zero-gas `eth_call` on the deployed MVP registry — no tx exists; **also driven *through* the UI** by the fullstack-target — on-screen `data-verdict="OVER_TX_CAP"` reconciled == the harness's OWN independent `eth_call` reason `OVER_TX_CAP` (`rails_after.png`) | §2 PROOF 2; §1g fullstack-target; `LEDGER.md` §3 (claim, kept separate) |
+| **RAILS** — an over-cap transfer blocked PRE-broadcast (a refused spend leaves no footprint) | **live** `checkTransfer(agent, native-sentinel `0x..0001`, 3000000) → (false, OVER_TX_CAP)`, a zero-gas `eth_call` on the deployed, LIVE `MandateRegistryV4` (`0x8e561a…f774`) — no tx exists; **also driven *through* the UI** by the fullstack-target — on-screen `data-verdict="OVER_TX_CAP"` reconciled == the harness's OWN independent `eth_call` reason `OVER_TX_CAP` (`rails_after.png`) | §2 PROOF 2; §1g fullstack-target; `LEDGER.md` §3 (claim, kept separate) |
 | **NEG** — a fabricated hash → `unverified` (never rubber-stamped) | **live** `verify-tx 0xdeadbeef…0000 → unverified` (`eth_getTransactionReceipt → null`, exit 1); **also driven *through* the UI** by the fullstack-target — on-screen `data-verdict="unverified"` reconciled == verifier `unverified` (`neg_after.png`) | §2 PROOF 3; §1g fullstack-target; `LEDGER.md` §1 (NEG row) |
 | **V3 four-tier gate — LIVE** (period/expiry+dest/asset+USD+pause/atomic) | **live deploy** `0x81fe…154c` (block 40044208) + tier config txs; `checkTransfer` first-failing-reason precedence proven by `forge test`; each tier verifier-confirmed | §3; `contracts/test/MandateRegistryV3.t.sol`; `verifier/tests/mandate_tiers.rs` |
 | **Period-cap looping-drain block (the headline)** | **live** `gateAndRecord(1M)` accrue `0x44e5…8556` (block 40044471), then `checkTransfer(1M) → (false, OVER_PERIOD_CAP)` read back via `cast` ($0 — moves no value) | §4; `demo/EVIDENCE_MANDATE_V3.md` |
 
-### 1c. MandateRegistryV4 — the consolidated, hardened gate (built + tested; deploy operator-gated)
+### 1c. MandateRegistryV4 — the consolidated, hardened gate (built + tested + **DEPLOYED LIVE on `16602`**)
 
 `MandateRegistryV4` folds the MVP registry, the four-tier V3, and the TimelockGuard into ONE non-custodial
 gate, keeping the v2-compatible `checkTransfer`/`checkTransferTo` selectors byte-identical
@@ -184,10 +184,18 @@ empty read → `unverified` (never `reconciled`). `enum ReconcileVerdict` (`reco
 | amount/token mismatch → `refuted` | `reconciler.rs` (Mismatch orphan) |
 | empty read → `unverified` (never reconciled) | `reconciler.rs` test `an_empty_read_must_never_reconcile` |
 
-> **Deploy is OPERATOR-GATED** (claim only what's live): `[mandate_v4].address=""` until the operator runs
-> `contracts/script/DeployV4.s.sol` (0G-only chain guard) and pins the confirmed address. The contract holds
-> no funds, so it is fully deployable + demoable on `16602` at $0 — **no V4 registry is broadcast by this
-> build** (§12 item 4).
+> **NOW DEPLOYED LIVE** (claim only what's live — the operator-gated deploy has landed): `MandateRegistryV4`
+> is live on 0G Galileo `16602` at **`0x8e561a5cc096af6e570220a5228b33c7d889f774`** (`[mandate_v4].address`
+> pinned), deployed via `contracts/script/DeployV4.s.sol` (0G-only chain guard), deploy tx
+> `0xd88d8a4959a122289a6c26101f13ab6420e61952043210d8c361d58d0f58db50` (status 0x1, block 40,213,222) and
+> tier-configured in the same broadcast (`addAllowedAsset(NATIVE,2_000_000,18)` ·
+> `setPeriodConfig(3600,1_500_000)` · `setParamDelay(86400)`). Independently confirmed FROM-CHAIN via `cast`
+> (never a key): owner == agent == `0x4850417aE8aEDD5D67344FE98c86515cfb5F393b`, `perTxCap`=2_000_000, native
+> sentinel (`0x..0001`) allowlisted with `assetCap`=2_000_000, `periodSeconds`=3600, `periodCap`=1_500_000,
+> `paused`=false; by-asset `checkTransfer` reconciles (under-cap→`(true,OK)`; over-cap→`OVER_TX_CAP`;
+> non-allowlisted→`TOKEN_NOT_ALLOWED`). The dashboard's RAILS proof + mandate card + dry-run gate all read it.
+> The contract holds no funds, so the deploy cost $0 on `16602` (your own contract). The MVP `MandateRegistry`
+> + the four-tier V3 remain on-chain as historical provenance, **superseded by V4 as the pinned mandate**.
 
 ### 1d. The money-safety suite — gas-floor + net-worth-floor (design §12)
 
@@ -252,10 +260,10 @@ error otherwise — never a fabricated tx hash / order id / CCIP `messageId`. Fu
 | **The two-source gate** — the gating engine catches + KILL-SWITCHES every planted money-critical defect deterministically | every money-critical check negative-tested plant→RED→restore→GREEN, the digest returning to baseline; the verdict-authority check catches a planted fabricated-verdict mint | the zero-defect gate ladder + the self-gate's generic-firewall + verdict-authority checks |
 | **Fullstack-target proof (all three)** — headless Edge (CDP) drives the REAL UI through NEG · RAILS · SETTLED, zero human; each on-screen `data-verdict` is reconciled against an INDEPENDENT second source | **per-proof before/after screenshots** (`{neg,rails,settled}_{before,after}.png` — the after-shots show the amber `UNVERIFIED`, amber `OVER_TX_CAP`, and green `SETTLED` stamps), a per-proof verdict record, and an events log (overall `PASS`); **NEG** UI `unverified`==verifier `unverified`, **RAILS** UI `OVER_TX_CAP`==the harness's OWN `eth_call` reason `OVER_TX_CAP`, **SETTLED** UI `settled`==verifier `settled`; a **doctored** UI fabricating `settled` is caught LOUD (exit 1) | gate #10 (`fullstack-target`); the harness + evidence live out-of-tree (so this repo stays clean) |
 | **"Run the agent (dry-run)" — mandate-BY-ASSET on screen** — the Verification Console walks the full agent loop READ-ONLY (no wallet, no signing, nothing broadcast) and gates 3 intents per asset via real read-only `checkTransfer` `eth_call`s | live, reconciled: native sentinel under cap → `(true, OK)` (**ALLOWED**); same asset over cap → `(false, OVER_TX_CAP)` (**BLOCKED**); non-allowlisted USDC.E → `(false, TOKEN_NOT_ALLOWED)` (**BLOCKED**) — the same agent gets a DIFFERENT decision per asset; every leg's settlement verdict is `unverified` (a dry-run broadcasts nothing → never a fabricated `settled`); the RUN LEDGER is the verifier's own journal/ledger format, status line `DEFECTS … 3 unverified` (audit would exit 1) | `web/src/dryrun.ts` + `dryrunView.ts`; `dryrun.test.ts` (the honesty invariants); design §5/§6 |
-| **RAILS card — the deployed-registry mirror on screen** — the Verification Console's RAILS card is a READ-ONLY mirror of the deployed `MandateRegistry`: a 0G monogram chain badge, a tri-state **reconciled-vs-deployed** pill (the on-chain read is the baseline), a per-asset table (allowlist + sub-caps), and a wallet-free `checkTransfer` simulator | the header pill reconciles the stated config vs the chain's own over-cap `checkTransfer` answer (`Reconciled` only when two reads concur; `Drifted` if the chain disagrees; `Unverified` if the RPC is unreachable — never a faked green); the simulator runs a real zero-gas `eth_call` per pick → a tri-state `ALLOWED`/`BLOCKED`/`UNVERIFIED` naming the binding on-chain reason (no wallet, no broadcast); the consolidated **`MandateRegistryV4`** USD/period bar is shown as **built-not-deployed** (`[mandate_v4].address=""`), labelled so — never a live-enforced number | `web/src/mandateCard.ts`; `mandateCard.test.ts` (the honesty invariants — exact-integer units, no money-truncation, a BLOCK is never an ALLOW, an unreachable read is never faked green); design §5/§10.4b |
+| **RAILS card — the deployed-registry mirror on screen** — the Verification Console's RAILS card is a READ-ONLY mirror of the deployed `MandateRegistry`: a 0G monogram chain badge, a tri-state **reconciled-vs-deployed** pill (the on-chain read is the baseline), a per-asset table (allowlist + sub-caps), and a wallet-free `checkTransfer` simulator | the header pill reconciles the stated config vs the chain's own over-cap `checkTransfer` answer (`Reconciled` only when two reads concur; `Drifted` if the chain disagrees; `Unverified` if the RPC is unreachable — never a faked green); the simulator runs a real zero-gas `eth_call` per pick → a tri-state `ALLOWED`/`BLOCKED`/`UNVERIFIED` naming the binding on-chain reason (no wallet, no broadcast); the card now reads the consolidated **`MandateRegistryV4`**, **LIVE on `16602`** (`[mandate_v4].address=0x8e561a…f774`), so the period bar reads a live-enforced figure (the V4 USD cap stays opt-in/off by default, labelled so) | `web/src/mandateCard.ts`; `mandateCard.test.ts` (the honesty invariants — exact-integer units, no money-truncation, a BLOCK is never an ALLOW, an unreachable read is never faked green); design §5/§10.4b |
 | **Paste-any-hash Playground — verify YOUR hash on screen** — the console takes any `0x + 64 hex` 0G tx hash and runs the SAME generalized `runSettledCheck` pipeline the SETTLEMENT card uses, narrating each wait state and showing claimed-vs-observed side by side | a real in-corpus hash → `SETTLED` (green); a fabricated/off-record hash → `UNVERIFIED` (a pasted hash has no recorded claim → only `unverified`/`mismatch`/`hollow` reachable, NEVER a fabricated `settled`); a malformed input → a loud **usage error**, not a verdict (no `data-verdict` minted); an unreachable RPC → `read-error` (infra-gated); each produced verdict is reconciled by an independent re-read + appended to the live verdict feed | `web/src/playground.ts`; `dashboard.test.ts` (the playground wiring); design §4.3/§5.2 |
 | **Verdict / reason-code dictionary — each code shown in honest plain English, unknowns verbatim** — the on-screen verdict copy maps the four settlement verdicts (`settled`/`unverified`/`hollow`/`mismatch`) to a headline + plain-English "why"; an UNMAPPED code — including every on-chain mandate reason word (`OVER_TX_CAP`/`OVER_ASSET_CAP`/`OVER_PERIOD_CAP`/`TOKEN_NOT_ALLOWED`/`SPENDER_NOT_ALLOWED`/`PAUSED`/…) — falls back to the **raw code verbatim** (the chain's own answer, never invented, never relabelled) | the dictionary is the human altitude of every three-altitude verdict block; it MINTS no verdict + COLOURS nothing (the `settled`/`live`-only-green grammar lives in `render.ts`); the binding on-chain reason word the RAILS card / dry-run / simulator paints is the verbatim chain answer, decoded from the second 32-byte `checkTransfer` word (the V4 18-rung first-failing precedence, §1c) — never coerced to a friendly label | `web/src/verdictCopy.ts` (the four-verdict map + raw-code fallback); `web/src/render.ts` (`verdictStateClass`); the precedence in `contracts/src/MandateRegistryV4.sol` + §1c/§3; design §3 #4/§4.3 |
-| **The interactive judge/voter fullstack guide — confirm everything yourself, zero trust, zero wallet** — a step-by-step browser walkthrough: open the console → verify all four cards (NEG / Brain-PENDING / Rails / Settlement) reconciled → use the paste-any-hash Playground → run the dry-run + read the RUN LEDGER (the per-asset rail firing) → read the mandate card (per-asset rules + the wallet-free sim) → how the headless fullstack run works | the guide drives ONLY the real, shipped affordances above (`#neg-output`/`#rails-output`/`#settled-output`, the Playground, the dry-run card, the mandate card); every verdict it tells the reader to expect is the reconciled one this matrix proves; honest scope is stated inline (Brain PENDING, dry-run signs/broadcasts nothing, V4 built-not-deployed) | [`VERIFY.md`](../VERIFY.md) "Verify it yourself, in the browser"; the cards in §1g; design §3/§4/§5/§8 |
+| **The interactive judge/voter fullstack guide — confirm everything yourself, zero trust, zero wallet** — a step-by-step browser walkthrough: open the console → verify all four cards (NEG / Brain-PENDING / Rails / Settlement) reconciled → use the paste-any-hash Playground → run the dry-run + read the RUN LEDGER (the per-asset rail firing) → read the mandate card (per-asset rules + the wallet-free sim) → how the headless fullstack run works | the guide drives ONLY the real, shipped affordances above (`#neg-output`/`#rails-output`/`#settled-output`, the Playground, the dry-run card, the mandate card); every verdict it tells the reader to expect is the reconciled one this matrix proves; honest scope is stated inline (Brain PENDING, dry-run signs/broadcasts nothing, V4 now LIVE on `16602`) | [`VERIFY.md`](../VERIFY.md) "Verify it yourself, in the browser"; the cards in §1g; design §3/§4/§5/§8 |
 
 > **The fullstack-target is the headline two-source proof — now all three proofs.** The on-screen UI verdict
 > is **never trusted** — an independent second source re-derives it on the same hash/contract, and a fabricated
@@ -341,11 +349,12 @@ The first is pinned in `proofagent.toml [[verifier.corpus]]` with its recorded o
 `verifier verify-tx 0x8c59…bfb0 → settled` (exit 0).
 
 ### PROOF 2 — RAILS (over-cap blocked) ✅
-The agent proposes an over-cap transfer (`3_000_000` wei > `perTxCap 2_000_000`). The on-chain gate returns
-`checkTransfer(agent, sentinel, 3000000) → (false, OVER_TX_CAP)` as a zero-gas `eth_call`, so the agent
-**does not execute** — nothing is broadcast (a refused spend leaves no on-chain footprint by design §5, the
-kill-switch). The block is the evidence. (Kept in `LEDGER.md` §3 as a *claim*, never laundered into the §1
-chain-truth table.)
+The agent proposes an over-cap transfer (`3_000_000` wei > `perTxCap 2_000_000`). The on-chain gate — the
+deployed, LIVE `MandateRegistryV4` (`0x8e561a5cc096af6e570220a5228b33c7d889f774` on `16602`) — returns
+`checkTransfer(agent, native-sentinel `0x..0001`, 3000000) → (false, OVER_TX_CAP)` as a zero-gas `eth_call`,
+so the agent **does not execute** — nothing is broadcast (a refused spend leaves no on-chain footprint by
+design §5, the kill-switch). The block is the evidence (reproduce it via `cast` — VERIFY.md Proof 2). (Kept in
+`LEDGER.md` §3 as a *claim*, never laundered into the §1 chain-truth table.)
 
 ### PROOF 3 — NEG (fabricated hash → UNVERIFIED) ✅
 The verifier is pointed at a fabricated, well-formed-but-unknown hash `0xdeadbeef…0000`. The live read
@@ -398,7 +407,8 @@ SPENDER_NOT_ALLOWED > OVER_TX_CAP > OVER_ASSET_CAP > OVER_DEST_CAP > OVER_PERIOD
 `verifier::confirm_tier` adjudicates each tier's live `(ok, reason)` read against an `ExpectedGate` and mints
 a per-tier `TierVerdict` through the same `Verdict` monopoly; `verifier/tests/mandate_tiers.rs` replays the
 recorded on-chain reads and confirms each tier offline. The consolidated `MandateRegistryV4` (§1c) folds
-V3 + the time-lock into one hardened, non-custodial gate (deploy operator-gated).
+V3 + the time-lock into one hardened, non-custodial gate — **now DEPLOYED LIVE on `16602`**
+(`0x8e561a…f774`), the pinned mandate the dashboard reconciles against.
 
 ---
 
@@ -520,10 +530,11 @@ performed; none blocks the testnet evidence above:
    lane's token POOL pinned + a wired `BridgeDispatcher`. Command: `demo/EVIDENCE_BRIDGE.md` §3.
 3. **Mainnet (`16661`) deploy of `MandateRegistryV3`.** Your own contract, fully demoable on testnet at $0
    (it is, above). Mainnet deploy via `script/DeployV3.s.sol` is operator-gated (real gas).
-4. **Deploy the consolidated `MandateRegistryV4` ($0 on `16602`) + pin its address + configure tiers.** The
-   contract + Foundry tests (61) + the verifier (hardened tiers + the I14-R reconciler) are BUILT and GREEN;
-   `[mandate_v4].address=""`. To bring it live: `contracts/script/DeployV4.s.sol` (0G-only chain guard), pin
-   the address, configure period/USD/spoke caps + guardian + `paramDelay`. Testnet bring-up is $0.
+4. ~~**Deploy the consolidated `MandateRegistryV4` ($0 on `16602`) + pin its address + configure tiers.**~~
+   **✅ DONE.** `MandateRegistryV4` is **DEPLOYED LIVE** on `16602` at `0x8e561a5cc096af6e570220a5228b33c7d889f774`
+   (deploy tx `0xd88d8a49…db50`, block 40,213,222) via `contracts/script/DeployV4.s.sol` (0G-only chain guard),
+   `addAllowedAsset`/`setPeriodConfig(3600,1_500_000)`/`setParamDelay(86400)` configured in the same broadcast;
+   `[mandate_v4].address` pinned. It is the pinned mandate the dashboard reconciles against (§1c).
 5. **Deploy `TimelockGuard` on `16602` ($0) + pin its address.** Built + tape-tested; deploy via
    `script/DeployTimelock.s.sol`, pin in `proofagent.toml [timelock_guard]`, then the live
    `adjudicate_timelock` read can run.
@@ -563,7 +574,8 @@ NEG · RAILS · SETTLED driven through the real UI, zero human, each reconciled 
 source), the hermetic docs link check (**22 links**), and **the zero-defect gate on this repo ALL GREEN**
 (digest **`fnv1a64:b61ebdb7aeb04e8e`**), with the **self-gate still GREEN** (digest
 **`fnv1a64:2c3e4fb0f18f1db4`**).
-The four-tier `MandateRegistryV3` is **deployed + tier-configured + period-cap-proven LIVE** on 0G Galileo
-`16602` at $0; the consolidated `MandateRegistryV4` is **built + tested + verifier-confirmed**, its deploy
-operator-gated. Every value-bearing live execution is an operator-gated §8 item, none performed here.
+The consolidated, hardened `MandateRegistryV4` is **built + tested + verifier-confirmed + DEPLOYED LIVE** on
+0G Galileo `16602` at $0 (`0x8e561a…f774`, tier-configured on-chain) — the pinned mandate the dashboard reads;
+the four-tier `MandateRegistryV3` + the MVP `MandateRegistry` remain LIVE as historical provenance, superseded
+by V4. Every value-bearing live execution is an operator-gated §8 item, none performed here.
 **Never a fabricated SETTLED.**

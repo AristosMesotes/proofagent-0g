@@ -7,7 +7,7 @@ An autonomous on-chain agent on **0G** whose three layers are each *independentl
 | Proof | Guarantee | How |
 |---|---|---|
 | **Brain** | the model you think ran, ran | 0G Compute **TEE attestation** — *built + offline-tested; green only on a real enclave proof (see note)* |
-| **Rails** | it can't overspend — blocked pre-broadcast, proven by the verifier | an on-chain **spend cap**, checked pre-broadcast |
+| **Rails** | it can't overspend — blocked pre-broadcast, proven by the verifier | an on-chain **spend cap** (the live **`MandateRegistryV4`** on 0G), checked pre-broadcast |
 | **Settlement** | the trade really happened | an **independent verifier** that reads 0G itself |
 
 You don't trust the agent. You check the chain.
@@ -40,9 +40,10 @@ On the **Verification Console** the **RAILS card is a read-only mirror of the de
 chain badge, a tri-state **reconciled-vs-deployed** pill (the on-chain read is the baseline — `Reconciled` /
 `Drifted` / `Unverified`, never a faked green), a **per-asset table** (allowlist + per-tx caps; blocked assets
 greyed), and a **wallet-free `checkTransfer` simulator** (pick an asset + amount → a real zero-gas `eth_call` →
-**`ALLOWED` / `BLOCKED` / `UNVERIFIED`** with the binding reason). No wallet, no signing, no broadcast. The
-consolidated **`MandateRegistryV4`** USD/period tier is shown as **built-not-deployed** (its deploy is
-operator-gated), labelled honestly — never as a live-enforced number.
+**`ALLOWED` / `BLOCKED` / `UNVERIFIED`** with the binding reason). No wallet, no signing, no broadcast. The card
+now reads the consolidated, hardened **`MandateRegistryV4`** — **LIVE on 0G Galileo testnet `16602`**
+(`0x8e561a5cc096af6e570220a5228b33c7d889f774`) — so its period tier reads a live-enforced figure (the V4 USD
+cap stays opt-in/off by default, labelled so — never a number the card does not read).
 
 ### Stack
 Rust (verifier) · Solidity (mandate) · TypeScript (agent · 0G SDKs · web).

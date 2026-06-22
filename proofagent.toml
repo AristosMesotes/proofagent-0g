@@ -154,14 +154,27 @@ max_list          = 16                  # Tier 3 bounded-list cap (allowed token
 # unbounded spend -> a LOUD `refuted`). The HONEST claim everywhere: "the agent can't overspend -- the
 # mandate blocks it pre-broadcast and the verifier proves it", NEVER "physically can't overspend".
 #
-# DEPLOY is OPERATOR-GATED (design SS8: claim only what's live). The contract + Foundry tests + the verifier
-# + the agent gate are BUILT and GREEN; no V4 registry is broadcast by this build. `address` is LEFT EMPTY
-# until the operator runs the documented command (contracts/script/DeployV4.s.sol) and pins the confirmed
-# address here. Tiers (period/USD/spoke caps, guardian, paramDelay) are configured on the live registry by
-# the operator post-deploy. The MandateRegistryV4 is fully deployable + demoable on the 0G Galileo TESTNET
-# (16602) at $0 (it is your own contract and holds no funds).
-address    = ""                         # MandateRegistryV4 (operator-gated deploy; pin once confirmed on 16602)
-chain_id   = 16602                      # the network the consolidated registry targets (Galileo testnet)
+# LIVE on 0G Galileo testnet (chain 16602) -- the operator-gated deploy has now landed, so V4 is the PINNED
+# mandate the dashboard reads + reconciles against. Deploy tx
+# 0xd88d8a4959a122289a6c26101f13ab6420e61952043210d8c361d58d0f58db50 (status 0x1, block 40213222), with the
+# tiers configured in the SAME broadcast: addAllowedAsset(NATIVE, 2_000_000, 18) tx
+# 0xbb316c959e13f56c396e715e212d1384b2a53a555902fe150ed7acb573998f25, setPeriodConfig(3600, 1_500_000) tx
+# 0xa04c95df4f18804cc3730211212a01eb96a704d53f3401fa316e4fd2520df8ed, setParamDelay(86400) tx
+# 0x833120f8a5639a9e1d3bed168ccafb05fce5d6d967f06976aa574e13b0cd3d51 (contracts/script/DeployV4.s.sol, the
+# 0G-only chain guard). Independently confirmed via cast (READ FROM-CHAIN, never a key): owner == agent ==
+# 0x4850417aE8aEDD5D67344FE98c86515cfb5F393b (read via `cast call <addr> "owner()(address)"`), perTxCap =
+# 2_000_000, the native sentinel (0x..0001) allowlisted with assetCap = 2_000_000 + allowed = true,
+# periodSeconds = 3600, periodCap = 1_500_000, start = 0 / expiry = max-uint64 (never-expiry) / epoch = 1,
+# paused = false. The live by-asset checkTransfer reconciles: checkTransfer(agent, NATIVE, 1_000_000) ->
+# (true, OK); checkTransfer(agent, NATIVE, 2_500_000) -> (false, OVER_TX_CAP); a non-allowlisted asset ->
+# (false, TOKEN_NOT_ALLOWED). The MVP MandateRegistry + the four-tier MandateRegistryV3 are SUPERSEDED by V4
+# as the pinned mandate (they remain live on-chain as historical provenance; V4 is the one the UI reads).
+address    = "0x8e561a5cc096af6e570220a5228b33c7d889f774"  # MandateRegistryV4 -- LIVE on 16602 (PUBLIC; safe to commit)
+chain_id   = 16602                      # the network the consolidated registry is live on (Galileo testnet)
+# The mandated agent == owner, READ FROM-CHAIN (never a key): `cast call <address> "agent()(address)"` /
+# `owner()(address)` both return this. It is the demo agent the dashboard binds checkTransfer to so the Rails
+# proof + the mandate card + the dry-run's per-asset gate reconcile against the LIVE V4. PUBLIC; safe to commit.
+agent      = "0x4850417aE8aEDD5D67344FE98c86515cfb5F393b"  # V4 owner/agent, READ FROM-CHAIN (PUBLIC; safe to commit)
 per_tx_cap          = 2_000_000         # global per-tx cap, MINOR units (wei)
 start               = 0                  # notBefore (0 => active immediately; half-open [start, expiry))
 period_seconds      = 3600               # leaky-bucket window length (1 hour)

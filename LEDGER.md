@@ -181,8 +181,10 @@ reads `unverified`. (Verdict type: `verifier/src/mandate.rs` `enum TierVerdict`;
 | **any tier, gate read unreadable** | — | **`unverified`** 🛑 |
 
 The first-failing reason follows a fixed, documented precedence (V4's 18-rung order, design §10.4b) — the
-gate is deterministic. Live tier reads are recorded for the offline tape; the live `eth_call` is
-operator-gated against a pinned registry address.
+gate is deterministic. Live tier reads are recorded for the offline tape; the live `eth_call` now reconciles
+against the **pinned, LIVE `MandateRegistryV4`** (`0x8e561a…f774` on `16602`) — the dashboard's RAILS proof,
+mandate card, and dry-run per-asset gate all read it (under-cap → `(true, OK)`; over-cap → `OVER_TX_CAP`;
+non-allowlisted → `TOKEN_NOT_ALLOWED`), independently confirmable via `cast` (VERIFY.md Proof 2).
 
 ---
 
@@ -216,7 +218,7 @@ chain confirms it. These are recorded here, distinct from the chain-observed ver
 
 | Proof | Agent's claim | Independent on-chain confirmation | Result |
 |---|---|---|---|
-| **RAILS (over-cap blocked)** | "an over-cap transfer of `3_000_000` wei (> `perTxCap 2_000_000`) will be **blocked pre-broadcast**, nothing broadcast" | `eth_call checkTransfer(agent, sentinel, 3000000)` on the deployed `MandateRegistry` (`0x675FF5053F434AA3f1d48574813BFc1696FBD345`) → `(false, OVER_TX_CAP)`, a zero-gas read; **no transaction exists** (a refused spend leaves no on-chain footprint). Also re-derived *through* the real UI under headless automation (the fullstack-target leg): on-screen `data-verdict="OVER_TX_CAP"` reconciled == an INDEPENDENT `eth_call` reason `OVER_TX_CAP` (the UI is never the source of truth — the independent `eth_call` is) | ✅ claim upheld on-chain — *no §1 settlement row, because nothing settled (and nothing was lost)* |
+| **RAILS (over-cap blocked)** | "an over-cap transfer of `3_000_000` wei (> `perTxCap 2_000_000`) will be **blocked pre-broadcast**, nothing broadcast" | `eth_call checkTransfer(agent, native-sentinel `0x..0001`, 3000000)` on the deployed, LIVE `MandateRegistryV4` (`0x8e561a5cc096af6e570220a5228b33c7d889f774`) → `(false, OVER_TX_CAP)`, a zero-gas read; **no transaction exists** (a refused spend leaves no on-chain footprint). Also re-derived *through* the real UI under headless automation (the fullstack-target leg): on-screen `data-verdict="OVER_TX_CAP"` reconciled == an INDEPENDENT `eth_call` reason `OVER_TX_CAP` (the UI is never the source of truth — the independent `eth_call` is) | ✅ claim upheld on-chain — *no §1 settlement row, because nothing settled (and nothing was lost)* |
 | **SETTLED (within-cap transfer)** | "a `1_000_000`-wei transfer settled" | the verifier's independent read → `settled` (§1 rows). Also re-derived *through* the real UI under headless automation: on-screen `data-verdict="settled"` reconciled == the independent verifier `verify-tx 0x8c59…bfb0 → settled` | ✅ promoted to §1 (chain-confirmed) |
 | **Brain (TEE-attested model)** | *not claimed live* — the brain is an honestly-labelled hosted-LLM stub (web stamp = `PENDING / Phase-2 (Depth)`, `web/src/proofs.ts`) | — (0G Compute TEE attestation is the §9 **Depth** bracket-delta; not on-chain yet) | ⏳ honestly deferred, never pre-claimed |
 
@@ -256,13 +258,14 @@ run produces, so a judge sees the same settlement-truth shape — but it claims 
 dry-run settles nothing (and nothing was lost).
 
 **The RAILS card mirror (`web/src/mandateCard.ts`) is a READ-ONLY view, not a ledger entry.** The Verification
-Console's expanded RAILS card mirrors the deployed `MandateRegistry` — a tri-state **reconciled-vs-deployed**
+Console's expanded RAILS card mirrors the deployed, LIVE `MandateRegistryV4` — a tri-state **reconciled-vs-deployed**
 pill (the stated config reconciled against the chain's own over-cap `checkTransfer` answer: `Reconciled` /
 `Drifted` / `Unverified`, never a faked green), a per-asset table (allowlist + sub-caps), and a wallet-free
 `checkTransfer` simulator (a real zero-gas `eth_call` per pick → `ALLOWED` / `BLOCKED` / `UNVERIFIED`). Like the
 RAILS claim in §6, it is a **read of the on-chain mandate**, never a settlement — it adds **no §1 row** (a read
-moves no money). The consolidated **`MandateRegistryV4`** USD/period tier it shows is **built-not-deployed**
-(`[mandate_v4].address=""`; deploy operator-gated), labelled as such — never charted as a live-enforced number.
+moves no money). It reads the consolidated **`MandateRegistryV4`**, now **LIVE on `16602`**
+(`[mandate_v4].address=0x8e561a…f774`; `setPeriodConfig(3600, 1_500_000)` confirmed on-chain), so its period
+tier reads a live-enforced figure (the V4 USD cap stays opt-in/off by default, labelled so).
 
 > **Reading this ledger on screen (the judge/voter path).** To produce + read this RUN LEDGER interactively —
 > and to confirm every other proof through the real UI with zero wallet and zero trust — follow the **fullstack

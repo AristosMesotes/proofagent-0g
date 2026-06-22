@@ -183,7 +183,7 @@ export function buildStamps(brain?: BrainAttestation): readonly [Stamp, Stamp, S
       level: railsLive ? STAMP_LEVEL.LIVE : STAMP_LEVEL.ARMED,
       status: railsLive ? "LIVE" : "ARMED",
       claim: railsLive
-        ? `On-chain MandateRegistry checkTransfer() rejects any spend over the $${MANDATE.perTxCapUsd} ` +
+        ? `The live on-chain MandateRegistryV4 checkTransfer() rejects any spend over the $${MANDATE.perTxCapUsd} ` +
           "per-tx cap as a zero-gas eth_call, BEFORE broadcast. Confirm it yourself on the explorer."
         : `The $${MANDATE.perTxCapUsd} per-tx cap is enforced in code pre-broadcast (the kill-switch), ` +
           "but the on-chain registry address is not yet pinned -- so this is ARMED, not a green on-chain claim.",

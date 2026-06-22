@@ -173,15 +173,19 @@ test("simulate degrades LOUDLY on an unreachable RPC -> never a faked allow (fai
 test("the mandate context is 0G-only (one enforcement chain, chain id 16602) -- no chain selector", () => {
   assert.equal(MANDATE_CARD.chainId, 16602);
   assert.match(MANDATE_CARD.registryAddress, /^0x[0-9a-fA-F]{40}$/);
-  // The deployed-registry address the card reads equals the RAILS on-chain registry (same live surface).
-  assert.equal(MANDATE_CARD.registryAddress, "0x675FF5053F434AA3f1d48574813BFc1696FBD345");
+  // The deployed-registry address the card reads is the LIVE consolidated MandateRegistryV4 (the pinned
+  // mandate, `[mandate_v4].address`) -- the same live surface the RAILS on-chain leg reads.
+  assert.equal(MANDATE_CARD.registryAddress, "0x8e561a5cc096af6e570220a5228b33c7d889f774");
 });
 
-test("the V4 USD/period tier is honestly built-not-deployed (claim only what's live -- design §8)", () => {
-  // The consolidated V4 deploy is operator-gated; the period/USD bar must render the SPEC, not a live figure.
-  assert.equal(MANDATE_CARD.v4Spec.deployed, false);
+test("the V4 period tier reads LIVE now V4 is deployed + tier-configured on-chain (claim only what's live -- design §8)", () => {
+  // V4's operator-gated deploy has landed: setPeriodConfig(3600, 1_500_000) is confirmed on-chain, so the
+  // period bar reads a LIVE-enforced figure (deployed === true) -- never faked while it was built-not-deployed.
+  assert.equal(MANDATE_CARD.v4Spec.deployed, true);
   assert.ok(MANDATE_CARD.v4Spec.periodCap > 0n);
   assert.equal(MANDATE_CARD.v4Spec.periodSeconds, 3600);
+  // The USD cap stays opt-in (off by default) -- never charted as a live number it does not read.
+  assert.equal(MANDATE_CARD.v4Spec.usdCapMicros, 0n);
 });
 
 test("the per-asset table mirrors the deployed allowlist: exactly one allowed + one default-deny row", () => {

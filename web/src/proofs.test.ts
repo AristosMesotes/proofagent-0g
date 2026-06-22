@@ -79,11 +79,14 @@ test("the three proofs are present exactly once each (design §2)", () => {
   assert.deepEqual([...proofs].sort(), ["brain", "rails", "settlement"]);
 });
 
-test("rails is ARMED (not green) while no registry address is pinned (design §8)", () => {
-  // The spine's MANDATE.registryAddress is "" in this MVP -> ARMED, never a green on-chain claim.
+test("rails is LIVE (green) now the MandateRegistryV4 address is pinned on-chain (design §8: claim only what's live)", () => {
+  // The spine's MANDATE.registryAddress is the LIVE MandateRegistryV4 on 16602 -> the rails stamp is a green
+  // LIVE on-chain claim (it was ARMED only while the address was empty; V4 is now confirmed on-chain).
   const rails = stampFor("rails");
-  assert.notEqual(rails.level, STAMP_LEVEL.LIVE, "rails must not be green without an on-chain address");
-  assert.equal(rails.level, STAMP_LEVEL.ARMED);
+  assert.equal(rails.level, STAMP_LEVEL.LIVE, "rails is green LIVE once the on-chain registry address is pinned");
+  assert.equal(rails.status, "LIVE");
+  // The green claim must point the viewer at the explorer to confirm the cap themselves (never trust the UI).
+  assert.match(rails.claim, /explorer/i);
 });
 
 test("settlement stamp asserts NO settled while the corpus is empty (design §6/§8)", () => {
