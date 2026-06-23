@@ -110,23 +110,65 @@ def explorer_card(url,header,badge,badge_color,rows,cap=None):
     if cap: lower_third(d,cap,GREEN if badge_color==GREEN else (GOLD if badge_color==GOLD else RED))
     return img
 
+# ---------------- settlements card ----------------
+def settle_card(cap=None):
+    img,d=new_canvas()
+    _browser_chrome(d,"chainscan-galileo.0g.ai  -  independent settlements")
+    d.text((220,250),"Real settlements  -  independently verified",font=f_ui(44,"b"),fill=TXT,anchor="lm")
+    rows=[("0x8c59...bfb0","block 39,996,100","1,000,000 wei"),
+          ("0xfb18...6290","block 39,996,470","1,000,000 wei"),
+          ("0x4249...b4b6","block 40,232,225","1,000,000 wei")]
+    y=350
+    for h,blk,val in rows:
+        d.rounded_rectangle([216,y-6,W-216,y+74],radius=12,fill=(16,20,27),outline=BORDER,width=2)
+        d.rounded_rectangle([236,y+14,236+150,y+54],radius=8,fill=(33,63,40))
+        d.text((236+75,y+34),"SETTLED",font=f_ui(24,"b"),fill=GREEN,anchor="mm")
+        d.text((420,y+34),h,font=f_mono(30),fill=TXT,anchor="lm")
+        d.text((860,y+34),blk,font=f_ui(26),fill=DIM,anchor="lm")
+        d.text((W-240,y+34),val,font=f_mono(26),fill=GREEN,anchor="rm"); y+=96
+    d.rounded_rectangle([216,y+10,W-216,y+96],radius=14,fill=(33,63,40),outline=GREEN,width=2)
+    d.text((W//2,y+53),"3 of 3 independently verified  ->  settled  -  0 hollow  -  0 mismatch",font=f_ui(34,"b"),fill=GREEN,anchor="mm")
+    watermark(d)
+    if cap: lower_third(d,cap,GREEN)
+    return img
+
+# ---------------- console CTA ----------------
+def console_cta(cap=None):
+    img,d=new_canvas(); _browser_chrome(d,"aristosmesotes.github.io/proofagent-0g/dashboard.html  -  live, no wallet")
+    d.text((W//2,300),"Verify it yourself.",font=f_ui(72,"b"),fill=TXT,anchor="mm")
+    d.text((W//2,390),"In your browser. No wallet. No trust.",font=f_ui(44,"sb"),fill=GOLD,anchor="mm")
+    chips=[("PASTE ANY HASH","the verifier reads 0G live"),
+           ("RUN THE DRY-RUN","per-asset mandate gate, read-only"),
+           ("RECONCILE ON-CHAIN","every verdict, two-source")]
+    n=len(chips); cw=480; gap=40; total=n*cw+(n-1)*gap; sx=(W-total)//2; y0=510
+    for i,(lab,sub) in enumerate(chips):
+        x0=sx+i*(cw+gap)
+        d.rounded_rectangle([x0,y0,x0+cw,y0+150],radius=16,fill=(16,20,27),outline=CYAN,width=2)
+        d.text((x0+cw//2,y0+52),lab,font=f_ui(30,"b"),fill=CYAN,anchor="mm")
+        d.text((x0+cw//2,y0+104),sub,font=f_ui(24),fill=DIM,anchor="mm")
+    d.rounded_rectangle([W//2-640,750,W//2+640,830],radius=14,fill=(13,17,23),outline=BORDER,width=2)
+    d.text((W//2,790),"aristosmesotes.github.io/proofagent-0g/dashboard.html",font=f_mono(30),fill=CYAN,anchor="mm")
+    watermark(d)
+    if cap: lower_third(d,cap,GOLD)
+    return img
+
 # ---------------- rigor card ----------------
 def rigor_card(cap=None):
     img,d=new_canvas(); d.rectangle([0,0,W,6],fill=GOLD)
-    d.text((W//2,170),"What you just verified",font=f_ui(70,"b"),fill=TXT,anchor="mm")
-    rows=[("verify the code","AGPL-3.0-licensed, reproducible - read every line yourself",CYAN),
-          ("bound the spend","an on-chain mandate: per-tx + per-period caps, can't overspend",GOLD),
-          ("prove the settlement","an independent Rust verifier reads 0G: settled / hollow / mismatch / unverified",GREEN)]
-    y=320
+    d.text((W//2,128),"What you just verified",font=f_ui(64,"b"),fill=TXT,anchor="mm")
+    rows=[("CAN'T LIE","an independent Rust verifier reads 0G: settled / hollow / mismatch / unverified",GREEN),
+          ("CAN'T OVERSPEND","the live V4 mandate gates by asset - over-cap blocked pre-broadcast, the verifier proves it",GOLD),
+          ("CAN'T DRAIN","a gas-floor and a net-worth-floor - each verifier-confirmed",CYAN),
+          ("LIVE PROOF","3 of 3 real settlements, independently chain-verified - 0 hollow, 0 mismatch",GREEN),
+          ("VERIFY IT YOURSELF","an interactive console - paste any hash, no wallet, no trust",GOLD)]
+    y=232
     for lab,sub,col in rows:
         d.ellipse([300,y-2,330,y+28],outline=col,width=4); d.text((315,y+13),"+",font=f_ui(28,"b"),fill=col,anchor="mm")
-        d.text((370,y-6),lab,font=f_ui(40,"b"),fill=col,anchor="lm")
-        d.text((370,y+44),sub,font=f_ui(27),fill=DIM,anchor="lm"); y+=130
-    # safety footer
-    d.rounded_rectangle([300,y+10,W-300,y+96],radius=14,fill=(16,20,27),outline=BORDER,width=2)
-    d.text((W//2,y+53),"cap  +  gas-floor  +  net-worth-floor   -   it can't drain itself",font=f_ui(34,"sb"),fill=TXT,anchor="mm")
-    d.text((W//2,y+150),"100% on 0G   -   nothing else, provably",font=f_ui(32,"sb"),fill=GOLD,anchor="mm")
-    d.text((W//2,y+205),"Rust - Solidity - TypeScript - AGPL-3.0",font=f_ui(28),fill=DIM,anchor="mm")
+        d.text((370,y-6),lab,font=f_ui(36,"b"),fill=col,anchor="lm")
+        d.text((370,y+42),sub,font=f_ui(25),fill=DIM,anchor="lm"); y+=104
+    d.rounded_rectangle([300,y+6,W-300,y+86],radius=14,fill=(16,20,27),outline=BORDER,width=2)
+    d.text((W//2,y+46),"don't trust the agent  -  check the chain  -  every datum confirmable on 0G",font=f_ui(30,"sb"),fill=TXT,anchor="mm")
+    d.text((W//2,y+136),"open source  -  AGPL-3.0  -  reproducible (VERIFY.md)",font=f_ui(28),fill=GOLD,anchor="mm")
     watermark(d)
     if cap: lower_third(d,cap)
     return img

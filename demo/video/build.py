@@ -76,12 +76,25 @@ def neg():
          [("exit code: ", R.DIM, False), ("1", R.RED, True)]],
         "proofagent - verifier", "THE HOOK  -  a transaction that never happened  ->  UNVERIFIED", R.RED, hl=2, step=4, pre=2)
 
-def rails():
-    return term_type(
-        "cast call MandateRegistry checkTransfer(agent, native, 3000000)",
-        [[("(false, ", R.TXT, False), ("OVER_TX_CAP", R.RED, True), (")", R.TXT, False)],
-         [("# over the per-tx cap - blocked pre-broadcast, zero gas, nothing sent", R.DIM, False)]],
-        "proofagent - mandate (on-chain)", "RAILS  -  over-cap -> (false, OVER_TX_CAP)  -  nothing broadcast", R.GOLD, hl=2)
+def rails_by_asset():
+    cmd = "cast call MandateRegistryV4 checkTransfer(agent, asset, amt)"
+    full = [("$ ", R.PROMPT, True), (cmd, R.TXT, False)]
+    r1 = [("native   1,000,000   -> ", R.DIM, False), ("(true, OK)", R.GREEN, True), ("            ", R.DIM, False), ("ALLOWED", R.GREEN, True)]
+    r2 = [("native   2,500,000   -> ", R.DIM, False), ("(false, OVER_TX_CAP)", R.RED, True), ("     ", R.DIM, False), ("BLOCKED", R.RED, True)]
+    r3 = [("USDC.e   1,000,000   -> ", R.DIM, False), ("(false, TOKEN_NOT_ALLOWED)", R.RED, True), (" ", R.DIM, False), ("BLOCKED", R.RED, True)]
+    title = "proofagent - mandate V4 (on-chain, by asset)"
+    cap = "RAILS  -  same agent, a different verdict PER ASSET  -  blocked pre-broadcast, zero gas"
+    acc = R.GOLD
+    frames = []
+    for k in range(0, len(cmd)+1, 4):
+        cl = [("$ ", R.PROMPT, True), (cmd[:k], R.TXT, False)]
+        frames.append(R.terminal([cl, "BLANK"], title=title, cap=cap, cap_accent=acc, cursor_line=0))
+    for _ in range(4): frames.append(R.terminal([full, "BLANK"], title=title, cap=cap, cap_accent=acc, cursor_line=0))
+    for _ in range(3): frames.append(R.terminal([full, "BLANK", r1], title=title, cap=cap, cap_accent=acc))
+    for _ in range(3): frames.append(R.terminal([full, "BLANK", r1, r2], title=title, cap=cap, cap_accent=acc, highlight_line=3))
+    for _ in range(6): frames.append(R.terminal([full, "BLANK", r1, r2, r3], title=title, cap=cap, cap_accent=acc, highlight_line=4))
+    frames.append(R.terminal([full, "BLANK", r1, r2, r3], title=title, cap=cap, cap_accent=acc))
+    return frames
 
 def settled():
     return term_type(
@@ -93,35 +106,29 @@ def settled():
 
 SCENES = [
  dict(id="01_neg",  frames=neg,  min=4.5,
-      vo="Watch. I'll hand this A.I. agent a transaction that never happened. It reads the chain, finds nothing, and stamps it unverified. It won't rubber-stamp a lie. Most A.I. just says, trust me. This one proves it instead."),
+      vo="This A.I. agent just got handed a transaction that never happened - and refused to verify it. It reads the chain, finds nothing, stamps it unverified. It won't sign a lie."),
  dict(id="02_title", frames=lambda:[R.title_card("ProofAgent-0G","the AI agent that can't lie, and can't overspend  -  on 0G")], min=4.0,
-      vo="ProofAgent, on zero G. The A.I. agent that can't lie, and can't overspend. Three layers, each independently provable."),
+      vo="ProofAgent, on zero G. The A.I. agent that can't lie, and can't overspend."),
  dict(id="03_trio", frames=lambda:[R.title_card("The verification trio","three independent axes - each provable on its own",
       chips=[("VERIFY CODE","fully open, AGPL-3.0, reproducible",R.CYAN),("BOUND SPEND","the on-chain mandate",R.GOLD),("PROVE SETTLE","the independent verifier",R.GREEN)],
       cap="THE TRIO  -  verify-the-code - bound-the-spend - prove-the-settlement",title_size=84)], min=5.0,
-      vo="Three independent axes. Verify the code it runs - it's fully open, every line readable. Bound what it can spend. And prove what it settled, on-chain, with an independent verifier."),
- dict(id="04_rails", frames=rails, min=5.0,
-      vo="The agent tries to spend over its cap. The on-chain mandate answers false, over transaction cap. Pre-broadcast, zero gas, nothing sent. It can't overspend - the mandate blocks it, and the verifier proves it."),
+      vo="Three independent axes. Verify the code - fully open. Bound what it can spend. And prove what it settled, on-chain, with an independent verifier."),
+ dict(id="04_rails", frames=rails_by_asset, min=8.0,
+      vo="Same mandate, three assets, one live answer each. Native under the cap - allowed. Over the cap - false, over transaction cap, blocked before anything broadcasts. A token that isn't allow-listed - blocked too. Per asset, zero gas, nothing sent."),
  dict(id="05_mand", frames=lambda:[R.explorer_card("https://chainscan-galileo.0g.ai/address/0x8e561a...f774","Contract  -  MandateRegistryV4","LIVE",R.GOLD,
       [("Address",MAND,R.TXT),("Type","verified contract",R.TXT),("Network","0G-Galileo (16602)",R.GOLD)],
       cap="MandateRegistryV4  -  live on 0G-Galileo (16602)")], min=3.6,
       vo="There's the mandate, live on zero G. Read it yourself."),
- dict(id="06_v3", frames=v3_anim, min=7.0,
-      vo="A flat cap is fooled by looping small trades, so the mandate adds a per-period cap - proven here on the V3 contract, and now live in V4. The first transfer passes and accrues on-chain. The second is blocked, over period cap, even though the per-transaction cap would allow it. Looping-drain, closed."),
- dict(id="07_accrue", frames=lambda:[R.explorer_card("https://chainscan-galileo.0g.ai/tx/0x44e5...8556","Transaction  -  gateAndRecord","Success (0x1)",R.GREEN,
-      [("Status","Success (0x1)",R.GREEN),("Block","40,044,471",R.TXT),("Method","gateAndRecord",R.TXT),("Network","0G-Galileo (16602)",R.GOLD)],
-      cap="accrue tx 0x44e5...8556  -  on-chain")], min=3.2,
-      vo="The accrual is right there on-chain."),
- dict(id="08_settled", frames=settled, min=5.0,
-      vo="Now a real, capped transfer. The independent verifier reads zero G itself, status and value, and stamps it settled. Not the app's word. The chain's."),
- dict(id="09_settledtx", frames=lambda:[R.explorer_card("https://chainscan-galileo.0g.ai/tx/0x8c59d0e8...bfb0","Transaction Details","SETTLED",R.GREEN,
-      [("Status","Success (0x1)",R.GREEN),("Block","39,996,100",R.TXT),("Value","1,000,000 wei",R.TXT),("Network","0G-Galileo (16602)",R.GOLD)],
-      cap="0x8c59...bfb0  -  Success (0x1)  -  1,000,000 wei")], min=3.6,
-      vo="Status, success. Value, one million wei. Confirmed on-chain."),
- dict(id="10_rigor", frames=lambda:[R.rigor_card(cap="cap + gas-floor + net-worth-floor  -  AGPL-3.0")], min=6.0,
-      vo="So what did you just verify? The code is fully open and externally gated. The spend is hard-capped. The settlement is independently proven. Plus a gas-floor and a net-worth-floor, so it can't drain itself. Fully open, A-G-P-L three."),
- dict(id="11_end", frames=lambda:[R.end_card()], min=5.0,
-      vo="The agent that can't lie, and can't overspend. Don't trust it. Check the chain. Verify it yourself, and vote ProofAgent in the zero G Zero Cup."),
+ dict(id="06_settled", frames=settled, min=5.0,
+      vo="Now a real, capped transfer. The independent verifier reads zero G itself - status and value - and stamps it settled. Not the app's word. The chain's."),
+ dict(id="07_three", frames=lambda:[R.settle_card(cap="3 OF 3  -  independently chain-verified settled")], min=6.0,
+      vo="And it's not one lucky transfer. Three independent settlements, each read straight off zero G. Three of three, verified settled. Zero hollow, zero mismatch."),
+ dict(id="08_rigor", frames=lambda:[R.rigor_card(cap="can't lie  -  can't overspend  -  can't drain  -  verify it yourself")], min=8.0,
+      vo="So what did you just verify? It can't lie - an independent verifier reads the chain. It can't overspend - the live mandate gates by asset. And it can't drain itself - a gas floor and a net-worth floor, each verifier-confirmed. Fully open, A-G-P-L three."),
+ dict(id="09_console", frames=lambda:[R.console_cta(cap="THE CONSOLE  -  verify it yourself, in your browser, no wallet")], min=6.0,
+      vo="Don't take my word for it. Open the live Verification Console in your browser - no wallet, nothing signed. Paste any zero G hash, run the dry-run, and watch every verdict reconcile against the chain."),
+ dict(id="10_end", frames=lambda:[R.end_card()], min=5.0,
+      vo="The agent that can't lie, and can't overspend. Don't trust it - check the chain. Verify it yourself, and vote ProofAgent in the zero G Zero Cup."),
 ]
 
 def build_scene(sc):
