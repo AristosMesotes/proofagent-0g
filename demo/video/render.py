@@ -114,7 +114,7 @@ def explorer_card(url,header,badge,badge_color,rows,cap=None):
 def rigor_card(cap=None):
     img,d=new_canvas(); d.rectangle([0,0,W,6],fill=GOLD)
     d.text((W//2,170),"What you just verified",font=f_ui(70,"b"),fill=TXT,anchor="mm")
-    rows=[("verify the code","clean-room, AGPL-3.0-licensed, reproducible - read every line yourself",CYAN),
+    rows=[("verify the code","AGPL-3.0-licensed, reproducible - read every line yourself",CYAN),
           ("bound the spend","an on-chain mandate: per-tx + per-period caps, can't overspend",GOLD),
           ("prove the settlement","an independent Rust verifier reads 0G: settled / hollow / mismatch / unverified",GREEN)]
     y=320
@@ -126,7 +126,7 @@ def rigor_card(cap=None):
     d.rounded_rectangle([300,y+10,W-300,y+96],radius=14,fill=(16,20,27),outline=BORDER,width=2)
     d.text((W//2,y+53),"cap  +  gas-floor  +  net-worth-floor   -   it can't drain itself",font=f_ui(34,"sb"),fill=TXT,anchor="mm")
     d.text((W//2,y+150),"100% on 0G   -   nothing else, provably",font=f_ui(32,"sb"),fill=GOLD,anchor="mm")
-    d.text((W//2,y+205),"hundreds of tests - Rust - Solidity - TypeScript - clean-room - AGPL-3.0",font=f_ui(28),fill=DIM,anchor="mm")
+    d.text((W//2,y+205),"Rust - Solidity - TypeScript - AGPL-3.0",font=f_ui(28),fill=DIM,anchor="mm")
     watermark(d)
     if cap: lower_third(d,cap)
     return img
@@ -145,9 +145,9 @@ def end_card(cap=None):
 # ---------------- samples ----------------
 if __name__=="__main__":
     out=os.path.join(os.path.dirname(__file__),"samples"); os.makedirs(out,exist_ok=True)
-    rigor_card(cap="cap + gas-floor + net-worth-floor  -  clean-room  -  AGPL-3.0").save(os.path.join(out,"sample_rigor.png"))
+    rigor_card(cap="cap + gas-floor + net-worth-floor  -  AGPL-3.0").save(os.path.join(out,"sample_rigor.png"))
     end_card().save(os.path.join(out,"sample_end.png"))
     title_card("The verification trio","three independent axes - each provable on its own",
-        chips=[("VERIFY CODE","clean-room, open, AGPL-3.0",CYAN),("BOUND SPEND","the on-chain mandate",GOLD),("PROVE SETTLE","the independent verifier",GREEN)],
+        chips=[("VERIFY CODE","fully open, AGPL-3.0, reproducible",CYAN),("BOUND SPEND","the on-chain mandate",GOLD),("PROVE SETTLE","the independent verifier",GREEN)],
         cap="THE TRIO  -  verify-the-code - bound-the-spend - prove-the-settlement",title_size=84,ty=250).save(os.path.join(out,"sample_trio.png"))
     print("wrote rigor/end/trio samples")

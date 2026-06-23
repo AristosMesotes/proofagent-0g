@@ -2,17 +2,42 @@
 
 **The AI agent that can't lie, and can't overspend.**
 
-An autonomous on-chain agent on **0G** whose three layers are each *independently provable*:
+## Point it at a transaction that never happened — it refuses to rubber-stamp it.
 
-| Proof | Guarantee | How |
-|---|---|---|
-| **Brain** | the model you think ran, ran | 0G Compute **TEE attestation** — *built + offline-tested; green only on a real enclave proof (see note)* |
-| **Rails** | it can't overspend — blocked pre-broadcast, proven by the verifier | an on-chain **spend cap** (the live **`MandateRegistryV4`** on 0G), checked pre-broadcast |
-| **Settlement** | the trade really happened | an **independent verifier** that reads 0G itself |
+ProofAgent-0G is an autonomous on-chain agent on **0G**. You don't trust the agent — you check the chain.
+Here's the proof the proof is real: the same verifier, two hashes, two honest verdicts.
 
-You don't trust the agent. You check the chain.
+```bash
+# A fabricated, well-formed-but-unknown hash → it reads 0G, finds nothing, and degrades LOUDLY:
+cargo run -p verifier -- verify-tx 0xdeadbeef00000000000000000000000000000000000000000000000000000000
+# -> UNVERIFIED   (exit 1)  — it will NOT print SETTLED for a tx that doesn't exist
 
-> **Honest state of the Brain proof.** The Brain leg is an **original clean-room implementation** on 0G's
+# A real, settled transfer on 0G Galileo (block 39,996,100, 1,000,000 wei) → it reads the chain and confirms:
+cargo run -p verifier -- verify-tx 0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0
+# -> SETTLED      (exit 0)  — confirmable on the public explorer, no trust required
+```
+
+Two code paths — *"I could not read it"* and *"it settled"* — that can never be confused. That's the whole pitch:
+the agent can't lie because an independent reader, not the agent, gets the last word.
+
+👉 **[Verify it yourself →](./VERIFY.md)** — for judges, voters & developers: a 1-minute no-tools chain check, the full hands-on CLI/contract reproduction, **and a zero-trust, zero-wallet fullstack browser guide** that walks you through confirming every proof through the real Verification Console (the four cards · the paste-any-hash Playground · the dry-run RUN LEDGER · the mandate card).
+
+🌐 **[Open the live Verification Console →](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** — no install, no wallet, no signup. Run every proof in your browser right now: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo (read-only).
+
+### Three layers, each independently provable — 2 live + 1 operator-gated
+
+| Proof | Status | Guarantee | How |
+|---|---|---|---|
+| **Settlement** | 🟢 **LIVE** | the trade really happened | an **independent verifier** that reads 0G itself — `SETTLED` only on a real on-chain receipt |
+| **Rails** | 🟢 **LIVE** | it can't overspend — blocked pre-broadcast, proven by the verifier | an on-chain **spend cap** (the live **`MandateRegistryV4`**, `0x8e561a…f774` on 0G Galileo `16602`), checked pre-broadcast |
+| **Brain** | 🟡 **operator-gated · PENDING** | the model you think ran, ran | 0G Compute **TEE attestation** — built + offline-tested; goes green only on a real enclave proof (see note below) |
+
+Two legs are LIVE and chain-checkable right now; the Brain leg is **built and offline-tested** but its green stamp is **operator-gated** on a live TEE attestation — and we never fabricate it (details below).
+
+<details>
+<summary><strong>Honest state of the Brain proof</strong> — why it reads PENDING, not green</summary>
+
+> The Brain leg is an **original implementation** on 0G's
 > public `@0glabs/0g-serving-broker` SDK (no internal dependency), **built + offline-tested**
 > (`agent/src/zerog/compute.ts`). Its verdict is `attested:true` ONLY when **two cryptographic facts** both
 > hold — a `trusted` provider-service attestation AND a verified per-response enclave signature — **never** the
@@ -20,13 +45,7 @@ You don't trust the agent. You check the chain.
 > **operator-gated**: the default offline build keeps the Brain stamp **PENDING**, and it goes green only once
 > one live verified attestation runs. We never fabricate an attestation. Details: [`docs/PROOFAGENT_0G_EVIDENCE.md`](docs/PROOFAGENT_0G_EVIDENCE.md) §1h.
 
-🌐 **[Open the live Verification Console →](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** — no install, no wallet, no signup. Run every proof in your browser right now: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo (the public RPC, read-only).
-
-👉 **[Verify it yourself →](./VERIFY.md)** — for judges, voters & developers: a 1-minute no-tools chain check, the full hands-on CLI/contract reproduction, **and a zero-trust, zero-wallet fullstack browser guide** that walks you through confirming every proof through the real Verification Console (the four cards · the paste-any-hash Playground · the dry-run RUN LEDGER · the mandate card).
-
-### The 30-second proof
-Point the verifier at a **fabricated** transaction hash and it stamps **`UNVERIFIED`** — not `SETTLED`.
-It isn't rubber-stamping; it's reading the chain.
+</details>
 
 ### Run the agent without spending a cent (dry-run)
 The web **Verification Console** ([**live**](https://aristosmesotes.github.io/proofagent-0g/dashboard.html) · `web/dashboard.html`) has a **"Run the agent (dry-run)"** card that walks the
