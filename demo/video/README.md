@@ -5,7 +5,7 @@
 Deterministically generated — **every frame is rendered from real, on-chain-confirmed data**. No screen recording, no mockups, nothing faked. The video practices the product's own thesis: *don't trust the narrator, check the chain.*
 
 ## Verify it yourself (0G-Galileo, chain 16602)
-- RPC `https://evmrpc-testnet.0g.ai` · Explorer **[chainscan-galileo.0g.ai](https://chainscan-galileo.0g.ai)**
+- RPC [`https://evmrpc-testnet.0g.ai`](https://evmrpc-testnet.0g.ai) · Explorer **[chainscan-galileo.0g.ai](https://chainscan-galileo.0g.ai)**
 - SETTLED tx [`0x8c59d0e8…bfb0`](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0) → Success, block 39,996,100, **1,000,000 wei**
 - accrue tx [`0x44e5…8556`](https://chainscan-galileo.0g.ai/tx/0x44e5e4a022d17b91a428b44ce6793116db0d06d383799470dabc60189bdf8556) → Success, block 40,044,471
 - **MandateRegistryV4 (live gate)** [`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) · V3 (superseded) [`0xC24A32…02BD2`](https://chainscan-galileo.0g.ai/address/0xC24A325dB118cfFD586E72b9D085FB71D5202BD2) (both live, have code)

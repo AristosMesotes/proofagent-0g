@@ -18,7 +18,7 @@ transaction on **0G Galileo testnet (chain id 16602)**, confirmable on the publi
 | **Contract** | `MandateRegistryV3` (clean-room four-tier successor to the MVP `MandateRegistry`) |
 | **Address** | `0xC24A325dB118cfFD586E72b9D085FB71D5202BD2` |
 | **Chain** | 0G Galileo testnet — chain id **16602** |
-| **Explorer** | https://chainscan-galileo.0g.ai/address/0xC24A325dB118cfFD586E72b9D085FB71D5202BD2 |
+| **Explorer** | <https://chainscan-galileo.0g.ai/address/0xC24A325dB118cfFD586E72b9D085FB71D5202BD2> |
 | **Owner / Agent** | `0xc7Af61A1399Aca0bee648D7853AE93f96B86866a` (the demo wallet) |
 | **`checkTransfer` selector** | `0xcc1dd94f` — **identical** to the MVP (v2-compatible; the agent/verifier/web codecs read V3 unchanged) |
 

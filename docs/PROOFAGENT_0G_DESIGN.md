@@ -697,13 +697,13 @@ SDK versions are pinned in `package.json` / `Cargo.toml`. No real keys ever live
 - Swap: `@uniswap/v3-sdk` / `@uniswap/sdk-core` / `swap-router-contracts`. Routing: `@arcadia-network/sdk` (Khalani) · `@lifi/sdk`. Bridge: `IRouterClient.ccipSend` + `Client.EVM2AnyMessage`.
 
 **Sources**
-- Zero Cup — https://0g.ai/arena/zero-cup
-- 0G docs — https://docs.0g.ai/
-- 0G Compute — https://compute.0g.ai/
-- 0G Builder Hub — https://build.0g.ai/hackathons
-- Oku deployed-contracts — https://docs.oku.trade/home/extra-information/deployed-contracts
-- CCIP directory → 0G mainnet — https://docs.chain.link/ccip/directory/mainnet/chain/0g-mainnet
-- Khalani powers 0G Pay — https://blog.khalani.network/khalani-powers-0g-pay
-- LI.FI SDK — https://github.com/lifinance/sdk
+- Zero Cup — <https://0g.ai/arena/zero-cup>
+- 0G docs — <https://docs.0g.ai/>
+- 0G Compute — <https://compute.0g.ai/>
+- 0G Builder Hub — <https://build.0g.ai/hackathons>
+- Oku deployed-contracts — <https://docs.oku.trade/home/extra-information/deployed-contracts>
+- CCIP directory → 0G mainnet — <https://docs.chain.link/ccip/directory/mainnet/chain/0g-mainnet>
+- Khalani powers 0G Pay — <https://blog.khalani.network/khalani-powers-0g-pay>
+- LI.FI SDK — <https://github.com/lifinance/sdk>
 
 *The MandateRegistry / MandateRegistryV3 / TimelockGuard / MandateRegistryV4 addresses and the verifier corpus are pinned in `proofagent.toml` once confirmed on-chain (the consolidated `MandateRegistryV4` is built, tested & **DEPLOYED LIVE** on 0G Galileo `16602` at `0x8e561a…f774`, `[mandate_v4].address` pinned — the pinned mandate the dashboard reads; the TimelockGuard deploy stays operator-gated). The as-built evidence record — live on-chain proofs, the full gate matrix, and the design ↔ code conformance verdict: [`docs/PROOFAGENT_0G_EVIDENCE.md`](PROOFAGENT_0G_EVIDENCE.md). The adapter recipe: [`docs/ADD_AN_ADAPTER.md`](ADD_AN_ADAPTER.md).*

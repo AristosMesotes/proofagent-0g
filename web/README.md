@@ -60,8 +60,8 @@ word into `data-verdict="OVER_TX_CAP"`. Re-derive it: replay the same `eth_call`
 read degrades **loudly** (`unverified`/`mismatch`), never a fabricated `settled`. Re-derive it: fetch the
 same receipt + value and rerun the adjudication (or `verify-tx` against the independent Rust verifier).
 
-Both on-chain controls read the public 0G Galileo endpoint (`https://evmrpc-testnet.0g.ai`) and link the
-public testnet explorer (`https://chainscan-galileo.0g.ai`); the RPC URL is read at run time, never a
+Both on-chain controls read the public 0G Galileo endpoint ([`https://evmrpc-testnet.0g.ai`](https://evmrpc-testnet.0g.ai)) and link the
+public testnet explorer ([`https://chainscan-galileo.0g.ai`](https://chainscan-galileo.0g.ai)); the RPC URL is read at run time, never a
 private endpoint, and there is **no signing/broadcast surface** in the read transport by construction.
 
 ## The "Run the agent (dry-run)" card (dashboard only — design §5 the loop · §6 the run ledger)

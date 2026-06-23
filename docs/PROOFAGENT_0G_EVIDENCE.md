@@ -16,7 +16,7 @@
 |---|---|
 | **Status** | **GREEN — FULL consolidated build.** MVP three proofs + swap/route/**bridge** + the four-tier MandateRegistryV3 + the **consolidated, hardened MandateRegistryV4** (V3 + the egress time-lock folded into ONE non-custodial gate, nine-lens adversarial review) + the **I14-R spend reconciler** + the **TimelockGuard** + the **gas-floor / net-worth-floor** money-safety suite + the **Engine** + the **0G-only** gate + the headless **fullstack-UI** two-source proof, now the **formal three-proof fullstack target** (NEG · RAILS · SETTLED all driven *through* the real UI, zero human, each reconciled against its independent source) |
 | **Chain** | 0G Galileo testnet — chain id `16602` (mainnet Aristotle `16661`, operator-gated) |
-| **RPC** | `https://evmrpc-testnet.0g.ai` (read independently, raw JSON-RPC) |
+| **RPC** | [`https://evmrpc-testnet.0g.ai`](https://evmrpc-testnet.0g.ai) (read independently, raw JSON-RPC) |
 | **Explorer** | [`https://chainscan-galileo.0g.ai`](https://chainscan-galileo.0g.ai) |
 | **MandateRegistryV4 (consolidated, hardened — THE PINNED mandate)** | **`0x8e561a5cc096af6e570220a5228b33c7d889f774` (LIVE on `16602`)** — the dashboard reads + reconciles against this; deploy tx `0xd88d8a49…db50` (block 40,213,222), tier-configured in the same broadcast (`addAllowedAsset` · `setPeriodConfig(3600,1_500_000)` · `setParamDelay`) |
 | **MandateRegistry (MVP, superseded)** | `0x675FF5053F434AA3f1d48574813BFc1696FBD345` (LIVE on `16602`; historical provenance, superseded by V4) |

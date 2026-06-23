@@ -110,7 +110,7 @@ empty route is `unverified`, never a vacuous `settled`.
    `SwapRouter02` tuple (selector `0x04e45aaf`). A live JAINE swap would also need the agent codec switched
    to the 8-field router ABI first — tracked, not silently assumed compatible.
 
-**Reproduce the blocker (all reads on testnet 16602; RPC = `https://evmrpc-testnet.0g.ai`):**
+**Reproduce the blocker (all reads on testnet 16602; RPC = [`https://evmrpc-testnet.0g.ai`](https://evmrpc-testnet.0g.ai)):**
 
 ```bash
 RPC=https://evmrpc-testnet.0g.ai

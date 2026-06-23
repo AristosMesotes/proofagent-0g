@@ -7,8 +7,8 @@
 | | |
 |---|---|
 | **Chain** | 0G Galileo testnet — chain id `16602` |
-| **RPC** | `https://evmrpc-testnet.0g.ai` (read independently, raw JSON-RPC) |
-| **Explorer** | `https://chainscan-galileo.0g.ai` |
+| **RPC** | [`https://evmrpc-testnet.0g.ai`](https://evmrpc-testnet.0g.ai) (read independently, raw JSON-RPC) |
+| **Explorer** | [`https://chainscan-galileo.0g.ai`](https://chainscan-galileo.0g.ai) |
 | **MandateRegistry** | `0x675FF5053F434AA3f1d48574813BFc1696FBD345` |
 | **Agent / demo wallet** | `0xc7Af61A1399Aca0bee648D7853AE93f96B86866a` |
 | **Native-asset sentinel** | `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` (the mandate bounds the native transfer against this) |
@@ -53,8 +53,8 @@ Confirmable settled transfers (both `status 0x1`, `value 1000000` wei):
 
 | tx hash | block | explorer |
 |---|---|---|
-| `0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0` | 39996100 | https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0 |
-| `0xfb18bfc1a3a12b78843549f0023ccca62746513036e54523ab8d23aaf04f6290` | 39996470 | https://chainscan-galileo.0g.ai/tx/0xfb18bfc1a3a12b78843549f0023ccca62746513036e54523ab8d23aaf04f6290 |
+| `0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0` | 39996100 | <https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0> |
+| `0xfb18bfc1a3a12b78843549f0023ccca62746513036e54523ab8d23aaf04f6290` | 39996470 | <https://chainscan-galileo.0g.ai/tx/0xfb18bfc1a3a12b78843549f0023ccca62746513036e54523ab8d23aaf04f6290> |
 
 The first is pinned in `proofagent.toml [[verifier.corpus]]` (with the recorded on-chain `observed`),
 so the **offline** Rust verifier also replays this genuine settlement deterministically:
