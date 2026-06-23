@@ -456,7 +456,7 @@ ledger --journal demo/proofagent.demo.journal
   TRANSFER   1000000 / 1000000  Δ 0            settled     0x8c59…bfb0
   TRANSFER   1000000 / 1000000  Δ 0            settled     0xfb18…6290
   unknown    0       / unavail  Δ unavailable  unverified  0xdead…0000  (NEG)
-DEFECTS — 3 verdict(s): 2 settled / 0 hollow / 0 mismatch / 1 unverified (1 defect(s))
+DEFECTS — 4 verdict(s): 3 settled / 0 hollow / 0 mismatch / 1 unverified (1 defect(s))
 ```
 
 | Verdict | Count | Meaning |

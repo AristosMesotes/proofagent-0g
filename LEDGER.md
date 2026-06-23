@@ -21,6 +21,7 @@
 > # mint + journal each live SETTLEMENT verdict (the two genuine settlements + the NEG), then project + audit:
 > verifier verify-tx 0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0 --journal demo/proofagent.demo.journal
 > verifier verify-tx 0xfb18bfc1a3a12b78843549f0023ccca62746513036e54523ab8d23aaf04f6290 --journal demo/proofagent.demo.journal
+> verifier verify-tx 0x424962775526f9783a2781daebefcb799168e624c54ce5bd055bb262caf8b4b6 --journal demo/proofagent.demo.journal  # fresh live spend (block 40232225)
 > verifier verify-tx 0xdeadbeef00000000000000000000000000000000000000000000000000000000 --journal demo/proofagent.demo.journal
 > verifier ledger --journal demo/proofagent.demo.journal     # §1 + §2 settlement projection
 > verifier audit  --journal demo/proofagent.demo.journal     # surfaces the NEG row LOUDLY (exit 1)
@@ -39,6 +40,27 @@
 
 ---
 
+## §0 — The mandate's on-chain transactions (smart-contract provenance)
+
+The spend-gate **`MandateRegistryV4`** (`0x8e561a…f774`) and its tier configuration are real, confirmable
+transactions on 0G Galileo testnet (chain `16602`). The contract is **advisory + non-custodial** — it holds
+no funds — so these are the gate's *setup* transactions; each is a Success (`status 0x1`) you can open on the
+explorer. (Provenance, read from the committed broadcast receipts / `proofagent.toml`, distinct from the
+verifier-minted verdicts in §1–§5.)
+
+| Block | Smart-contract call | Transaction | Status |
+|---|---|---|---|
+| 40,213,222 | **deploy** `MandateRegistryV4` → `0x8e561a…f774` | [`0xd88d8a49…58db50`](https://chainscan-galileo.0g.ai/tx/0xd88d8a4959a122289a6c26101f13ab6420e61952043210d8c361d58d0f58db50) | ✅ Success |
+| (same broadcast) | `addAllowedAsset(NATIVE, 2_000_000, 18)` | [`0xbb316c95…3998f25`](https://chainscan-galileo.0g.ai/tx/0xbb316c959e13f56c396e715e212d1384b2a53a555902fe150ed7acb573998f25) | ✅ Success |
+| (same broadcast) | `setPeriodConfig(3600, 1_500_000)` | [`0xa04c95df…20df8ed`](https://chainscan-galileo.0g.ai/tx/0xa04c95df4f18804cc3730211212a01eb96a704d53f3401fa316e4fd2520df8ed) | ✅ Success |
+| (same broadcast) | `setParamDelay(86400)` | [`0x833120f8…b0cd3d51`](https://chainscan-galileo.0g.ai/tx/0x833120f8a5639a9e1d3bed168ccafb05fce5d6d967f06976aa574e13b0cd3d51) | ✅ Success |
+
+The agent's **V4-gated spends** read this live contract via a zero-gas `eth_call checkTransfer(agent, token,
+amount)` **before** broadcast (under-cap → `(true, OK)`; over-cap → `(false, OVER_TX_CAP)`; non-allowlisted →
+`(false, TOKEN_NOT_ALLOWED)`), and the verifier independently confirms each authorized settlement on-chain (§1).
+
+---
+
 ## §1 — Settlement verdicts (chain-observed; `settled / hollow / mismatch / unverified`)
 
 Each row is one journalled settlement verdict. **Amount** is in minor units (wei). A verdict is minted only
@@ -51,18 +73,19 @@ hash the verifier refuses to rubber-stamp. (Verdict type: `verifier/src/verdict.
 |---|---|---|---|---|---|---|
 | 2026-06-22 (block 39996100) | 0G Galileo `16602` | TRANSFER | native 0G (wei) | `1000000` / `1000000` (Δ `0`) | **`settled`** ✅ | [0x8c59…bfb0](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0) |
 | 2026-06-22 (block 39996470) | 0G Galileo `16602` | TRANSFER | native 0G (wei) | `1000000` / `1000000` (Δ `0`) | **`settled`** ✅ | [0xfb18…6290](https://chainscan-galileo.0g.ai/tx/0xfb18bfc1a3a12b78843549f0023ccca62746513036e54523ab8d23aaf04f6290) |
+| 2026-06-23 (block 40232225) | 0G Galileo `16602` | TRANSFER | native 0G (wei) | `1000000` / `1000000` (Δ `0`) | **`settled`** ✅ | [0x4249…b4b6](https://chainscan-galileo.0g.ai/tx/0x424962775526f9783a2781daebefcb799168e624c54ce5bd055bb262caf8b4b6) — **fresh live spend**, V4-gate-authorized then independently verified |
 | — (no on-chain record) | 0G Galileo `16602` | unknown | — | claimed `0` / observed `unavailable` (Δ `unavailable`) | **`unverified`** 🛑 (NEG) | [0xdead…0000](https://chainscan-galileo.0g.ai/tx/0xdeadbeef00000000000000000000000000000000000000000000000000000000) — *no receipt; the verifier reads `null` and degrades LOUDLY* |
 
 **Settlement summary (from the journal):**
 
 ```
 ledger --journal demo/proofagent.demo.journal
-DEFECTS -- 3 verdict(s): 2 settled / 0 hollow / 0 mismatch / 1 unverified (1 defect(s))
+DEFECTS -- 4 verdict(s): 3 settled / 0 hollow / 0 mismatch / 1 unverified (1 defect(s))
 ```
 
 | Verdict | Count | Meaning |
 |---|---|---|
-| `settled` | **2** | chain-confirmed the money moved exactly as claimed (Δ within the 15% band) |
+| `settled` | **3** | chain-confirmed the money moved exactly as claimed (Δ within the 15% band) — incl. the fresh live spend `0x4249…b4b6` (block 40,232,225) |
 | `hollow` | 0 | on-record but moved nothing (no economic effect) |
 | `mismatch` | 0 | chain disagreed with the claim beyond tolerance |
 | `unverified` | **1** | the deliberate **NEG** case (fabricated hash → loud degrade) |
@@ -278,8 +301,11 @@ tier reads a live-enforced figure (the V4 USD cap stays opt-in/off by default, l
 
 ## Status at a glance
 
-- **Settlement: 2 / 2 chain-verified `settled`** (Δ `0`, both confirmable on the explorer); 0 `hollow`,
-  0 `mismatch`; 1 deliberate NEG `unverified`. No claimed settlement is hollow or off-amount (zero-loss).
+- **Settlement: 3 / 3 chain-verified `settled`** (Δ `0`, all confirmable on the explorer — incl. the fresh
+  live spend `0x4249…b4b6`, block 40,232,225); 0 `hollow`, 0 `mismatch`; 1 deliberate NEG `unverified`. No
+  claimed settlement is hollow or off-amount (zero-loss).
+- **The mandate's smart-contract transactions are in §0** — the V4 deploy + `addAllowedAsset` /
+  `setPeriodConfig` / `setParamDelay`, each a Success on 0G-Galileo (16602), explorer-confirmable.
 - **Money-safety (§2):** every depletion path adjudicates to `refuted` (a breach) or `unverified` (an
   unreadable/partial read) — **never** a fabricated `confirmed`; the floor-held path is `confirmed`.
 - **Cross-chain (§3):** the time-lock no-bypass + the per-spoke isolation read `confirmed` when the guard
