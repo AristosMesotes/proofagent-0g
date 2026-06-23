@@ -78,6 +78,11 @@ body {
   max-width: 46ch;
   color: var(--ink-dim);
 }
+.hero__cta {
+  display: inline-block;
+  margin: 1.1rem 0 0.2rem;
+  text-decoration: none;
+}
 
 /* --- the three stamps --- */
 .stamps {

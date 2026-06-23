@@ -1,0 +1,65 @@
+name: Deploy Verification Console to GitHub Pages
+
+# Builds the static web/ console (tsc, no bundler) and publishes it to GitHub Pages.
+# The compiled dist/ is gitignored and rebuilt here, so the live demo is always
+# reproducible from source and never goes stale. First paint is fully offline; the
+# live RPC reads (enrichment + the paste-any-hash playground) hit 0G Galileo directly
+# from the browser (the public RPC sends Access-Control-Allow-Origin: *).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; never cancel an in-progress publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build the static console (tsc -> web/dist)
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Stage the site (html + css + compiled ESM; drop test bundles)
+        run: |
+          rm -rf _site
+          mkdir -p _site/dist
+          cp web/index.html web/dashboard.html web/style.css _site/
+          cp web/README.md _site/ 2>/dev/null || true
+          cp web/dist/*.js _site/dist/
+          rm -f _site/dist/*.test.js
+          echo "staged files:" && find _site -type f | sort
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
