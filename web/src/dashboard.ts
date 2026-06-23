@@ -811,7 +811,7 @@ function renderFooter(host: HTMLElement): void {
   footer.className = "foot";
   const p = document.createElement("p");
   p.textContent =
-    "MIT · talks to 0G only through public SDKs · claims only what is live on screen. Later capabilities " +
+    "AGPL-3.0-or-later · talks to 0G only through public SDKs · claims only what is live on screen. Later capabilities " +
     "(the TEE brain proof, on-chain settlements) arrive as honestly-labelled bracket-deltas.";
   footer.appendChild(p);
   host.appendChild(footer);

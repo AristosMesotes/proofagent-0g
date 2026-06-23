@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity 0.8.26;
 
 /// @title  IMandateGate -- the minimal, v2-compatible spend-gate seam the time-lock composes with.

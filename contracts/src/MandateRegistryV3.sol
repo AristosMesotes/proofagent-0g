@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity 0.8.26;
 
 /// @title  IPriceFeed -- the minimal opt-in price oracle for the USD-denominated cap (Tier 3).

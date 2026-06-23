@@ -8,7 +8,7 @@
 | | |
 |---|---|
 | **Status** | Design — MVP scaffold live; the swap/route/bridge wow legs + the four-tier mandate built & tested; the consolidated, hardened `MandateRegistryV4` (folds V3 + TimelockGuard, with the I14-R spend reconciler) built, tested & **DEPLOYED LIVE on 0G Galileo `16602`** (`0x8e561a…f774`, the pinned mandate) |
-| **License** | MIT |
+| **License** | AGPL-3.0-or-later |
 | **Chain** | 0G — Aristotle (chain id `16661`); Galileo testnet (`16602`) |
 | **Stack** | Rust (verifier) · Solidity (mandate) · TypeScript (agent · 0G SDKs · web) |
 | **Authors** | **CJ** (first author) · **SweePoh** (second author / support) |
@@ -57,7 +57,7 @@ These are structural guarantees, not slogans:
 3. **Never fabricate.** An unavailable, off-record, or unreadable result degrades **loudly** to `UNVERIFIED` — never silently to a fabricated `SETTLED`. (The NEG case is this rule, on screen.)
 4. **Deterministic.** The same chain reads always produce the same verdict and the same reproducibility digest — anyone can re-run a verdict and get a byte-identical result. No wall-clock, no unordered state.
 5. **Exact-integer money.** Amounts are compared in minor units with exact-integer tolerance bands — **no floating point** on the money path.
-6. **Clean-room boundary.** The repo is self-contained and MIT-licensed; it talks to 0G **only** through 0G's public SDKs. An automated **clean-room firewall** (§7) keeps it free of any proprietary identifier, private filesystem path, or secret.
+6. **Clean-room boundary.** The repo is self-contained and AGPL-3.0-licensed; it talks to 0G **only** through 0G's public SDKs. An automated **clean-room firewall** (§7) keeps it free of any proprietary identifier, private filesystem path, or secret.
 
 These six invariants are referenced throughout as `design §3 #1`…`#6`; every wow leg, cross-chain hop, and money-safety guard below reuses them unchanged — it adds **no new trust surface**.
 
@@ -66,10 +66,10 @@ These six invariants are referenced throughout as `design §3 #1`…`#6`; every 
 ## 4. Architecture
 
 ```text
-proofagent-0g/                  (MIT · fully public · talks to 0G only via public SDKs)
+proofagent-0g/                  (AGPL-3.0 · fully public · talks to 0G only via public SDKs)
 ├─ docs/PROOFAGENT_0G_DESIGN.md  this document
 ├─ README.md                     the pitch + 2-min demo script + the three-proofs diagram
-├─ LICENSE                       MIT
+├─ LICENSE                       AGPL-3.0
 ├─ .env.example                  documented knobs — NO secrets, NO real keys
 ├─ .gitignore                    env, keys, build artifacts
 ├─ proofagent.toml               data spine — chain, RPC (via env), corpus, registry address, checks,
@@ -230,7 +230,7 @@ end to end — the agent's claim and the verifier's observation enter by differe
 
 ## 7. Clean-room & IP discipline — the gate
 
-This repo is a **clean-room implementation**: self-contained, MIT-licensed, and built entirely against 0G's **public** SDKs. It contains **no proprietary framework code, no internal identifiers, no private filesystem paths, and no secrets**.
+This repo is a **clean-room implementation**: self-contained, AGPL-3.0-licensed, and built entirely against 0G's **public** SDKs. It contains **no proprietary framework code, no internal identifiers, no private filesystem paths, and no secrets**.
 
 This is enforced, not promised:
 

@@ -27,4 +27,4 @@ python hero.py     # -> the 9:16 short
 - `voice.ps1` — SAPI text→WAV
 
 ## Honesty
-No fabricated settlement (the SETTLED tx is a real transfer); no live-TEE "brain" claim (that layer is roadmap); "hundreds of tests"; clean-room; MIT. No secrets ever on screen.
+No fabricated settlement (the SETTLED tx is a real transfer); no live-TEE "brain" claim (that layer is roadmap); "hundreds of tests"; clean-room; AGPL-3.0-or-later. No secrets ever on screen.

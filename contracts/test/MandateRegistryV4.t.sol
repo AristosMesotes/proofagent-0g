@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity 0.8.26;
 
 import {MandateRegistryV4, IPriceFeedV2, IERC20Decimals} from "../src/MandateRegistryV4.sol";

@@ -47,7 +47,7 @@ cap stays opt-in/off by default, labelled so — never a number the card does no
 
 ### Stack
 Rust (verifier) · Solidity (mandate) · TypeScript (agent · 0G SDKs · web).
-Self-contained, MIT, talks to 0G only through public SDKs.
+Self-contained, AGPL-3.0-or-later, talks to 0G only through public SDKs.
 
 ### Design
 See [`docs/PROOFAGENT_0G_DESIGN.md`](docs/PROOFAGENT_0G_DESIGN.md).
@@ -62,4 +62,4 @@ cargo run -p verifier -- verify-tx <hash>      # -> SETTLED / HOLLOW / MISMATCH 
 [0G Zero Cup](https://0g.ai/arena/zero-cup).
 
 ### License
-MIT.
+AGPL-3.0-or-later (GNU Affero General Public License v3.0) — see [LICENSE](LICENSE).

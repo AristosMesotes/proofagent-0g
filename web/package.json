@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "ProofAgent-0G thin demo UI -- three honest proof stamps + the NEG case (fabricated hash -> UNVERIFIED).",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
