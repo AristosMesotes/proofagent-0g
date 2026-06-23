@@ -139,6 +139,10 @@ repointed to `0x8e561a…f774` when V4's deploy landed),
 
 ## Build & run (offline, no framework, no CDN)
 
+> **Hosted, no install:** the console is live at
+> **<https://aristosmesotes.github.io/proofagent-0g/dashboard.html>** — built from this directory by CI
+> (`.github/workflows/pages.yml`) and served on GitHub Pages. The steps below build the *same* output locally.
+
 ```bash
 cd web
 npm install            # dev-only: typescript (offline if cached)

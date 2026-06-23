@@ -17,6 +17,10 @@ Everything below is **reproducible by you** — that's the proof.
 ## 🔎 Quick look — no tools, just click *(for judges & voters)*
 You can confirm the project is real in under a minute, with **nothing installed**:
 
+**▶ Fastest path — [open the live Verification Console](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** and run every proof in your browser: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo. No install, no wallet, no signup.
+
+Then confirm it's all real on-chain:
+
 1. **Watch the 2-minute demo** → the [`demo` release](../../releases/tag/demo) (master cut + a 30s short).
 2. **Check the chain yourself** — these are **real transactions** on the public 0G-Galileo explorer. Click and look:
    - ✅ **A real settlement** → [`0x8c59…bfb0`](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0) — should read **Success**, value **1,000,000 wei**, block 39,996,100.
@@ -133,6 +137,9 @@ an independent re-read agrees with, and the one card that *can't* be confirmed y
 **PENDING** by construction.
 
 ### 0 — Open the console (offline, no framework, no CDN)
+**Hosted (no install)** → just open **<https://aristosmesotes.github.io/proofagent-0g/dashboard.html>** — the *same* console, built from this repo by CI and served on GitHub Pages. Everything below works there too.
+
+**Or build & serve it locally** (identical output — `tsc`, no bundler):
 ```bash
 cd web && npm install && npm run build      # tsc → dist/dashboard.js  (dev-only: typescript; no network)
 npx serve -l 3100 .                          # any static server works
