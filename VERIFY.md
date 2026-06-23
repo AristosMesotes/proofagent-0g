@@ -21,7 +21,7 @@ You can confirm the project is real in under a minute, with **nothing installed*
 
 Then confirm it's all real on-chain:
 
-1. **Watch the 2-minute demo** → the [`demo` release](../../releases/tag/demo) (master cut + a 30s short).
+1. **Watch the 2-minute demo** → the [`demo` release](https://github.com/AristosMesotes/proofagent-0g/releases/tag/demo) (master cut + a 30s short).
 2. **Check the chain yourself** — these are **real transactions** on the public 0G-Galileo explorer. Click and look:
    - ✅ **A real settlement** → [`0x8c59…bfb0`](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0) — should read **Success**, value **1,000,000 wei**, block 39,996,100.
    - 🟢 **The live mandate contract** (the consolidated, hardened **`MandateRegistryV4`**) → [`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) — deployed on 0G Galileo `16602`, block 40,213,222.
@@ -37,7 +37,7 @@ Read-only — **no private key or funds needed.**
 ```bash
 git clone https://github.com/AristosMesotes/proofagent-0g && cd proofagent-0g
 ```
-Network: 0G-Galileo testnet `16602` · RPC `https://evmrpc-testnet.0g.ai` · explorer `https://chainscan-galileo.0g.ai`.
+Network: 0G-Galileo testnet `16602` · RPC [`https://evmrpc-testnet.0g.ai`](https://evmrpc-testnet.0g.ai) · explorer [`https://chainscan-galileo.0g.ai`](https://chainscan-galileo.0g.ai).
 
 ### Proof 1 — NEG: it can't lie  *(CLI **and** UI)*
 ```bash
@@ -48,7 +48,7 @@ cargo run -p verifier -- verify-tx 0xdeadbeef00000000000000000000000000000000000
 
 ### Proof 2 — RAILS: it can't overspend  *(contract — the LIVE `MandateRegistryV4`)*
 The pinned mandate is the consolidated, hardened **`MandateRegistryV4`**, LIVE on 0G Galileo `16602` at
-`0x8e561a5cc096af6e570220a5228b33c7d889f774`. Read it yourself — read the **agent FROM-CHAIN** (never a key):
+[`0x8e561a5cc096af6e570220a5228b33c7d889f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774). Read it yourself — read the **agent FROM-CHAIN** (never a key):
 ```bash
 REG=0x8e561a5cc096af6e570220a5228b33c7d889f774
 RPC=https://evmrpc-testnet.0g.ai
@@ -114,7 +114,7 @@ only when the card's stated config matches the chain's own `checkTransfer` answe
 non-allowlisted assets greyed), and a **wallet-free `checkTransfer` simulator** — pick an asset + amount and
 the card runs the **same zero-gas `eth_call` as Proof 2**, rendering `ALLOWED` / `BLOCKED` / `UNVERIFIED` with
 the binding on-chain reason. No wallet, no signing, no broadcast. The card now reads the consolidated
-**`MandateRegistryV4`**, **LIVE on `16602`** (`0x8e561a…f774`); its period cap reads a live-enforced figure
+**`MandateRegistryV4`**, **LIVE on `16602`** ([`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774)); its period cap reads a live-enforced figure
 (the V4 USD cap stays opt-in/off by default, labelled so). Confirm any verdict the simulator shows with the
 `cast call` from Proof 2.
 
@@ -146,7 +146,7 @@ npx serve -l 3100 .                          # any static server works
 # then open http://localhost:3100/dashboard.html
 ```
 There is **no signing/broadcast surface** in the page by construction — the only chain access is the public,
-key-less, zero-gas 0G Galileo read endpoint (`https://evmrpc-testnet.0g.ai`). The page paints all four cards in
+key-less, zero-gas 0G Galileo read endpoint ([`https://evmrpc-testnet.0g.ai`](https://evmrpc-testnet.0g.ai)). The page paints all four cards in
 their honest default states **before any network round-trip**, then enriches with live reads in the background;
 the top **network pill** reads `0G Galileo ●live` only when the page's own RPC answers, or `infra-gated` (grey)
 on a read failure — never a faked green.
@@ -195,7 +195,7 @@ intents **per asset** against the deployed mandate, live and reconciled:
 |---|---|---|---|---|
 | under-cap, allowlisted | native sentinel `0x00…0001` | `1_000_000` | `(true, OK)` | **ALLOWED** |
 | over its cap, same asset | native sentinel `0x00…0001` | `3_000_000` | `(false, OVER_TX_CAP)` | **BLOCKED — over the asset's cap** |
-| non-allowlisted asset | USDC.E `0x1f3AA82…473E` | `1_000_000` | `(false, TOKEN_NOT_ALLOWED)` | **BLOCKED — asset not on the allowlist** |
+| non-allowlisted asset | USDC.E [`0x1f3AA82…473E`](https://chainscan-galileo.0g.ai/address/0x1f3AA82227281cA364bFb3d253B0f1af1Da6473E) | `1_000_000` | `(false, TOKEN_NOT_ALLOWED)` | **BLOCKED — asset not on the allowlist** |
 
 **Watch the mandate rail fire per asset:** the same agent gets a *different* decision per asset — the gate is
 enforced **by asset**, and each leg's decision is reconciled against an independent re-read of the same gate.
@@ -209,7 +209,7 @@ artifact** a real `verifier verify-tx … --journal` + `verifier ledger` produce
 
 ### 4 — Read the mandate card (per-asset rules + the wallet-free checkTransfer sim)
 The **RAILS card is the deployed mandate, read straight from chain** — a READ-ONLY mirror of the deployed,
-LIVE `MandateRegistryV4` (`0x8e561a…f774` on `16602`; still one of the four cards, not a fifth). Top to bottom it shows:
+LIVE `MandateRegistryV4` ([`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) on `16602`; still one of the four cards, not a fifth). Top to bottom it shows:
 - a **0G chain badge** + the tri-state **reconciled-vs-deployed pill** (the chain's own `checkTransfer` answer is
   the baseline: `Reconciled` green when the stated config matches it · `Drifted` loud if they disagree ·
   `Unverified` grey if the RPC is unreachable — never a faked green);

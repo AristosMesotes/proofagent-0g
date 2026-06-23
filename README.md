@@ -29,7 +29,7 @@ the agent can't lie because an independent reader, not the agent, gets the last 
 | Proof | Status | Guarantee | How |
 |---|---|---|---|
 | **Settlement** | 🟢 **LIVE** | the trade really happened | an **independent verifier** that reads 0G itself — `SETTLED` only on a real on-chain receipt |
-| **Rails** | 🟢 **LIVE** | it can't overspend — blocked pre-broadcast, proven by the verifier | an on-chain **spend cap** (the live **`MandateRegistryV4`**, `0x8e561a…f774` on 0G Galileo `16602`), checked pre-broadcast |
+| **Rails** | 🟢 **LIVE** | it can't overspend — blocked pre-broadcast, proven by the verifier | an on-chain **spend cap** (the live **`MandateRegistryV4`**, [`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) on 0G Galileo `16602`), checked pre-broadcast |
 | **Brain** | 🟡 **operator-gated · PENDING** | the model you think ran, ran | 0G Compute **TEE attestation** — built + offline-tested; goes green only on a real enclave proof (see note below) |
 
 Two legs are LIVE and chain-checkable right now; the Brain leg is **built and offline-tested** but its green stamp is **operator-gated** on a live TEE attestation — and we never fabricate it (details below).
@@ -63,7 +63,7 @@ chain badge, a tri-state **reconciled-vs-deployed** pill (the on-chain read is t
 greyed), and a **wallet-free `checkTransfer` simulator** (pick an asset + amount → a real zero-gas `eth_call` →
 **`ALLOWED` / `BLOCKED` / `UNVERIFIED`** with the binding reason). No wallet, no signing, no broadcast. The card
 now reads the consolidated, hardened **`MandateRegistryV4`** — **LIVE on 0G Galileo testnet `16602`**
-(`0x8e561a5cc096af6e570220a5228b33c7d889f774`) — so its period tier reads a live-enforced figure (the V4 USD
+([`0x8e561a5cc096af6e570220a5228b33c7d889f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774)) — so its period tier reads a live-enforced figure (the V4 USD
 cap stays opt-in/off by default, labelled so — never a number the card does not read).
 
 ### Stack

@@ -1,6 +1,6 @@
 # ProofAgent-0G — Demo Video
 
-📺 **Watch:** the [`demo` release](../../releases/tag/demo) assets — `ProofAgent0G_master_16x9.mp4` (the ~2-min submission cut), `ProofAgent0G_hero_9x16.mp4` (a ~24s vertical short), and `thumbnail.png` (the title-card hero image). Generated locally by [`build.py`](./build.py) / [`hero.py`](./hero.py).
+📺 **Watch:** the [`demo` release](https://github.com/AristosMesotes/proofagent-0g/releases/tag/demo) assets — `ProofAgent0G_master_16x9.mp4` (the ~2-min submission cut), `ProofAgent0G_hero_9x16.mp4` (a ~24s vertical short), and `thumbnail.png` (the title-card hero image). Generated locally by [`build.py`](./build.py) / [`hero.py`](./hero.py).
 
 Deterministically generated — **every frame is rendered from real, on-chain-confirmed data**. No screen recording, no mockups, nothing faked. The video practices the product's own thesis: *don't trust the narrator, check the chain.*
 
