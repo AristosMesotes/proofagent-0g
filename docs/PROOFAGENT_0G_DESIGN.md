@@ -313,7 +313,7 @@ SDKs: canonical `@uniswap/v3-sdk` / `@uniswap/sdk-core` / `swap-router-contracts
 Four live rails: **Khalani** (decentralized solver/intent — publish one intent, atomic settle-or-refund; powers "0G Pay"), **JAINE** (native 0G Uniswap-V3-style CLMM at `hub.0g.ai/swap`), **LI.FI** (cross-chain + DEX aggregation; 0G is a first-class registry chain), **w0G via Chainlink CCIP**.
 
 - **Khalani (intent):** REST `api.hyperstream.dev` — `GET /v1/chains|tokens` → `POST /v1/quotes` → `POST /v1/deposit/build` → `PUT /v1/deposit/submit` → `GET /v1/orders/{addr}` (`deposited → filled` | `refund_pending → refunded`); on-chain `IntentBook.publishIntent` / `@arcadia-network/sdk`.
-- **LI.FI (aggregation):** `@lifi/sdk` or REST `GET /v1/quote` (`toChain=16661`) → sign the `transactionRequest` → `GET /v1/status`. multicall3 `0xcA11bde05977b3631167028862bE2a173976CA11` is on 0G.
+- **LI.FI (aggregation):** [`@lifi/sdk`](https://www.npmjs.com/package/@lifi/sdk) or REST `GET /v1/quote` (`toChain=16661`) → sign the `transactionRequest` → `GET /v1/status`. [multicall3](https://www.multicall3.com/) [`0xcA11bde0…76CA11`](https://chainscan-galileo.0g.ai/address/0xcA11bde05977b3631167028862bE2a173976CA11) is live on 0G.
 - **JAINE (native AMM):** same-chain 0G swaps via the standard V3 quoter+router ABI. Caveat: no documented audit, thin TVL — bound slippage/route quality.
 
 **Wrapped by the proofs:** every leg is bounded *before* it fires (`checkTransfer` per leg — cap, allow-listed asset/route, recipient), composing with Khalani's own "funds never move if constraints unmet" as defense-in-depth. After settlement the verifier reads 0G directly (never the aggregator API) and mints one verdict per leg — for Khalani it treats `refunded` as a **non-settlement terminal state** (mandate-safe) and only `filled`-with-matching-on-chain-transfer as `settled`; it catches API false-`filled` (hollow) and slippage/wrong-asset/refund-as-fill (mismatch). A multi-leg route is **settled IFF every leg settled**.
@@ -703,7 +703,10 @@ SDK versions are pinned in `package.json` / `Cargo.toml`. No real keys ever live
 - 0G Builder Hub — <https://build.0g.ai/hackathons>
 - Oku deployed-contracts — <https://docs.oku.trade/home/extra-information/deployed-contracts>
 - CCIP directory → 0G mainnet — <https://docs.chain.link/ccip/directory/mainnet/chain/0g-mainnet>
-- Khalani powers 0G Pay — <https://blog.khalani.network/khalani-powers-0g-pay>
+- Khalani powers 0G Pay (intent routing · `@arcadia-network/sdk`) — <https://blog.khalani.network/khalani-powers-0g-pay>
 - LI.FI SDK — <https://github.com/lifinance/sdk>
+- LI.FI SDK (npm) — <https://www.npmjs.com/package/@lifi/sdk>
+- LI.FI API docs — <https://docs.li.fi/>
+- multicall3 (canonical) — <https://www.multicall3.com/> · live on 0G: <https://chainscan-galileo.0g.ai/address/0xcA11bde05977b3631167028862bE2a173976CA11>
 
 *The MandateRegistry / MandateRegistryV3 / TimelockGuard / MandateRegistryV4 addresses and the verifier corpus are pinned in `proofagent.toml` once confirmed on-chain (the consolidated `MandateRegistryV4` is built, tested & **DEPLOYED LIVE** on 0G Galileo `16602` at `0x8e561a…f774`, `[mandate_v4].address` pinned — the pinned mandate the dashboard reads; the TimelockGuard deploy stays operator-gated). The as-built evidence record — live on-chain proofs, the full gate matrix, and the design ↔ code conformance verdict: [`docs/PROOFAGENT_0G_EVIDENCE.md`](PROOFAGENT_0G_EVIDENCE.md). The adapter recipe: [`docs/ADD_AN_ADAPTER.md`](ADD_AN_ADAPTER.md).*
