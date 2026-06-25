@@ -17,7 +17,13 @@ Everything below is **reproducible by you** — that's the proof.
 ## 🔎 Quick look — no tools, just click *(for judges & voters)*
 You can confirm the project is real in under a minute, with **nothing installed**:
 
-**▶ Fastest path — [open the live Verification Console](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** and run every proof in your browser: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo. No install, no wallet, no signup.
+**▶ Fastest path — [open the live Verification Console](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** and run every proof in your browser: the proof cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo. No install, no wallet, no signup.
+
+The console opens on the **"every layer on 0G"** strip (0G Compute · 0G Chain · 0G Storage) and these self-serve hooks — no trust, no wallet needed:
+- **▶ Watch it refuse a lie** — one click runs the NEG case live: a fabricated hash → `UNVERIFIED`.
+- **Real vs fake, zero typing** — two buttons: a real settlement → `SETTLED`, a fabricated one → `UNVERIFIED`.
+- **Run it with YOUR wallet (Tier-2)** — connect your own wallet and run the *same* mandate gate with your own key (over-cap refused pre-broadcast; under-cap you sign and the verifier confirms your tx). The console never sees your key.
+- **Watch the agent's wallet on 0G** — read-only, key-free: the live native balance + nonce, straight from chain.
 
 Then confirm it's all real on-chain:
 
