@@ -57,7 +57,7 @@ import {
   REASON_OVER_TX_CAP,
   type RpcTransport,
 } from "./onchain.js";
-import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN } from "./spine.js";
+import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN, STORAGE_ONCHAIN, WATCH } from "./spine.js";
 import { card, statusPill, statusDot, shortHash, renderThreeAltitude } from "./render.js";
 import {
   ReconcileBadge,
@@ -955,6 +955,183 @@ function tryItButton(id: string, label: string): HTMLButtonElement {
   return b;
 }
 
+/**
+ * The "EVERY LAYER ON 0G" strip (the full-stack 0G story, the cup's thesis): three pillars showing that each
+ * layer of the agent runs on a different 0G primitive and each is independently verifiable. 0G Chain is LIVE;
+ * 0G Compute (the TEE brain) + 0G Storage (the verdict bundle) are PENDING until the operator flips them
+ * (honest colour grammar -- only a LIVE pillar is green; PENDING is amber, never faked).
+ */
+function render0gStack(host: HTMLElement): void {
+  const sec = document.createElement("section");
+  sec.className = "og-stack";
+  sec.setAttribute("aria-label", "Every layer of the agent runs on 0G");
+
+  const lead = document.createElement("p");
+  lead.className = "og-stack__lead";
+  lead.textContent = "Every layer of the agent runs on 0G — and every layer is independently verifiable:";
+  sec.appendChild(lead);
+
+  const row = document.createElement("div");
+  row.className = "og-stack__row";
+  row.appendChild(
+    ogPillar("0G Compute", "reasons", "which model ran — TEE-attested inside a hardware enclave", "pending", "operator-gated"),
+  );
+  row.appendChild(
+    ogPillar("0G Chain", "gates + settles", "can't overspend / can't lie — the mandate blocks pre-broadcast; the verifier confirms", "live", "● LIVE"),
+  );
+  const storageLive = STORAGE_ONCHAIN.rootHash.trim() !== "";
+  row.appendChild(
+    ogPillar("0G Storage", "attests", "the proof itself lives on 0G — the verdict bundle, published immutably", storageLive ? "live" : "pending", storageLive ? "● LIVE" : "operator-gated"),
+  );
+  sec.appendChild(row);
+  host.appendChild(sec);
+}
+
+/** One pillar of the 0G-stack strip (PUBLIC; honest colour grammar — only `live` is green). */
+function ogPillar(primitive: string, role: string, proves: string, state: "live" | "pending", statusLabel: string): HTMLElement {
+  const cardEl = document.createElement("div");
+  cardEl.className = `og-pillar og-pillar--${state}`;
+  const status = document.createElement("span");
+  status.className = `og-pillar__status og-pillar__status--${state}`;
+  status.textContent = statusLabel;
+  const name = document.createElement("p");
+  name.className = "og-pillar__name";
+  name.textContent = primitive;
+  const roleEl = document.createElement("p");
+  roleEl.className = "og-pillar__role";
+  roleEl.textContent = role;
+  const provesEl = document.createElement("p");
+  provesEl.className = "og-pillar__proves";
+  provesEl.textContent = proves;
+  cardEl.append(status, name, roleEl, provesEl);
+  return cardEl;
+}
+
+/**
+ * The READ-ONLY "watch the agent's wallet on 0G" card (the honest, key-free wallet display — the safe answer
+ * to "show a connected wallet"): an address input (default the public demo wallet from the spine, overridable),
+ * auto-connected on load, that reads the wallet's LIVE 0G state (native balance + nonce) via a key-less
+ * JSON-RPC read. NO private key, NO signing, NO wallet extension — the console never holds a key (design §3:
+ * you don't trust it, you check the chain). An unreachable RPC degrades LOUDLY (read-error), never faked.
+ */
+function buildWatchCard(host: HTMLElement): void {
+  const cardEl = document.createElement("section");
+  cardEl.className = "watch-card";
+  cardEl.setAttribute("aria-label", "Watch the agent's wallet on 0G (read-only)");
+
+  const h = document.createElement("h2");
+  h.className = "watch-card__title";
+  h.textContent = "Watch the agent's wallet on 0G";
+  const lead = document.createElement("p");
+  lead.className = "watch-card__lead";
+  lead.textContent =
+    "Read-only — no key, no signing, no wallet to connect. The console never holds a key; it just reads the chain.";
+  cardEl.append(h, lead);
+
+  const row = document.createElement("div");
+  row.className = "watch-card__row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = "watch-address";
+  input.className = "watch-card__input";
+  input.value = WATCH.address;
+  input.placeholder = "0x… a public wallet address (never a private key)";
+  input.setAttribute("aria-label", "wallet address to watch (read-only)");
+  input.spellcheck = false;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.id = "watch-go";
+  btn.className = "watch-card__btn";
+  btn.textContent = "Watch →";
+  row.append(input, btn);
+  cardEl.appendChild(row);
+
+  const out = document.createElement("p");
+  out.className = "watch-card__out watch-card__out--pending";
+  out.id = "watch-output";
+  out.setAttribute("role", "status");
+  out.setAttribute("aria-live", "polite");
+  out.textContent = "Reading 0G…";
+  cardEl.appendChild(out);
+  host.appendChild(cardEl);
+
+  async function watch(addr: string): Promise<void> {
+    const a = addr.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(a)) {
+      out.className = "watch-card__out watch-card__out--err";
+      out.textContent = "Enter a valid 0x + 40-hex wallet ADDRESS (read-only — never a private key).";
+      return;
+    }
+    out.className = "watch-card__out watch-card__out--pending";
+    out.textContent = `Reading ${shortAddr(a)} on 0G Galileo…`;
+    try {
+      const [balHex, nonceHex] = await Promise.all([
+        rpcRead("eth_getBalance", [a, "latest"]),
+        rpcRead("eth_getTransactionCount", [a, "latest"]),
+      ]);
+      const og = formatOg(BigInt(balHex));
+      const nonce = Number.parseInt(nonceHex, 16);
+      out.className = "watch-card__out watch-card__out--ok";
+      out.replaceChildren();
+      const span = document.createElement("span");
+      span.textContent = `● live on 0G Galileo — ${shortAddr(a)} · ${og} 0G · ${nonce} txs`;
+      out.appendChild(span);
+      out.appendChild(document.createTextNode("  "));
+      const link = document.createElement("a");
+      link.href = `${GALILEO.explorer}/address/${a}`;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "view on explorer ↗";
+      out.appendChild(link);
+    } catch (err) {
+      out.className = "watch-card__out watch-card__out--err";
+      out.textContent = `read-error: ${err instanceof Error ? err.message : String(err)} — degraded loudly (infra-gated), never faked.`;
+    }
+  }
+
+  btn.addEventListener("click", () => void watch(input.value));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      void watch(input.value);
+    }
+  });
+  // Auto-connect: read the default (public) watch address on load — the "auto-logged-in" feel, key-free.
+  void watch(WATCH.address);
+}
+
+/** A key-less, read-only JSON-RPC read against the public 0G Galileo endpoint (no signing surface). */
+async function rpcRead(method: string, params: readonly unknown[]): Promise<string> {
+  const res = await fetch(GALILEO.rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  }
+  const j = (await res.json()) as { result?: unknown; error?: { message?: string } };
+  if (j.error !== undefined) {
+    throw new Error(j.error.message ?? "rpc error");
+  }
+  if (typeof j.result !== "string") {
+    throw new Error("non-string rpc result");
+  }
+  return j.result;
+}
+
+/** Format a wei bigint to a 4-decimal 0G string (exact-integer; no float on the value). */
+function formatOg(wei: bigint): string {
+  const unit = 10n ** 18n;
+  const whole = wei / unit;
+  const frac = ((wei % unit) * 10000n) / unit;
+  return `${whole.toString()}.${frac.toString().padStart(4, "0")}`;
+}
+
+/** Short a 0x address for display (0x1234…cdef). */
+function shortAddr(a: string): string {
+  return a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
+}
+
 export function boot(): void {
   const mount = document.getElementById("dashboard");
   if (mount === null) {
@@ -966,11 +1143,15 @@ export function boot(): void {
   renderHeaderRail(mount);
   // B. rollup strip.
   renderRollup(mount);
+  // B1. The "EVERY LAYER ON 0G" strip -- the full-stack 0G thesis (Compute · Chain · Storage), up top.
+  render0gStack(mount);
   // The shared read-only transport reads the public 0G Galileo testnet (no key, no broadcast).
   const transport = createBrowserRpcTransport(GALILEO.rpcUrl);
   // B2. The "try it in 30 seconds" rail -- the zero-typing real-vs-fake gotcha, above the card grid (the
   // vote-lever hook: a visitor watches "can't lie" themselves in one click, no wallet, no hash to find).
   buildTryItRail(mount, transport);
+  // B3. The read-only "watch the agent's wallet on 0G" card (key-free; the safe wallet display).
+  buildWatchCard(mount);
   // C. the four proof cards.
   const grid = renderCardGrid(mount);
   buildNegCard(grid);
