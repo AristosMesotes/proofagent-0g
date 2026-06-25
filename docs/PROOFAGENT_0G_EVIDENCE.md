@@ -511,7 +511,7 @@ the design doc to the real code layout — no code change.
 | Capability | Bracket | State |
 |---|---|---|
 | **0G Compute TEE-attested brain** (`agent/src/zerog/compute.ts`) | **Depth** | **BUILT + offline-tested** (original clean-room impl on the public `@0glabs/0g-serving-broker` SDK): `attestInference` mints `attested:true` ONLY when a `trusted` service attestation AND a verified per-response enclave signature both hold (never the model's words). The default brain is the deterministic offline stub; the web brain stamp lifts green ONLY on `attested === true` and otherwise renders `PENDING / Phase-2 (Depth)` (`web/src/proofs.ts`). The **live broker call is operator-gated** (a funded 0G Compute sub-account + a TEE provider), so the default build keeps the stamp PENDING — see §1h |
-| **0G Storage verdict-bundle publish** (`zerog/storage.ts`) | **Wow** | not built; verifier emits the report in-process only |
+| **0G Storage verdict-bundle publish** (`zerog/storage.ts`) | **Wow** | **BUILT + offline-tested** (original clean-room seam on the public `@0glabs/0g-ts-sdk`): `serializeVerdictBundle` → deterministic canonical bytes; `publishVerdictBundle` → the on-0G Merkle `rootHash` (never fabricated — a publish failure degrades LOUD); the operator-gated `liveStorageProvider` does the real `Indexer.upload`. The **single live publish is operator-gated** (a funded 0G wallet), so no `rootHash` is pinned by default and the Storage stamp stays PENDING |
 | **Live JSON-RPC / `eth_call` / capped-swap broadcast legs** | MVP-live, operator-gated | the `live` reader / transport / broadcaster fail CLOSED with a loud not-wired error (`agent/src/connector.ts:32,261,267`), never fabricate |
 
 ---
