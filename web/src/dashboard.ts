@@ -218,9 +218,11 @@ function renderHeaderRail(host: HTMLElement): void {
   cta.className = "dash-header__cta";
   cta.textContent = "▶ Watch it refuse a lie";
   cta.addEventListener("click", () => {
-    const run = document.getElementById("neg-run") as HTMLButtonElement | null;
+    // The dashboard's NEG control is the card button (#card-neg .proof-card__button) -- NOT #neg-run, which
+    // exists only on the thin index.html page. Target the console's own NEG run button (cf. autoEnrich).
+    const run = document.querySelector<HTMLButtonElement>("#card-neg .proof-card__button");
     run?.scrollIntoView({ block: "center", behavior: "smooth" });
-    window.setTimeout(() => run?.click(), 320);
+    window.setTimeout(() => run?.click(), 320); // let the smooth-scroll settle before firing the click
   });
   idCol.appendChild(cta);
 
@@ -979,7 +981,9 @@ function render0gStack(host: HTMLElement): void {
   row.appendChild(
     ogPillar("0G Chain", "gates + settles", "can't overspend / can't lie — the mandate blocks pre-broadcast; the verifier confirms", "live", "● LIVE"),
   );
-  const storageLive = STORAGE_ONCHAIN.rootHash.trim() !== "";
+  // Flip the Storage pillar green ONLY on a real 32-byte 0G Storage rootHash (the same 0x+64-hex shape the
+  // agent leg's ROOT_HASH_RE enforces) -- so a malformed/placeholder pin can never fake a green pillar.
+  const storageLive = /^0x[0-9a-fA-F]{64}$/.test(STORAGE_ONCHAIN.rootHash.trim());
   row.appendChild(
     ogPillar("0G Storage", "attests", "the proof itself lives on 0G — the verdict bundle, published immutably", storageLive ? "live" : "pending", storageLive ? "● LIVE" : "operator-gated"),
   );

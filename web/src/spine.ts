@@ -291,7 +291,7 @@ export const SETTLED_ONCHAIN = {
  * immutable, content-addressed evidence -- "the proof itself lives on 0G". `rootHash` is the on-0G Merkle
  * handle of the latest published bundle. It is EMPTY by default (the single live publish is operator-gated --
  * a funded 0G wallet for storage gas), so the Storage stamp renders PENDING, exactly like the brain. When
- * the operator pins a real rootHash here (mirroring proofagent.toml), the stamp flips to LIVE. All PUBLIC.
+ * the operator pins a real rootHash here, the stamp flips to LIVE. All PUBLIC.
  */
 export const STORAGE_ONCHAIN = {
   /** The 0G Storage Merkle rootHash of the latest published verdict bundle -- EMPTY until the operator pins one. */

@@ -90,7 +90,7 @@ def liecheck():
         [[("settled", R.GREEN, True)],
          [("verifier: TRANSFER 0x8c59...bfb0 claimed=1000000 observed=1000000 -> ", R.DIM, False), ("settled", R.GREEN, True)],
          [("# verdict alphabet: settled / hollow / mismatch / unverified  -  the chain's word, not the app's", R.DIM, False)]],
-        "proofagent - verifier", "CAN'T LIE  -  an independent Rust verifier reads 0G  ->  settled", R.GREEN, hl=1)
+        "proofagent - verifier", "CAN'T LIE  -  an independent Rust verifier reads 0G  ->  settled", R.GREEN, hl=2)
 
 def drain():
     return term_type(
@@ -106,7 +106,7 @@ def liveproof():
         [[("settled", R.GREEN, True)],
          [("verifier: TRANSFER "+PROOFS+" claimed=1000000 observed=1000000 -> ", R.DIM, False), ("settled", R.GREEN, True)],
          [("# gate-authorized, broadcast, then independently verified on 0G  -  exit 0", R.DIM, False)]],
-        "proofagent - verifier", "LIVE PROOF  -  a fresh on-chain settlement this run  ->  settled", R.GREEN, hl=1)
+        "proofagent - verifier", "LIVE PROOF  -  a fresh on-chain settlement this run  ->  settled", R.GREEN, hl=2)
 
 def dash_anim():
     """Reveal the Verification Console: cards -> run the dry-run (per-asset ledger) -> paste a hash in the Playground."""
@@ -192,7 +192,7 @@ SCENES = [
       cap=PROOF+"  -  Success (0x1)  -  1,000,000 wei")], min=4.0,
       vo="Status, success. One million wei. Confirmed on chain right now, at block forty million, two-thirty-two thousand, two-twenty-five."),
  dict(id="09b_storage", frames=storage_scene, min=6.0,
-      vo="And the proof itself lives on zero G. The verifier's verdict bundle is published to zero G Storage, as a content-addressed root hash anyone can re-derive. The proof of the proof, on zero G."),
+      vo="And the proof can live on zero G too. The verifier's verdict bundle is published to zero G Storage as a content-addressed root hash anyone can re-derive — built and offline-tested, it goes live on one publish. The proof of the proof, on zero G."),
  dict(id="10_dashboard", frames=dash_anim, min=8.5,
       vo="Five. The interactive dashboard. A clean-room verification console. Four proof cards. Run the agent, dry-run, and it prints a real run ledger, gating each trade per asset. The mandate card simulates a transfer. And a paste-any-hash playground lets judges check any settlement themselves, with zero wallet, zero trust."),
  dict(id="10b_tier2", frames=tier2_scene, min=6.5,
