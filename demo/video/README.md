@@ -1,6 +1,6 @@
 # ProofAgent-0G — Demo Video
 
-📺 **Watch:** the [`demo` release](https://github.com/AristosMesotes/proofagent-0g/releases/tag/demo) assets — `ProofAgent0G_master_16x9.mp4` (the ~2-min submission cut), `ProofAgent0G_hero_9x16.mp4` (a ~24s vertical short), and `thumbnail.png` (the title-card hero image). Generated locally by [`build.py`](./build.py) / [`hero.py`](./hero.py).
+📺 **Watch:** the [`demo` release](https://github.com/AristosMesotes/proofagent-0g/releases/tag/demo) assets — `ProofAgent0G_master_16x9.mp4` (the comprehensive **~4:18 cut — _every layer on 0G_**, covering all features), `ProofAgent0G_hero_9x16.mp4` (a ~24s vertical short), and `thumbnail.png` (the title-card hero image). Generated locally by [`build.py`](./build.py) / [`hero.py`](./hero.py).
 
 Deterministically generated — **every frame is rendered from real, on-chain-confirmed data**. No screen recording, no mockups, nothing faked. The video practices the product's own thesis: *don't trust the narrator, check the chain.*
 
@@ -11,7 +11,7 @@ Deterministically generated — **every frame is rendered from real, on-chain-co
 - **MandateRegistryV4 (live gate)** [`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) · V3 (superseded) [`0xC24A32…02BD2`](https://chainscan-galileo.0g.ai/address/0xC24A325dB118cfFD586E72b9D085FB71D5202BD2) (both live, have code)
 
 ## What's shown
-**master (16:9):** NEG (a fabricated tx → `UNVERIFIED`) → the verification trio → RAILS (`OVER_TX_CAP`, nothing broadcast) → V3 period-cap (`OVER_PERIOD_CAP`) → SETTLED (a real capped transfer → independent verifier → `settled`) → CTA.
+**master (16:9, ~4:18):** the NEG hook (a fabricated tx → `UNVERIFIED`) → **every layer on 0G** (0G Compute · 0G Chain · 0G Storage) → can't-lie (independent verifier) → can't-overspend (the live V4 mandate, gated *by asset*) → the V4 card + explorer → can't-drain (gas-floor + net-worth-floor) → **0G Compute** (TEE-attested brain) → live proof (a fresh on-chain settlement) → **0G Storage** (the verdict bundle on 0G) → the interactive console → **Tier-2** (run it with your own wallet) → the zero-human (headless-driven) fullstack proof → the rigor recap → CTA.
 **short (9:16):** the NEG-only vertical cut for socials.
 
 ## Reproduce
@@ -27,4 +27,4 @@ python hero.py     # -> the 9:16 short
 - [`voice.ps1`](./voice.ps1) — SAPI text→WAV
 
 ## Honesty
-No fabricated settlement (the SETTLED tx is a real transfer); no live-TEE "brain" claim (that layer is roadmap); AGPL-3.0-or-later. No secrets ever on screen.
+No fabricated settlement (the SETTLED tx is a real transfer); the **0G Compute** (TEE brain) and **0G Storage** scenes are framed as *built + offline-tested, operator-gated* — never claimed live; AGPL-3.0-or-later. No secrets ever on screen.

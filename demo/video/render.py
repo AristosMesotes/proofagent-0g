@@ -110,67 +110,165 @@ def explorer_card(url,header,badge,badge_color,rows,cap=None):
     if cap: lower_third(d,cap,GREEN if badge_color==GREEN else (GOLD if badge_color==GOLD else RED))
     return img
 
-# ---------------- settlements card ----------------
-def settle_card(cap=None):
-    img,d=new_canvas()
-    _browser_chrome(d,"chainscan-galileo.0g.ai  -  independent settlements")
-    d.text((220,250),"Real settlements  -  independently verified",font=f_ui(44,"b"),fill=TXT,anchor="lm")
-    rows=[("0x8c59...bfb0","block 39,996,100","1,000,000 wei"),
-          ("0xfb18...6290","block 39,996,470","1,000,000 wei"),
-          ("0x4249...b4b6","block 40,232,225","1,000,000 wei")]
-    y=350
-    for h,blk,val in rows:
-        d.rounded_rectangle([216,y-6,W-216,y+74],radius=12,fill=(16,20,27),outline=BORDER,width=2)
-        d.rounded_rectangle([236,y+14,236+150,y+54],radius=8,fill=(33,63,40))
-        d.text((236+75,y+34),"SETTLED",font=f_ui(24,"b"),fill=GREEN,anchor="mm")
-        d.text((420,y+34),h,font=f_mono(30),fill=TXT,anchor="lm")
-        d.text((860,y+34),blk,font=f_ui(26),fill=DIM,anchor="lm")
-        d.text((W-240,y+34),val,font=f_mono(26),fill=GREEN,anchor="rm"); y+=96
-    d.rounded_rectangle([216,y+10,W-216,y+96],radius=14,fill=(33,63,40),outline=GREEN,width=2)
-    d.text((W//2,y+53),"3 of 3 independently verified  ->  settled  -  0 hollow  -  0 mismatch",font=f_ui(34,"b"),fill=GREEN,anchor="mm")
+# ---------------- rigor card (the 5 crucial features) ----------------
+def rigor_card(cap=None):
+    img,d=new_canvas(); d.rectangle([0,0,W,6],fill=GOLD)
+    d.text((W//2,130),"What you just verified",font=f_ui(66,"b"),fill=TXT,anchor="mm")
+    rows=[("CAN'T LIE","an independent Rust verifier reads 0G: settled / hollow / mismatch / unverified",GREEN),
+          ("CAN'T OVERSPEND","the LIVE MandateRegistryV4 gates BY ASSET - over-cap blocked pre-broadcast, the verifier proves it",GOLD),
+          ("CAN'T DRAIN","gas-floor + net-worth-floor - each verifier-confirmed",CYAN),
+          ("LIVE PROOF","a fresh on-chain settlement this run - gate-authorized, verified settled",GREEN),
+          ("VERIFY IT YOURSELF","an interactive console - paste any hash, zero wallet, zero trust",GOLD)]
+    y=246
+    for lab,sub,col in rows:
+        d.ellipse([268,y-2,298,y+28],outline=col,width=4); d.text((283,y+13),"+",font=f_ui(26,"b"),fill=col,anchor="mm")
+        d.text((336,y-4),lab,font=f_ui(36,"b"),fill=col,anchor="lm")
+        d.text((336,y+42),sub,font=f_ui(25),fill=DIM,anchor="lm"); y+=110
+    # footer
+    d.rounded_rectangle([280,y+6,W-280,y+86],radius=14,fill=(16,20,27),outline=BORDER,width=2)
+    d.text((W//2,y+46),"100% on 0G   -   clean-room   -   AGPL-3.0   -   reproducible (VERIFY.md)",font=f_ui(34,"sb"),fill=GOLD,anchor="mm")
+    d.text((W//2,y+138),"don't trust it  ->  check the chain  -  hundreds of tests - Rust - Solidity - TypeScript",font=f_ui(27),fill=DIM,anchor="mm")
+    watermark(d)
+    if cap: lower_third(d,cap)
+    return img
+
+# ---------------- interactive dashboard (the Verification Console) ----------------
+def dashboard_card(highlight=None, run_ledger=False, playground=None, cap=None):
+    """A clean-room rendering of the live Verification Console: 4 proof cards + the
+    'Run the agent (dry-run)' + a paste-any-hash Playground. highlight in {neg,brain,rails,settle,run,play}."""
+    img,d=new_canvas(); _browser_chrome(d,"http://localhost:3100/dashboard.html")
+    # header rail
+    d.text((220,238),"ProofAgent-0G",font=f_ui(40,"b"),fill=TXT,anchor="lm")
+    d.text((220,286),"0G Aristotle  -  Verification Console   -   can't lie, can't overspend",font=f_ui(24),fill=DIM,anchor="lm")
+    # network pill (right)
+    d.rounded_rectangle([W-470,222,W-200,260],radius=10,fill=(33,63,40))
+    d.ellipse([W-452,234,W-440,246],fill=GREEN)
+    d.text((W-430,241),"0G Galileo  -  live",font=f_ui(24,"sb"),fill=GREEN,anchor="lm")
+    # rollup strip
+    d.rounded_rectangle([220,308,W-200,352],radius=8,fill=(16,20,27),outline=BORDER,width=1)
+    d.text((240,330),"3 reconciled  -  1 pending(brain)  -  0 mismatch   -   reconciled vs 0G RPC + verifier",
+           font=f_mono(24),fill=GREEN,anchor="lm")
+    # four proof cards
+    cards=[("neg","NEG","refuse a fabricated tx","UNVERIFIED",RED),
+           ("brain","BRAIN","which model ran (0G TEE)","PENDING",GOLD),
+           ("rails","RAILS","it cannot overspend","RECONCILED",GREEN),
+           ("settle","SETTLEMENT","the trade really happened","SETTLED",GREEN)]
+    cw=395; gap=18; x0=220; cy=380; ch=176
+    for i,(cid,lab,sub,verdict,col) in enumerate(cards):
+        cx=x0+i*(cw+gap)
+        sel = (highlight==cid)
+        fillc = (16,20,27)
+        d.rounded_rectangle([cx,cy,cx+cw,cy+ch],radius=14,fill=fillc,
+                            outline=(col if sel else BORDER),width=(4 if sel else 2))
+        d.text((cx+22,cy+34),lab,font=f_ui(28,"b"),fill=TXT,anchor="lm")
+        d.text((cx+22,cy+72),sub,font=f_ui(21),fill=DIM,anchor="lm")
+        bw=70+len(verdict)*15
+        bxc=(33,63,40) if col==GREEN else ((60,30,30) if col==RED else (52,42,8))
+        d.rounded_rectangle([cx+22,cy+100,cx+22+bw,cy+138],radius=9,fill=bxc)
+        d.text((cx+22+bw//2,cy+119),verdict,font=f_ui(24,"b"),fill=col,anchor="mm")
+    # run-the-agent (dry-run) panel
+    ry=580
+    rsel = (highlight=="run")
+    d.rounded_rectangle([220,ry,W-200,ry+ (250 if run_ledger else 92)],radius=14,fill=(16,20,27),
+                        outline=(CYAN if rsel else BORDER),width=(4 if rsel else 2))
+    d.text((244,ry+30),"Run the agent (dry-run)",font=f_ui(28,"b"),fill=TXT,anchor="lm")
+    d.text((244,ry+66),"gate 3 intents per asset  -  no wallet, no signing, nothing broadcast",font=f_ui(22),fill=DIM,anchor="lm")
+    d.rounded_rectangle([W-470,ry+24,W-224,ry+68],radius=10,fill=(20,36,52),outline=CYAN,width=2)
+    d.text((W-347,ry+46),"Run dry-run  >",font=f_ui(24,"b"),fill=CYAN,anchor="mm")
+    if run_ledger:
+        rows=[("native sentinel  1,000,000","(true, OK)","ALLOWED",GREEN),
+              ("native sentinel  3,000,000","(false, OVER_TX_CAP)","BLOCKED",RED),
+              ("USDC.E  1,000,000","(false, TOKEN_NOT_ALLOWED)","BLOCKED",RED)]
+        yy=ry+96
+        for asset,reason,dec,col in rows:
+            d.text((260,yy),asset,font=f_mono(23),fill=TXT,anchor="lm")
+            d.text((760,yy),reason,font=f_mono(23),fill=col,anchor="lm")
+            d.text((W-300,yy),dec,font=f_mono(23,True),fill=col,anchor="lm"); yy+=40
+        d.text((260,yy+4),'RUN LEDGER  ->  DEFECTS  -  3 unverified  (dry-run broadcasts nothing)',font=f_mono(22),fill=DIM,anchor="lm")
+    # playground
+    py=ry+(270 if run_ledger else 112)
+    psel=(highlight=="play")
+    d.rounded_rectangle([220,py,W-200,py+118],radius=14,fill=(16,20,27),
+                        outline=(GREEN if psel else BORDER),width=(4 if psel else 2))
+    d.text((244,py+32),"Playground  -  paste ANY 0G tx hash",font=f_ui(28,"b"),fill=TXT,anchor="lm")
+    ph = playground[0] if playground else "0x____  paste a hash, get an independent verdict"
+    pv = playground[1] if playground else None
+    pc = playground[2] if playground else DIM
+    d.rounded_rectangle([244,py+58,W-470,py+102],radius=10,fill=(13,17,23),outline=BORDER,width=1)
+    d.text((262,py+80),ph,font=f_mono(24),fill=(TXT if pv else DIM),anchor="lm")
+    if pv:
+        bw=70+len(pv)*16
+        d.rounded_rectangle([W-450,py+58,W-450+bw,py+102],radius=10,fill=(33,63,40) if pc==GREEN else (60,30,30))
+        d.text((W-450+bw//2,py+80),pv,font=f_ui(24,"b"),fill=pc,anchor="mm")
+    else:
+        d.rounded_rectangle([W-360,py+58,W-224,py+102],radius=10,fill=(20,36,52),outline=GREEN,width=2)
+        d.text((W-292,py+80),"Check",font=f_ui(24,"b"),fill=GREEN,anchor="mm")
     watermark(d)
     if cap: lower_third(d,cap,GREEN)
     return img
 
-# ---------------- console CTA ----------------
-def console_cta(cap=None):
-    img,d=new_canvas(); _browser_chrome(d,"aristosmesotes.github.io/proofagent-0g/dashboard.html  -  live, no wallet")
-    d.text((W//2,300),"Verify it yourself.",font=f_ui(72,"b"),fill=TXT,anchor="mm")
-    d.text((W//2,390),"In your browser. No wallet. No trust.",font=f_ui(44,"sb"),fill=GOLD,anchor="mm")
-    chips=[("PASTE ANY HASH","the verifier reads 0G live"),
-           ("RUN THE DRY-RUN","per-asset mandate gate, read-only"),
-           ("RECONCILE ON-CHAIN","every verdict, two-source")]
-    n=len(chips); cw=480; gap=40; total=n*cw+(n-1)*gap; sx=(W-total)//2; y0=510
-    for i,(lab,sub) in enumerate(chips):
-        x0=sx+i*(cw+gap)
-        d.rounded_rectangle([x0,y0,x0+cw,y0+150],radius=16,fill=(16,20,27),outline=CYAN,width=2)
-        d.text((x0+cw//2,y0+52),lab,font=f_ui(30,"b"),fill=CYAN,anchor="mm")
-        d.text((x0+cw//2,y0+104),sub,font=f_ui(24),fill=DIM,anchor="mm")
-    d.rounded_rectangle([W//2-640,750,W//2+640,830],radius=14,fill=(13,17,23),outline=BORDER,width=2)
-    d.text((W//2,790),"aristosmesotes.github.io/proofagent-0g/dashboard.html",font=f_mono(30),fill=CYAN,anchor="mm")
+# ---------------- mandate-by-asset card (per-asset table + checkTransfer sim) ----------------
+def mandate_asset_card(highlight=None, cap=None):
+    """The live MandateRegistryV4 read straight from chain: per-asset allowlist + caps + the
+    wallet-free checkTransfer simulator. highlight in {allow, overcap, token}."""
+    img,d=new_canvas(); _browser_chrome(d,"https://chainscan-galileo.0g.ai/address/0x8e561a...f774")
+    d.text((220,250),"MandateRegistryV4  -  mandate BY ASSET",font=f_ui(44,"b"),fill=TXT,anchor="lm")
+    d.rounded_rectangle([220,296,520,348],radius=10,fill=(33,63,40))
+    d.text((370,322),"LIVE on 0G  -  16602",font=f_ui(26,"b"),fill=GREEN,anchor="mm")
+    d.text((540,322),"0x8e561a...f774   -   perTxCap 2,000,000   -   periodCap 1,500,000 / 3600s",font=f_mono(24),fill=DIM,anchor="lm")
+    # column headers
+    hy=400
+    d.text((240,hy),"ASSET",font=f_ui(24,"b"),fill=DIM,anchor="lm")
+    d.text((720,hy),"ALLOWLIST",font=f_ui(24,"b"),fill=DIM,anchor="lm")
+    d.text((1050,hy),"PER-TX CAP",font=f_ui(24,"b"),fill=DIM,anchor="lm")
+    d.text((1400,hy),"checkTransfer",font=f_ui(24,"b"),fill=DIM,anchor="lm")
+    rows=[("allow","native sentinel  0x00...0001","allowed",GREEN,"2,000,000","under cap","(true, OK)  ALLOWED",GREEN),
+          ("overcap","native sentinel  0x00...0001","allowed",GREEN,"2,000,000","3,000,000","(false, OVER_TX_CAP)",RED),
+          ("token","USDC.E  0x1f3AA82...473E","not on list",DIM,"—","1,000,000","(false, TOKEN_NOT_ALLOWED)",RED)]
+    y=448
+    for cid,asset,allow,acol,cap_v,probe,ans,ansc in rows:
+        sel=(highlight==cid)
+        if sel:
+            d.rounded_rectangle([200,y-14,W-200,y+58],radius=10,
+                                fill=(20,38,24) if ansc==GREEN else (40,20,20))
+        d.text((240,y+22),asset,font=f_mono(26),fill=(TXT if allow=="allowed" else DIM),anchor="lm")
+        d.text((720,y+22),allow,font=f_ui(26,"sb"),fill=acol,anchor="lm")
+        d.text((1050,y+22),cap_v,font=f_mono(26),fill=(TXT if cap_v!="—" else DIM),anchor="lm")
+        d.text((1400,y+22),ans,font=f_mono(24,True),fill=ansc,anchor="lm")
+        y+=96
+    # the simulator strip
+    sy=y+24
+    d.rounded_rectangle([220,sy,W-200,sy+150],radius=14,fill=(16,20,27),outline=BORDER,width=2)
+    d.text((244,sy+38),"wallet-free checkTransfer simulator  -  zero gas, zero signing",font=f_ui(28,"b"),fill=TXT,anchor="lm")
+    d.text((244,sy+86),"same agent  -  different decision per asset  ->  the gate is enforced BY ASSET",font=f_ui(26,"sb"),fill=GOLD,anchor="lm")
+    d.text((244,sy+124),"reconciled vs the deployed contract's own eth_call  -  the chain is the baseline, never the UI",font=f_ui(22),fill=DIM,anchor="lm")
     watermark(d)
     if cap: lower_third(d,cap,GOLD)
     return img
 
-# ---------------- rigor card ----------------
-def rigor_card(cap=None):
+# ---------------- Zero-human (headless-driven) fullstack reconciliation card ----------------
+def fullstack_card(cap=None):
     img,d=new_canvas(); d.rectangle([0,0,W,6],fill=GOLD)
-    d.text((W//2,128),"What you just verified",font=f_ui(64,"b"),fill=TXT,anchor="mm")
-    rows=[("CAN'T LIE","an independent Rust verifier reads 0G: settled / hollow / mismatch / unverified",GREEN),
-          ("CAN'T OVERSPEND","the live V4 mandate gates by asset - over-cap blocked pre-broadcast, the verifier proves it",GOLD),
-          ("CAN'T DRAIN","a gas-floor and a net-worth-floor - each verifier-confirmed",CYAN),
-          ("LIVE PROOF","3 of 3 real settlements, independently chain-verified - 0 hollow, 0 mismatch",GREEN),
-          ("VERIFY IT YOURSELF","an interactive console - paste any hash, no wallet, no trust",GOLD)]
-    y=232
-    for lab,sub,col in rows:
-        d.ellipse([300,y-2,330,y+28],outline=col,width=4); d.text((315,y+13),"+",font=f_ui(28,"b"),fill=col,anchor="mm")
-        d.text((370,y-6),lab,font=f_ui(36,"b"),fill=col,anchor="lm")
-        d.text((370,y+42),sub,font=f_ui(25),fill=DIM,anchor="lm"); y+=104
-    d.rounded_rectangle([300,y+6,W-300,y+86],radius=14,fill=(16,20,27),outline=BORDER,width=2)
-    d.text((W//2,y+46),"don't trust the agent  -  check the chain  -  every datum confirmable on 0G",font=f_ui(30,"sb"),fill=TXT,anchor="mm")
-    d.text((W//2,y+136),"open source  -  AGPL-3.0  -  reproducible (VERIFY.md)",font=f_ui(28),fill=GOLD,anchor="mm")
+    d.text((W//2,150),"Driven through the real UI  -  no human in the loop",font=f_ui(58,"b"),fill=TXT,anchor="mm")
+    d.text((W//2,224),"headless browser clicks every control  -  each on-screen verdict reconciled two-source vs the chain",
+           font=f_ui(30,"sb"),fill=DIM,anchor="mm")
+    rows=[("NEG","Run the NEG case","UNVERIFIED","verifier verify-tx  ->  unverified","PASS",RED),
+          ("RAILS","over-cap checkTransfer","OVER_TX_CAP","independent eth_call  ->  OVER_TX_CAP","PASS",GOLD),
+          ("SETTLED","Check on-chain","SETTLED","verifier verify-tx  ->  settled","PASS",GREEN)]
+    y=350; rh=150
+    for lab,click,verdict,recon,passv,col in rows:
+        d.rounded_rectangle([260,y,W-260,y+rh-22],radius=16,fill=(16,20,27),outline=BORDER,width=2)
+        d.rectangle([260,y,272,y+rh-22],fill=col)
+        d.text((320,y+38),lab,font=f_ui(40,"b"),fill=col,anchor="lm")
+        d.text((320,y+92),"UI verdict  "+verdict+"     -     reconciled: "+recon,font=f_mono(26),fill=TXT,anchor="lm")
+        # PASS chip on the right
+        d.rounded_rectangle([W-440,y+38,W-300,y+92],radius=12,fill=(33,63,40))
+        d.text((W-370,y+65),passv,font=f_ui(34,"b"),fill=GREEN,anchor="mm")
+        y+=rh
+    d.text((W//2,y+30),"a doctored UI faking 'settled' is caught LOUD (exit 1)  -  unreachable source = infra-gated, never faked",
+           font=f_ui(28),fill=DIM,anchor="mm")
     watermark(d)
-    if cap: lower_third(d,cap)
+    if cap: lower_third(d,cap,GREEN)
     return img
 
 # ---------------- end card ----------------
@@ -187,9 +285,9 @@ def end_card(cap=None):
 # ---------------- samples ----------------
 if __name__=="__main__":
     out=os.path.join(os.path.dirname(__file__),"samples"); os.makedirs(out,exist_ok=True)
-    rigor_card(cap="cap + gas-floor + net-worth-floor  -  AGPL-3.0").save(os.path.join(out,"sample_rigor.png"))
+    rigor_card(cap="cap + gas-floor + net-worth-floor  -  clean-room  -  AGPL-3.0").save(os.path.join(out,"sample_rigor.png"))
     end_card().save(os.path.join(out,"sample_end.png"))
     title_card("The verification trio","three independent axes - each provable on its own",
-        chips=[("VERIFY CODE","fully open, AGPL-3.0, reproducible",CYAN),("BOUND SPEND","the on-chain mandate",GOLD),("PROVE SETTLE","the independent verifier",GREEN)],
+        chips=[("VERIFY CODE","clean-room, open, AGPL-3.0",CYAN),("BOUND SPEND","the on-chain mandate",GOLD),("PROVE SETTLE","the independent verifier",GREEN)],
         cap="THE TRIO  -  verify-the-code - bound-the-spend - prove-the-settlement",title_size=84,ty=250).save(os.path.join(out,"sample_trio.png"))
     print("wrote rigor/end/trio samples")
