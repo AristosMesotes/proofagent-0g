@@ -72,6 +72,7 @@ import { EvidenceDrawer, type EvidenceRecord } from "./evidence.js";
 import { buildDryRun, type DryRunListeners } from "./dryrunView.js";
 import { type DryRunResult } from "./dryrun.js";
 import { buildMandateCard, type MandateCardListeners } from "./mandateCard.js";
+import { buildTier2Card } from "./tier2.js";
 import { type MandateAsset } from "./spine.js";
 
 /* ------------------------------------------------------------------------------------------------ *
@@ -934,6 +935,13 @@ export function boot(): void {
   };
   const dryRun = buildDryRun(transport, dryRunListeners);
   mount.appendChild(dryRun.root);
+  // D3. Tier-2 — "run it with YOUR wallet": connect a wallet, run the SAME mandate gate with the judge's OWN
+  // key (over-cap BLOCKED pre-broadcast; under-cap ALLOWED → they sign → the verifier confirms THEIR tx). The
+  // provider is the injected window.ethereum (a mock in the headless harness); every read stays public-RPC.
+  const tier2 = buildTier2Card(transport, undefined, {
+    onVerdict: (action, verdict, hash) => appendFeed(action, verdict, "0G RPC", hash, RECONCILE.RECONCILED),
+  });
+  mount.appendChild(tier2.root);
   // E. the live verdict feed (newest-first; every checked verdict this session stamps a row).
   const feedView = new FeedView(feedStore, flashCopied);
   mount.appendChild(feedView.element());
