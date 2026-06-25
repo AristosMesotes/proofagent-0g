@@ -297,7 +297,9 @@ async function loadPublicStorage(config: LiveStorageConfig): Promise<LiveStorage
     const sdk = (await import(sdkName)) as {
       Indexer?: new (url: string) => PublicStorageIndexer;
       ZgFile?: { fromBytes?: (bytes: Uint8Array) => unknown };
-      Blob?: new (data: Uint8Array) => unknown;
+      // The SDK `Blob` WRAPS a real `Blob`/`File` (it iterates `this.blob.slice().arrayBuffer()`), NOT raw
+      // bytes -- so its constructor takes a Blob, and the caller wraps the canonical Uint8Array accordingly.
+      Blob?: new (blob: globalThis.Blob) => unknown;
     };
     const eth = (await import(ethersName)) as {
       Wallet?: new (key: string, provider: unknown) => unknown;
@@ -316,7 +318,11 @@ async function loadPublicStorage(config: LiveStorageConfig): Promise<LiveStorage
     if (typeof fromBytes === "function") {
       fileFromBytes = (bytes) => fromBytes(bytes);
     } else if (typeof BlobCtor === "function") {
-      fileFromBytes = (bytes) => new BlobCtor(bytes);
+      // The SDK `Blob` WRAPS a real (browser/Node) Blob and iterates it via `this.blob.slice().arrayBuffer()`
+      // -- a raw `Uint8Array` has no `.slice().arrayBuffer()`, so the bytes must be wrapped in a Node global
+      // Blob first (verified live: without this wrap the merkle builds but the upload throws). The SDK
+      // `Blob` constructor signature is `(blob: File)`; the Node global `Blob` satisfies the iterated slice API.
+      fileFromBytes = (bytes) => new BlobCtor(new globalThis.Blob([bytes]));
     } else {
       throw new StorageError("the 0G storage SDK exposes no in-memory file factory (ZgFile.fromBytes / Blob)");
     }
