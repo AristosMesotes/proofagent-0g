@@ -80,10 +80,11 @@ import { type MandateAsset } from "./spine.js";
  * Identity copy (the header rail -- design §3/§4.1).
  * ------------------------------------------------------------------------------------------------ */
 
-/** The header-rail eyebrow -- the mono credibility cue (design §4.1). */
-const EYEBROW = "0G Aristotle · Verification Console";
+/** The header-rail eyebrow -- a voter-legible credibility cue (design §4.1). */
+const EYEBROW = "Verifiable AI · live on 0G";
 const TITLE = "ProofAgent-0G";
-const TAGLINE = "can't lie, can't overspend";
+/** The hook, in one breath -- the first sentence a judge/voter reads (design §3/§4.1). */
+const TAGLINE = "The AI agent that can't lie, and can't overspend — you don't trust it, you check the chain.";
 
 /* ------------------------------------------------------------------------------------------------ *
  * The shared read-only transport + a small live-state registry for the rollup + network pill.
@@ -208,6 +209,20 @@ function renderHeaderRail(host: HTMLElement): void {
   tagline.className = "dash-header__tagline";
   tagline.textContent = TAGLINE;
   idCol.appendChild(tagline);
+
+  // The hero CTA -- one click runs the NEG "can't lie" gotcha for the visitor (the vote-lever hook): scroll
+  // the NEG control into view and fire it, so the very first interaction is "watch it refuse a lie → UNVERIFIED".
+  const cta = document.createElement("button");
+  cta.type = "button";
+  cta.id = "hero-cta";
+  cta.className = "dash-header__cta";
+  cta.textContent = "▶ Watch it refuse a lie";
+  cta.addEventListener("click", () => {
+    const run = document.getElementById("neg-run") as HTMLButtonElement | null;
+    run?.scrollIntoView({ block: "center", behavior: "smooth" });
+    window.setTimeout(() => run?.click(), 320);
+  });
+  idCol.appendChild(cta);
 
   rail.appendChild(idCol);
 
@@ -861,6 +876,85 @@ function autoEnrich(transport: RpcTransport): void {
  * ------------------------------------------------------------------------------------------------ */
 
 /** Boot the dashboard once the DOM is ready. First paint is honest + complete; live reads enrich after. */
+/**
+ * The "try it in 30 seconds" rail (the vote-lever hook): two zero-typing buttons that run the SAME verifier
+ * pipeline on a REAL settled tx vs a FABRICATED one — so a visitor watches "can't lie" themselves in one
+ * click, no wallet, no hash to find. The REAL button reads the pinned settlement (a claim is on record →
+ * `settled`); the FAKE button reads an off-record fabricated hash (no receipt → `unverified`, NEVER a
+ * fabricated settled). The verdict carried is the verifier's own `runSettledCheck` adjudication, re-derivable
+ * by anyone who reruns it — the card mints nothing (design §3 #2 verdict monopoly, §3 #3 never fabricate).
+ */
+function buildTryItRail(host: HTMLElement, transport: RpcTransport): void {
+  const rail = document.createElement("section");
+  rail.className = "tryit-rail";
+  rail.setAttribute("aria-label", "Try it yourself — verify a real settlement vs a fabricated one");
+
+  const lead = document.createElement("p");
+  lead.className = "tryit-rail__lead";
+  lead.textContent = "Don't trust it — check the chain yourself. No wallet, no typing:";
+  rail.appendChild(lead);
+
+  const row = document.createElement("div");
+  row.className = "tryit-rail__row";
+  const realBtn = tryItButton("tryit-real", "▶ Verify a REAL settlement");
+  const fakeBtn = tryItButton("tryit-fake", "▶ Now try a FAKE one");
+  row.appendChild(realBtn);
+  row.appendChild(fakeBtn);
+  rail.appendChild(row);
+
+  const out = document.createElement("p");
+  out.className = "tryit-rail__out";
+  out.id = "tryit-output";
+  out.setAttribute("role", "status");
+  out.setAttribute("aria-live", "polite");
+  out.textContent = "Click a button — the independent verifier reads 0G and stamps the verdict.";
+  rail.appendChild(out);
+
+  host.appendChild(rail);
+
+  let busy = false;
+  realBtn.addEventListener("click", () => void runTryIt(undefined, "the pinned REAL settlement"));
+  fakeBtn.addEventListener("click", () => void runTryIt(FABRICATED_HASH, "a FABRICATED hash"));
+
+  async function runTryIt(hashArg: string | undefined, label: string): Promise<void> {
+    if (busy) {
+      return;
+    }
+    busy = true;
+    realBtn.disabled = true;
+    fakeBtn.disabled = true;
+    out.removeAttribute("data-verdict");
+    out.className = "tryit-rail__out tryit-rail__out--pending";
+    out.textContent = `Reading 0G for ${label}…`;
+    try {
+      // REAL = the pinned default (a claim on record → settled); FAKE = an off-record hash (→ unverified).
+      const result = await runSettledCheck(transport, hashArg);
+      const settled = result.verdict === VERDICT.SETTLED;
+      out.setAttribute("data-verdict", result.verdict);
+      out.className = `tryit-rail__out ${settled ? "tryit-rail__out--settled" : "tryit-rail__out--unverified"}`;
+      out.textContent = `${settled ? "✅" : "❌"} ${result.verdict.toUpperCase()} — ${result.explanation}`;
+    } catch (err) {
+      out.setAttribute("data-verdict", "read-error");
+      out.className = "tryit-rail__out tryit-rail__out--unverified";
+      out.textContent = `read-error: ${err instanceof Error ? err.message : String(err)} — degraded loudly, never a guessed settled.`;
+    } finally {
+      busy = false;
+      realBtn.disabled = false;
+      fakeBtn.disabled = false;
+    }
+  }
+}
+
+/** A try-it-rail button (the zero-typing real-vs-fake controls). */
+function tryItButton(id: string, label: string): HTMLButtonElement {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.id = id;
+  b.className = "tryit-rail__btn";
+  b.textContent = label;
+  return b;
+}
+
 export function boot(): void {
   const mount = document.getElementById("dashboard");
   if (mount === null) {
@@ -872,10 +966,13 @@ export function boot(): void {
   renderHeaderRail(mount);
   // B. rollup strip.
   renderRollup(mount);
+  // The shared read-only transport reads the public 0G Galileo testnet (no key, no broadcast).
+  const transport = createBrowserRpcTransport(GALILEO.rpcUrl);
+  // B2. The "try it in 30 seconds" rail -- the zero-typing real-vs-fake gotcha, above the card grid (the
+  // vote-lever hook: a visitor watches "can't lie" themselves in one click, no wallet, no hash to find).
+  buildTryItRail(mount, transport);
   // C. the four proof cards.
   const grid = renderCardGrid(mount);
-  // The two on-chain controls read the public 0G Galileo testnet read-only (no key, no broadcast).
-  const transport = createBrowserRpcTransport(GALILEO.rpcUrl);
   buildNegCard(grid);
   buildBrainCard(grid);
   buildRailsCard(grid, transport);

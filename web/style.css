@@ -1490,3 +1490,97 @@ code {
     transition: none;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------ *
+ * The hero CTA + the "try it in 30 seconds" rail (the vote-lever hook -- a one-click can't-lie gotcha).
+ * Honesty colour grammar preserved: only a SETTLED verdict is green; UNVERIFIED is amber; read-error grey.
+ * ------------------------------------------------------------------------------------------------ */
+
+.dash-header__cta {
+  align-self: flex-start;
+  margin-top: 0.6rem;
+  padding: 0.5rem 1.05rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--green-ink);
+  background: var(--green);
+  border: 1px solid var(--green);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: var(--transition-bg), transform 120ms ease;
+}
+.dash-header__cta:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.dash-header__cta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tryit-rail {
+  margin: 0 0 1.1rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+.tryit-rail__lead {
+  margin: 0 0 0.7rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+.tryit-rail__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.tryit-rail__btn {
+  padding: 0.55rem 1.05rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--panel-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: var(--transition-bg), transform 120ms ease;
+}
+.tryit-rail__btn:hover {
+  background: rgba(74, 168, 255, 0.12);
+  transform: translateY(-1px);
+}
+.tryit-rail__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.tryit-rail__btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+  transform: none;
+}
+.tryit-rail__out {
+  margin: 0.8rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font-variant-numeric: var(--num);
+  line-height: 1.4;
+}
+.tryit-rail__out--pending {
+  color: var(--ink-dim);
+}
+.tryit-rail__out--settled {
+  color: var(--ink);
+  border-color: var(--green);
+  background: rgba(46, 194, 126, 0.08);
+}
+.tryit-rail__out--unverified {
+  color: var(--ink);
+  border-color: var(--amber);
+  background: rgba(224, 163, 10, 0.08);
+}
