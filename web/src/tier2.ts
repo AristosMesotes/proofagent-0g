@@ -73,7 +73,7 @@ export function buildTier2Card(
   lead.className = "tier2-card__lead";
   lead.textContent =
     "Connect your own wallet + funds and run the SAME mandate gate the agent obeys — with your key, on the " +
-    "live MandateRegistryV4. Over-cap is blocked pre-broadcast (you can't even sign it); under-cap, you sign " +
+    "live MandateRegistryV4. Over-cap is refused pre-broadcast (the console won't ask your wallet to sign it); under-cap, you sign " +
     "with your own key and the independent verifier confirms your transaction. You don't trust the console — " +
     "you check the chain.";
   root.appendChild(lead);
@@ -194,7 +194,8 @@ export function buildTier2Card(
       setVerdict(reason, null);
       render([
         `BLOCKED — the live mandate answered (false, ${reason}) for ${amount.toString()} wei.`,
-        "Nothing was signed: the mandate blocked it PRE-BROADCAST. You cannot overspend even with your own key.",
+        "Nothing was signed: the console refused to broadcast it PRE-BROADCAST — the mandate makes an over-cap " +
+          "spend provably out-of-mandate and instantly catchable, and the verifier proves it.",
       ]);
       return;
     }

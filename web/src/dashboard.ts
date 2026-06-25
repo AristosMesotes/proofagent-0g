@@ -49,11 +49,12 @@
  * only the public spine constants and the public 0G explorer/RPC. Generic, verification-domain names only.
  */
 
-import { buildStamps, runNegCase, FABRICATED_HASH } from "./proofs.js";
+import { buildStamps, runNegCase, FABRICATED_HASH, VERDICT } from "./proofs.js";
 import {
   runRailsCheck,
   runSettledCheck,
   createBrowserRpcTransport,
+  REASON_OVER_TX_CAP,
   type RpcTransport,
 } from "./onchain.js";
 import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN } from "./spine.js";
@@ -939,7 +940,24 @@ export function boot(): void {
   // key (over-cap BLOCKED pre-broadcast; under-cap ALLOWED → they sign → the verifier confirms THEIR tx). The
   // provider is the injected window.ethereum (a mock in the headless harness); every read stays public-RPC.
   const tier2 = buildTier2Card(transport, undefined, {
-    onVerdict: (action, verdict, hash) => appendFeed(action, verdict, "0G RPC", hash, RECONCILE.RECONCILED),
+    onVerdict: (action, verdict, hash) => {
+      // Derive the HONEST reconcile state from the verdict — only a settled tx or the EXPECTED over-cap block
+      // is green; a mismatch is unreconciled; every loud-degrade (read-error / unverified / signing-declined /
+      // no-wallet) is infra-gated, NEVER green. (Was hardcoded RECONCILED for all — a feed-badge honesty bug.)
+      const reconcile =
+        verdict === VERDICT.SETTLED || verdict === REASON_OVER_TX_CAP
+          ? RECONCILE.RECONCILED
+          : verdict === VERDICT.MISMATCH
+            ? RECONCILE.MISMATCH
+            : RECONCILE.UNAVAILABLE;
+      // settled/mismatch/unverified are the verifier's adjudication of the judge's own tx; the gate/chain
+      // reads (over-cap block, read-error) are 0G-RPC-sourced.
+      const source: VerdictSource =
+        verdict === VERDICT.SETTLED || verdict === VERDICT.MISMATCH || verdict === VERDICT.UNVERIFIED
+          ? "verifier"
+          : "0G RPC";
+      appendFeed(action, verdict, source, hash, reconcile);
+    },
   });
   mount.appendChild(tier2.root);
   // E. the live verdict feed (newest-first; every checked verdict this session stamps a row).
