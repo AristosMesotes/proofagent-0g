@@ -48,3 +48,13 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+
+# --- generated full-stack evidence artifacts (regenerate locally; not tracked) ---
+# The DURABLE evidence is demo/EVIDENCE_FULLSTACK_0G.md (tracked). The rendered PDF, the headless
+# dashboard screenshot, and the one-shot generator scratch are local artifacts, not committed --
+# mirroring demo/video/ (the build scripts are tracked; the rendered .mp4 is not).
+demo/*.pdf
+demo/__pycache__/
+demo/_*.py
+demo/_*.mjs
+demo/_*.png
