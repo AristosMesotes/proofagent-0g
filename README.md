@@ -1,5 +1,7 @@
 # ProofAgent-0G
 
+[![ci](https://github.com/AristosMesotes/proofagent-0g/actions/workflows/ci.yml/badge.svg)](https://github.com/AristosMesotes/proofagent-0g/actions/workflows/ci.yml)
+
 **The AI agent that can't lie, and can't overspend.**
 
 ## Point it at a transaction that never happened — it refuses to rubber-stamp it.
