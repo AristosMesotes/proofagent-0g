@@ -17,12 +17,12 @@
 //! reads); no network, no money moved. No new verdict enum -- it only re-uses the proven legs (the monopoly
 //! holds, design SS3 principle 2). The broader surface (the on-chain `SettlementOracle.requireProven` revert,
 //! `MandateRegistry.checkTransfer` over-cap block, the gas-floor / net-worth-floor drain refusals, and the
-//! sealed verdict monopoly itself) is proven by the rest of the 274 verifier + 208 contract tests.
+//! sealed verdict monopoly itself) is proven by the rest of the 279 verifier + 208 contract tests.
 
 use crate::{
     adjudicate, adjudicate_fill, adjudicate_xchain_fill, reconcile, run_filler, slash, FillClaim,
-    FillRequest, JournalRecord, Observation, OnchainTransfer, Ratio, ReadKey, ReconcileVerdict,
-    SlashConfig, TapeSource, Verdict, XChainFillClaim,
+    FillRequest, JournalRecord, MandateStatus, Observation, OnchainTransfer, Ratio, ReadKey,
+    ReconcileVerdict, SlashConfig, TapeSource, Verdict, XChainFillClaim,
 };
 
 /// One attack on a named honesty guarantee (the metadata shown to a judge).
@@ -271,8 +271,13 @@ fn attack_slash_bites() -> AttackResult {
     }
     let report = run_filler(&requests, band(), SlashConfig::new(2).expect("a positive threshold"), &mut tape);
     let third = report.settlements[2];
-    // The attack SUCCEEDS iff the revoked solver's honest fill was actually paid out.
-    let defeated = !third.released && report.peak_revoked;
+    // Defeated iff the third fill was itself RELEASE-able (the oracle alone would have paid it) AND the
+    // mandate was already REVOKED before it AND it was NOT released -- i.e. the slash bit a fill the oracle
+    // would otherwise have released. Pinning all three (not just `!released`) means a third fill the oracle
+    // blocked for some OTHER reason can never count as a defeat of THIS (slash-bite) guarantee.
+    let defeated = !third.released
+        && third.report.decision.is_release()
+        && third.mandate_before == MandateStatus::Revoked;
     let observed = if third.released {
         format!("RELEASED ({})", third.report.verdict.canonical_string())
     } else {

@@ -529,7 +529,7 @@ fn cmd_break_it(rest: &[String]) -> ExitCode {
         "{PROG}: (the broader surface is proven by the rest of the suite -- the on-chain \
          SettlementOracle.requireProven reverts on a hollow/un-attested fill; MandateRegistry.checkTransfer \
          BLOCKS an over-cap spend; the gas-floor + net-worth-floor refute a drain; the verdict monopoly is \
-         sealed -- a SETTLED cannot be minted outside the verifier. 274 verifier + 208 contract tests.)"
+         sealed -- a SETTLED cannot be minted outside the verifier. 279 verifier + 208 contract tests.)"
     );
     if report.all_defeated() {
         ExitCode::SUCCESS

@@ -1160,14 +1160,15 @@ function renderFrontier(host: HTMLElement): void {
     "honest cross-chain settlement oracle, and honesty enforced as economics.";
   sec.appendChild(lead);
 
-  // The Break-it gauntlet -- the viral community-vote unit -- leads the strip as a FULL-WIDTH row (it runs
-  // every attack a dishonest agent would and shows each one refused: "you don't trust it, you try to break it").
-  const breakit = buildBreakitCard().root;
-  breakit.classList.add("frontier-card--full");
-  sec.appendChild(breakit);
-
   const grid = document.createElement("div");
   grid.className = "frontier__grid";
+  // The Break-it gauntlet -- the viral community-vote unit -- leads the grid as a FULL-WIDTH row: it is a grid
+  // item spanning every column (grid-column: 1 / -1, via .frontier-card--full) so it shares the same gap as
+  // the cards below ("you don't trust it, you try to break it" -- every attack a dishonest agent would run,
+  // each one refused).
+  const breakit = buildBreakitCard().root;
+  breakit.classList.add("frontier-card--full");
+  grid.appendChild(breakit);
   grid.appendChild(buildFillProofCard().root);
   grid.appendChild(buildSlasherCard().root);
   sec.appendChild(grid);

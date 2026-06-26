@@ -94,9 +94,9 @@ test("no attack's computed refusal is ever the attacker's desired PASS (settled 
  * The pure mirrors the attacks compute through (so the refusals are derived, never hardcoded).
  * ------------------------------------------------------------------------------------------------ */
 
-test("adjudicateUi mirrors the band algebra: null -> unverified, (0,0) -> hollow, in-band -> settled, else mismatch", () => {
+test("adjudicateUi mirrors the BARE adjudicate (a positive claim vs observed 0 is MISMATCH, not hollow -- the hollow-fill catch lives in adjudicateFillUi)", () => {
   assert.equal(adjudicateUi(1_000_000n, null, NUM, DEN), VERDICT.UNVERIFIED);
-  assert.equal(adjudicateUi(1_000_000n, 0n, NUM, DEN), VERDICT.HOLLOW);
+  assert.equal(adjudicateUi(1_000_000n, 0n, NUM, DEN), VERDICT.MISMATCH, "bare adjudicate: |1,000,000 - 0| > band -> mismatch, exactly as verify-tx reads it");
   assert.equal(adjudicateUi(0n, 0n, NUM, DEN), VERDICT.HOLLOW);
   assert.equal(adjudicateUi(1_000_000n, 1_000_000n, NUM, DEN), VERDICT.SETTLED);
   assert.equal(adjudicateUi(1_000_000n, 850_000n, NUM, DEN), VERDICT.SETTLED, "exactly on the 150,000 band");

@@ -47,15 +47,18 @@ import { slashUi, MANDATE_STATUS, type MandateStatus } from "./slasherCard.js";
  * ------------------------------------------------------------------------------------------------ */
 
 /**
- * The SETTLEMENT band algebra, mirroring the Rust `adjudicate` (verifier/src/adjudicate.rs) EXACTLY, in
- * exact-integer BigInt (no float). This is the same band logic {@link adjudicateFillUi} applies on its
- * non-hollow branch, factored out so attacks #1/#2/#3 (and the source leg of #5) re-derive a settlement
- * verdict the same way:
+ * The SETTLEMENT band algebra, mirroring the Rust BARE `adjudicate` (verifier/src/adjudicate.rs) EXACTLY, in
+ * exact-integer BigInt (no float), so attacks #1/#2/#3 (and the source leg of #5) re-derive a settlement
+ * verdict the same way the verifier does:
  *   - `observed === null`                 -> `unverified` (no observation -- fail-closed, never fabricate),
- *   - `observed === 0 && claimed > 0`     -> `hollow`     (claimed a positive amount, the chain moved zero),
- *   - `claimed === 0 && observed === 0`   -> `hollow`     (the (0, 0) no-op also resolves to hollow),
+ *   - `claimed === 0 && observed === 0`   -> `hollow`     (the (0, 0) no-op resolves to hollow),
  *   - `|claimed - observed| <= floor(|claimed| * num / den)` -> `settled` (chain-confirmed, in-band),
  *   - else                                -> `mismatch`   (a claim that disagrees with the chain).
+ *
+ * NOTE: the bare `adjudicate` has NO `(positive claim, observed 0) -> hollow` rule -- that hollow-FILL catch
+ * belongs to `adjudicate_fill` ({@link adjudicateFillUi}, used by the fill attacks #4 / #5-dest). So
+ * `adjudicateUi(1_000_000, 0)` is `mismatch` here, exactly as `verifier verify-tx` reads it -- keeping the
+ * dashboard verdict byte-identical to the CLI (the reconciliation contract the whole product rests on).
  */
 export function adjudicateUi(
   claimed: bigint,
@@ -69,9 +72,6 @@ export function adjudicateUi(
   }
   if (observed === null) {
     return VERDICT.UNVERIFIED;
-  }
-  if (observed === 0n && claimed > 0n) {
-    return VERDICT.HOLLOW;
   }
   if (claimed === 0n && observed === 0n) {
     return VERDICT.HOLLOW;
