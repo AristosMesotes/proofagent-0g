@@ -202,10 +202,22 @@
 //! deterministic over the [`Source`] read seam; the on-chain release gate (a `SettlementOracle` whose
 //! `requireProven` reverts unless the attested verdict is `Settled`) is the operator-gated production
 //! wiring of exactly this RELEASE-only-on-settled decision.
+//!
+//! STEP BREAK-IT adds the [`breakit`] module -- the BREAK-IT GAUNTLET ("you don't trust it, you try to
+//! break it"). Where every other leg proves a guarantee on honest inputs, [`breakit::run_gauntlet`] inverts
+//! the test: it constructs the exact adversarial inputs a dishonest agent / solver / UI would use to
+//! FABRICATE a green (a settlement the chain never recorded, a fill that delivered nothing, a cross-chain
+//! lock with an empty destination, a repeat liar, a revoked solver collecting on a later fill, an on-chain
+//! spend with no record) and asserts the verifier REFUSED each one -- an attack is `Defeated` iff the
+//! verifier returned its honest refusal (never the attacker's desired pass), and an attack that `Succeeds`
+//! is a catastrophic honesty defect (the gauntlet fails LOUD). It re-uses the proven legs only (the monopoly
+//! holds, design SS3 principle 2); pure + deterministic + offline. The `verifier break-it` binary is the
+//! single artifact a judge runs to check the honesty claims for themselves.
 
 #![forbid(unsafe_code)]
 
 mod adjudicate;
+pub mod breakit;
 pub mod bridge;
 mod config;
 pub mod connector;
@@ -227,6 +239,7 @@ mod verify;
 pub mod xchain;
 
 pub use adjudicate::{adjudicate, Ratio};
+pub use breakit::{run_gauntlet, Attack, AttackOutcome, AttackResult, GauntletReport};
 pub use bridge::{
     adjudicate_hop, verify_bridge, verify_hop, BridgeLane, BridgeSource, BridgeTape, DestLeg,
     DestSelector, HopClaim, HopObservation, HopReport, SourceLeg,

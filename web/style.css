@@ -1868,3 +1868,72 @@ code {
   color: var(--muted);
   font-style: italic;
 }
+
+/* the BREAK-IT gauntlet card -- the viral community-vote unit (run every attack, watch each one refused) */
+.frontier-card--full {
+  grid-column: 1 / -1;
+}
+.breakit-card__headline {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.breakit-card__headline.is-settled {
+  color: var(--green);
+}
+.breakit-card__headline.is-mismatch {
+  color: var(--danger);
+}
+.breakit-card__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.breakit-card__attack {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.breakit-card__attempt {
+  margin: 0 0 0.25rem;
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+}
+.breakit-card__name {
+  font-weight: 700;
+  color: var(--ink);
+}
+.breakit-card__refusal {
+  margin: 0;
+  font-size: 0.84rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.breakit-card__refusal.is-mismatch {
+  color: var(--danger);
+}
+.breakit-card__refusal.is-settled {
+  color: var(--green);
+}
+.breakit-card__tag {
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  font-size: 0.78rem;
+}
+.breakit-card__tag.is-defeated {
+  color: var(--green);
+}
+.breakit-card__tag.is-succeeded {
+  color: var(--danger);
+}
+.breakit-card__verdict {
+  color: var(--danger);
+  font-weight: 700;
+}

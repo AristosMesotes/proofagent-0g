@@ -131,6 +131,13 @@ cargo run -p verifier -- audit     # exits LOUD + non-zero if any defect is pres
 ```
 The ledger is generated from the verifier's append-only journal — **never from the UI** ([`LEDGER.md`](./LEDGER.md)).
 
+### Try to BREAK it — the adversarial gauntlet *(the whole honesty claim, in one command)*
+```bash
+cargo run -p verifier -- break-it    # → 8/8 attacks DEFEATED (exit 0); any SUCCESS is a loud defect (exit non-zero)
+```
+Don't take our word for it — run every attack a dishonest agent, solver, or UI would use to fabricate a green, and watch each one refused:
+a **fabricated settlement** the chain never recorded → `unverified`; a **tampered amount** → `mismatch`; a **phantom no-op** → `hollow`; a **hollow fill** (claimed payment, delivered nothing) → `BLOCK`; a **cross-chain hollow** (locked on the source, empty destination) → `BLOCK`; a **repeat liar** (two lies in a row) → mandate `REVOKED`; a **revoked solver collecting** on a later honest fill → `WITHHELD` (the slash bites); an **unbounded spend** (an on-chain transfer with no recorded, cap-bound spend) → `refuted`. The same gauntlet is one click on the dashboard **"Break-it"** card. The broader surface — the on-chain `SettlementOracle.requireProven` revert, the `MandateRegistryV4` over-cap block, and the sealed verdict monopoly — is proven by the rest of the **279 verifier + 208 contract** tests.
+
 ---
 
 ## 🖥️ Verify it yourself, in the browser — the fullstack judge/voter guide *(zero trust, zero wallet)*
