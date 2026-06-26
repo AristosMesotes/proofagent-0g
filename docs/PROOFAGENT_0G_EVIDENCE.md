@@ -245,8 +245,8 @@ deterministic.
 > The whole suite is **offline-buildable + dependency-free**: the off-chain legs run on a deterministic
 > `TapeSource` (the live destination read reuses the settlement `Source`, feature-gated); the on-chain gate
 > is **your own contract** → `forge test` + deployable on `16602` (deploy operator-gated). The verifier suite
-> is **273 green**, clippy zero-warning; the contracts suite is **204 green** (incl. the 20 new
-> SettlementOracle tests), `forge build` zero-warning.
+> is **279 green**, clippy zero-warning; the contracts suite is **208 green** (incl. the 20 new
+> SettlementOracle tests + 4 paired deploy-guard tests), `forge build` zero-warning.
 
 ### 1f. The Engine + ExecutionConnector adapters + the unified verifier entry (design §10.5)
 
@@ -277,6 +277,7 @@ error otherwise — never a fabricated tx hash / order id / CCIP `messageId`. Fu
 
 | Feature | Concrete proof | Where |
 |---|---|---|
+| **The break-it gauntlet** — a judge runs every attack a dishonest agent/solver/UI would (fabricated settlement, tampered amount, phantom no-op, hollow fill, cross-chain hollow, repeat-lie, slash-bite, unbounded spend) and watches each one REFUSED | `verifier break-it` → **8/8 attacks DEFEATED**, exit 0 ("every honesty guarantee HELD"); an attack that SUCCEEDS is a loud honesty defect (exit non-zero); 5 tests pin the full defeat + determinism. Mirrored interactively on the dashboard "Break-it" card | `verifier/src/breakit.rs`; `verifier break-it`; `web/src/breakitCard.ts` |
 | **Clean-room firewall** — fails RED on any proprietary identifier / private path / secret | gate #1: **136 publishable files, 0 forbidden refs** (live, this wave); **negative-tested** — planting a forbidden internal identifier into a publishable file → `RED README.md:NN` (exit 1), restored → GREEN | the out-of-tree scanner (maintained out-of-tree by design) |
 | **0G-only gate** — asserts the entire LIVE surface is 0G; flags any non-0G chain id / RPC / explorer | gate #2: live surface 100% 0G; **negative-tested** — `[swap].chain_id 16661→1` → `RED — NON-0G chain id 1 on the LIVE surface` (exit 1), restored → GREEN | `scripts/0g_only_gate.ps1` (in-tree, public) |
 | **The two-source gate** — the gating engine catches + KILL-SWITCHES every planted money-critical defect deterministically | every money-critical check negative-tested plant→RED→restore→GREEN, the digest returning to baseline; the verdict-authority check catches a planted fabricated-verdict mint | the zero-defect gate ladder + the self-gate's generic-firewall + verdict-authority checks |

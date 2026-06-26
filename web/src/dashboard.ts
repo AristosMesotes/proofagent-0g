@@ -76,6 +76,7 @@ import { buildMandateCard, type MandateCardListeners } from "./mandateCard.js";
 import { buildTier2Card } from "./tier2.js";
 import { buildFillProofCard } from "./fillproofCard.js";
 import { buildSlasherCard } from "./slasherCard.js";
+import { buildBreakitCard } from "./breakitCard.js";
 import { type MandateAsset } from "./spine.js";
 
 /* ------------------------------------------------------------------------------------------------ *
@@ -1139,12 +1140,13 @@ function shortAddr(a: string): string {
 }
 
 /**
- * The FRONTIER strip -- the two just-shipped honesty features, made hands-on: the Fill-Proof Oracle (the
- * cross-chain-intents settlement oracle, releasing a solver ONLY on a chain-confirmed fill) + the Slashable
- * Mandate (an honesty scoreboard that auto-revokes after two dishonest verdicts in a row). Both are pure +
- * offline mini-demos (the inputs ARE on screen, so a judge re-derives every verdict by hand) — they reuse the
- * SAME honest verdict grammar as the four proof cards (only settled/RELEASE/ACTIVE is green; every block /
- * revoke is the loud red face). They mint nothing the verifier algebra did not derive.
+ * The FRONTIER strip -- the just-shipped honesty features, made hands-on: the Break-it gauntlet (the viral
+ * community-vote unit -- run every attack a dishonest agent would and watch each one refused), the Fill-Proof
+ * Oracle (the cross-chain-intents settlement oracle, releasing a solver ONLY on a chain-confirmed fill), and
+ * the Slashable Mandate (an honesty scoreboard that auto-revokes after two dishonest verdicts in a row). All
+ * are pure + offline mini-demos (the inputs ARE on screen, so a judge re-derives every verdict by hand) — they
+ * reuse the SAME honest verdict grammar as the four proof cards (only settled/RELEASE/ACTIVE/reconciled is
+ * green; every block / refusal / revoke is the loud red face). They mint nothing the verifier algebra did not derive.
  */
 function renderFrontier(host: HTMLElement): void {
   const sec = document.createElement("section");
@@ -1157,6 +1159,12 @@ function renderFrontier(host: HTMLElement): void {
     "The frontier: the same verifier algebra, pushed to where the money market leaves honesty open — an " +
     "honest cross-chain settlement oracle, and honesty enforced as economics.";
   sec.appendChild(lead);
+
+  // The Break-it gauntlet -- the viral community-vote unit -- leads the strip as a FULL-WIDTH row (it runs
+  // every attack a dishonest agent would and shows each one refused: "you don't trust it, you try to break it").
+  const breakit = buildBreakitCard().root;
+  breakit.classList.add("frontier-card--full");
+  sec.appendChild(breakit);
 
   const grid = document.createElement("div");
   grid.className = "frontier__grid";

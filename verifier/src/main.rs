@@ -36,9 +36,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use verifier::{
-    adjudicate_fill, parse_journal, run_filler, slash, verify_fill, verify_tx, Audit, FillClaim,
-    FillReport, FillRequest, JournalRecord, LedgerSummary, Observation, Ratio, ReadKey, SlashConfig,
-    SpineConfig, Source, TapeSource, Verdict,
+    adjudicate_fill, parse_journal, run_filler, run_gauntlet, slash, verify_fill, verify_tx, Audit,
+    FillClaim, FillReport, FillRequest, JournalRecord, LedgerSummary, Observation, Ratio, ReadKey,
+    SlashConfig, SpineConfig, Source, TapeSource, Verdict,
 };
 
 /// Stable program name for usage/diagnostic text -- not the binary's filesystem path (determinism:
@@ -62,6 +62,7 @@ fn main() -> ExitCode {
         Some("audit") => cmd_audit(&args[1..]),
         Some("slash") => cmd_slash(&args[1..]),
         Some("filler") => cmd_filler(&args[1..]),
+        Some("break-it") => cmd_break_it(&args[1..]),
         Some("--help" | "-h" | "help") | None => {
             print_usage();
             ExitCode::SUCCESS
@@ -500,6 +501,43 @@ fn cmd_filler(rest: &[String]) -> ExitCode {
     }
 }
 
+/// `break-it` -- the BREAK-IT GAUNTLET: run every adversarial attack on the honesty guarantees and show
+/// each one refused. "You don't trust it -- you try to break it." Prints each attack + its loud refusal,
+/// then the scoreboard. Exits `0` ONLY if EVERY attack was defeated (every guarantee held) -- an attack
+/// that SUCCEEDS is a catastrophic honesty defect and exits non-zero.
+fn cmd_break_it(rest: &[String]) -> ExitCode {
+    if !rest.is_empty() {
+        eprintln!("{PROG}: break-it takes no arguments");
+        eprintln!("usage: {PROG} break-it");
+        return ExitCode::FAILURE;
+    }
+    let report = run_gauntlet();
+    println!(
+        "break-it -- try to make ProofAgent lie, overspend, or pay a fake fill. Watch every attack fail."
+    );
+    println!();
+    for r in &report.results {
+        let mark = if r.outcome.is_defeated() { "DEFEATED" } else { "!!! SUCCEEDED -- HONESTY DEFECT" };
+        println!("  attack #{} -- {}", r.attack.id, r.attack.name);
+        println!("      attempt:   {}", r.attack.attempt);
+        println!("      guarantee: {}", r.attack.guarantee);
+        println!("      result:    verifier returned `{}`  ->  {mark}", r.outcome.observed());
+    }
+    println!();
+    println!("{}", report.summary_line());
+    eprintln!(
+        "{PROG}: (the broader surface is proven by the rest of the suite -- the on-chain \
+         SettlementOracle.requireProven reverts on a hollow/un-attested fill; MandateRegistry.checkTransfer \
+         BLOCKS an over-cap spend; the gas-floor + net-worth-floor refute a drain; the verdict monopoly is \
+         sealed -- a SETTLED cannot be minted outside the verifier. 274 verifier + 208 contract tests.)"
+    );
+    if report.all_defeated() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
 /// `ledger [--journal <path>] [--spine <path>]` -- the read-only projection of the verdict journal.
 ///
 /// Design SS5a: prints, per transaction, claimed vs chain-observed minor units, the verdict, and the
@@ -795,6 +833,10 @@ fn print_usage() {
     println!("        the FILLER reference loop: the honest oracle, fill -> prove -> release, end to end --");
     println!("        releases only chain-confirmed fills, BLOCKS hollow ones, and once a solver lies twice");
     println!("        in a row the mandate REVOKES and even an honest fill is withheld (the slash bites)");
+    println!("    {PROG} break-it");
+    println!("        the BREAK-IT GAUNTLET: run every adversarial attack on the honesty guarantees");
+    println!("        (fake settlement, hollow fill, cross-chain hollow, repeat-lie, unbounded spend, ...)");
+    println!("        and watch each one REFUSED; exit 0 only if every attack was defeated");
     println!("    {PROG} help                show this message");
     println!();
     println!("verify-tx prints the verdict to stdout; exit is 0 only for `settled`.");
