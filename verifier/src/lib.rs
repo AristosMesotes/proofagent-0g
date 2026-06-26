@@ -168,6 +168,16 @@
 //! [`Verdict::Unverified`] fill also blocks -- the oracle releases ONLY on a chain-confirmed, within-band
 //! fill. Offline-buildable over the existing [`Source`] read seam (the live destination read reuses the
 //! settlement [`Source`]).
+//!
+//! STEP SLASH adds the [`slasher`] module -- the SLASHABLE MANDATE (the honesty-economics gap the
+//! intents market leaves open: a dishonest solver keeps its mandate). [`slasher::slash`] projects the
+//! settlement-truth journal (the verifier's OWN minted verdicts -- never the agent's word) into a
+//! [`slasher::MandateStatus`]: it tracks the trailing run of consecutive DISHONEST verdicts (`hollow` /
+//! `mismatch`) -- a `settled` (proven honesty) or an `unverified` (undetermined) BREAKS the run -- and
+//! AUTO-REVOKES the mandate at `revoke_after` consecutive (the demo: two hollow fills in a row ->
+//! `REVOKED`). It converts honesty into enforced economics, structurally (design SS3 principle 3, never
+//! softened); the slasher mints no settlement verdict, it consumes them. Pure + deterministic; the live
+//! on-chain auto-revoke (the `MandateRegistry`) is the operator-gated production wiring of this algebra.
 
 #![forbid(unsafe_code)]
 
@@ -183,6 +193,7 @@ pub mod mandate;
 pub mod networth;
 pub mod reconciler;
 pub mod route;
+pub mod slasher;
 mod source;
 pub mod swap;
 pub mod timelock;
@@ -221,6 +232,7 @@ pub use route::{
     adjudicate_route_leg, verify_route, verify_route_leg, RouteClaim, RouteObservation, RouteRail,
     RouteReport, RouteSource, RouteTape, RouteTerminal,
 };
+pub use slasher::{slash, MandateStatus, SlashConfig, SlashReport};
 pub use source::{observed_amount, Observation, ReadKey, ReadResult, Source, TapeSource, Unavailable};
 pub use swap::{
     adjudicate_swap, verify_swap, SwapClaim, SwapObservation, SwapReport, SwapSource, SwapTape,

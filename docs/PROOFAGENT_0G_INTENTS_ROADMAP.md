@@ -56,8 +56,15 @@ re-derivable 0G root; it anchors the instant the testnet storage-flow recovers.
 ### 4 — Slashable Mandate / Solver-Honesty Scoreboard  ·  layer: 0G Chain  ·  effort: S–M
 Extend `MandateRegistry` so each verdict updates a per-agent honesty score; N consecutive `hollow/mismatch`
 verdicts auto-revoke the mandate (slashing the dishonest filler). Converts honesty into *enforced economics* —
-the reputation gap intent protocols leave open, closed on-chain. (Contract change → operator-gated deploy.)
-**Demo moment:** two hollow verdicts in a row → mandate auto-revoked; the agent can no longer spend.
+the reputation gap intent protocols leave open, closed on-chain.
+
+**✅ SHIPPED (verifier `slasher` leg).** `slash(journal, SlashConfig)` projects the settlement-truth journal
+(the verifier's OWN verdicts) into a `MandateStatus` — it tracks the trailing run of consecutive dishonest
+verdicts (`hollow`/`mismatch`; a `settled` or `unverified` breaks it) and AUTO-REVOKES at the threshold. 11
+tests green; clippy zero-warning (the verifier suite is 254 green). The on-chain auto-revoke (the
+`MandateRegistry`) is the operator-gated production wiring of this algebra.
+**Demo moment (runnable):** a journal ending in two hollow verdicts → `verifier slash` prints `REVOKED`
+(`streak=2/2`, exit non-zero) — *the agent can no longer spend.* `--revoke-after <n>` sets the threshold.
 
 ### 5 — Cross-Chain Intent Settlement Proof  ·  layers: 0G Chain (+ external read)  ·  effort: L
 Accept a cross-chain intent, independently verify BOTH legs landed (source lock + destination fill), and mint a
