@@ -113,6 +113,26 @@ export type SettlementVerdict = (typeof SETTLEMENT_VERDICT)[keyof typeof SETTLEM
 const VALID_VERDICTS: ReadonlySet<string> = new Set<string>(Object.values(SETTLEMENT_VERDICT));
 
 /**
+ * The FILL-PROOF ORACLE decision (the LI.FI-Intents frontier): RELEASE the solver's funds, or BLOCK.
+ * Mirrors the Rust `FillDecision::canonical_string()` exactly (`verifier/src/fillproof.rs`). The loop
+ * never constructs one (the verdict monopoly, design SS3 principle 2) -- it only carries what the
+ * independent fill-proof oracle returned. RELEASE only on a chain-confirmed `settled` fill; a `hollow` /
+ * `mismatch` / `unverified` fill is BLOCK (fail-closed -- never a fabricated release).
+ */
+export const FILL_DECISION = {
+  /** The chain confirmed a within-band fill -> release the solver's funds. */
+  RELEASE: "RELEASE",
+  /** The fill is hollow / out-of-band / unreadable -> block release (fail-closed). */
+  BLOCK: "BLOCK",
+} as const;
+
+/** A fill-proof oracle decision string minted by the independent verifier (`fillproof.rs`). */
+export type FillDecision = (typeof FILL_DECISION)[keyof typeof FILL_DECISION];
+
+/** The valid decision strings, for validating what the fill-proof oracle printed. */
+const VALID_FILL_DECISIONS: ReadonlySet<string> = new Set<string>(Object.values(FILL_DECISION));
+
+/**
  * The loud failure of the loop itself (design SS3 principle 3 -- degrade loudly, never fabricate).
  * Thrown only for a programmer error in the loop's own *inputs* (a malformed loop config / swap shape
  * the planner produced). An operational failure of a *leg* (a blocked gate, an unreadable verifier) is
@@ -142,6 +162,13 @@ export const LOOP_STAGE = {
   EXECUTED_DRY_RUN: "executed_dry_run",
   /** A live broadcast actually sent AND the verify leg ran -> a settlement verdict is attached. */
   VERIFIED: "verified",
+  /**
+   * The swap tx settled, but the wired FILL-PROOF ORACLE independently read the delivery as NOT a
+   * within-band fill (hollow / mismatch / unreadable) and returned BLOCK -- the loop refuses to release
+   * on an unproven fill (the LI.FI-Intents frontier, the honest way; design SS3 principle 3). This stage
+   * is reachable ONLY when a [`FillProofOracle`] is wired and the settlement was `settled`.
+   */
+  BLOCKED_BY_FILL_PROOF: "blocked_by_fill_proof",
 } as const;
 
 /** The furthest leg the loop reached on a run (design SS5 ordering). */
@@ -166,6 +193,28 @@ export interface SettlementVerifier {
    *   maps a throw to a loud, honest "could not verify" (it never coerces a throw into a `settled`).
    */
   verify(txHash: string): Promise<SettlementVerdict>;
+}
+
+/**
+ * The FILL-PROOF ORACLE seam (the LI.FI-Intents frontier) -- the verifier's INDEPENDENT proof that a
+ * solver's claimed delivery (the *fill*) actually landed on-chain, before any funds are RELEASED.
+ *
+ * Two-source truth (design SS3 principle 1): the solver's claimed fill amount is only ever one input; the
+ * oracle reads the destination fill ITSELF (by tx hash) and returns a [`FillDecision`]. RELEASE only on a
+ * chain-confirmed within-band fill; a `hollow` fill (the delivery the chain says never happened) returns
+ * BLOCK -- exactly where a hash-only oracle would have paid. An implementation shells to the Rust
+ * `verifier fill-proof --fill-tx <hash> --claimed <n>` binary ([`binaryFillProof`]) or replays a recorded
+ * decision (a test double). It MUST return only a decision the oracle actually minted -- never a
+ * fabricated RELEASE.
+ */
+export interface FillProofOracle {
+  /**
+   * Prove a solver's fill: read the destination fill `fillTxHash` independently and return RELEASE or
+   * BLOCK against the `claimedFill` (minor units, `bigint`). A hollow / out-of-band / unreadable fill is
+   * BLOCK (fail-closed). Throws on a usage failure (a malformed hash / unreadable binary) -- which the
+   * loop maps to a loud "could not prove the fill", never coerced into a RELEASE.
+   */
+  proveFill(fillTxHash: string, claimedFill: bigint): Promise<FillDecision>;
 }
 
 /**
@@ -289,6 +338,7 @@ export async function runLoop(
   transport?: EthCallTransport,
   broadcaster?: SwapBroadcaster,
   verifier?: SettlementVerifier,
+  fillProof?: FillProofOracle,
 ): Promise<LoopResult> {
   // --- (1) plan -------------------------------------------------------------------------------
   // A deterministic, offline plan. An unplannable query is a loud LoopError -- never a fake plan.
@@ -414,6 +464,43 @@ export async function runLoop(
     );
   }
 
+  // --- (5) fill-proof RELEASE gate (the LI.FI-Intents oracle) ----------------------------------
+  // If the swap settled AND a fill-proof oracle is wired, INDEPENDENTLY prove the delivery (the fill)
+  // before declaring release. A hollow fill (the delivery the chain says never happened) BLOCKS release
+  // even though the tx settled -- ProofAgent refuses to release on an unproven fill, where a hash-only
+  // oracle would have paid (design SS3 principle 3). The loop mints no decision; the oracle does.
+  if (settlement === SETTLEMENT_VERDICT.SETTLED && fillProof !== undefined) {
+    let decision: FillDecision;
+    try {
+      decision = await fillProof.proveFill(txHash, spend.expectedOut);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new LoopError(
+        `fill-proof leg could not adjudicate the fill for tx ${txHash}: ${detail} -- the loop does ` +
+          `NOT release an unprovable fill (design SS3 principle 3).`,
+      );
+    }
+    if (decision === FILL_DECISION.BLOCK) {
+      return {
+        stage: LOOP_STAGE.BLOCKED_BY_FILL_PROOF,
+        plan: thePlan,
+        mandate,
+        executed,
+        settlement,
+        note:
+          `fill-proof oracle BLOCKED release: the swap tx ${txHash} settled, but the INDEPENDENT ` +
+          `fill-proof read of the delivery (claimed ${spend.expectedOut.toString()}) is NOT a ` +
+          `within-band fill (a hollow / mismatch / unreadable fill). ProofAgent refuses to release on ` +
+          `an unproven fill -- where a hash-only oracle would have paid (the LI.FI-Intents frontier, ` +
+          `the honest way; design SS3 principle 3).`,
+      };
+    }
+  }
+
+  const fillNote =
+    settlement === SETTLEMENT_VERDICT.SETTLED && fillProof !== undefined
+      ? ` The fill-proof oracle independently RELEASED the delivery (a within-band fill).`
+      : ``;
   return {
     stage: LOOP_STAGE.VERIFIED,
     plan: thePlan,
@@ -423,7 +510,7 @@ export async function runLoop(
     note:
       `live run complete: gate ALLOWED, swap broadcast (${executed.txHashes.length} tx), ` +
       `independent verifier stamped tx ${txHash}: ${settlement}. The verdict is the verifier's ` +
-      `(verdict monopoly -- design SS3 principle 2); the loop only carries it.`,
+      `(verdict monopoly -- design SS3 principle 2); the loop only carries it.${fillNote}`,
   };
 }
 
@@ -520,6 +607,68 @@ export function binaryVerifier(options: BinaryVerifierOptions): SettlementVerifi
       }
       // A valid verdict string from the binary -- carry it as-is (the verifier minted it, not the loop).
       return last as SettlementVerdict;
+    },
+  };
+}
+
+/**
+ * Build a [`FillProofOracle`] that shells out to the independent Rust verifier's FILL-PROOF leg
+ * (`verifier fill-proof --fill-tx <hash> --claimed <n>` -- the LI.FI-Intents oracle, `verifier/src/
+ * fillproof.rs`). It is the loop's fill-proof leg as the design specifies the verify leg: a thin TS shim
+ * that shells to the independent verifier, OPT-IN (the default loop / dry-run never spawns it -- design
+ * SS6). The oracle reads the destination fill ITSELF; the TS side never reads the chain or mints a
+ * decision (the verdict monopoly, design SS3 principle 2).
+ *
+ * Faithful to the binary's honest output contract: the oracle prints exactly one machine-readable line on
+ * **stdout** -- `<verdict> <decision>` (e.g. `hollow BLOCK`). The shim reads the DECISION (the second
+ * whitespace token of the LAST non-empty stdout line) and validates it against the decision alphabet. A
+ * run that prints no valid decision line (a usage failure -- a non-hash input, an unreadable spine, the
+ * binary missing) is a loud throw, which [`runLoop`] maps to a loud "could not prove the fill" -- it NEVER
+ * coerces a missing decision into a RELEASE (design SS3 principle 3). The exit code is NOT used to decide
+ * (a BLOCK legitimately exits non-zero); the stdout decision is the source of truth.
+ *
+ * @param options the process seam + optional binary path / spine path (the SAME [`BinaryVerifierOptions`]).
+ */
+export function binaryFillProof(options: BinaryVerifierOptions): FillProofOracle {
+  if (typeof options.spawn !== "function") {
+    throw new LoopError("binaryFillProof requires a spawn function (the process seam)");
+  }
+  const binary = options.binary ?? "verifier";
+  return {
+    async proveFill(fillTxHash: string, claimedFill: bigint): Promise<FillDecision> {
+      if (typeof fillTxHash !== "string" || fillTxHash.trim() === "") {
+        throw new LoopError("binaryFillProof.proveFill requires a non-empty fill tx hash");
+      }
+      const args: string[] = [
+        "fill-proof",
+        "--fill-tx",
+        fillTxHash.trim(),
+        "--claimed",
+        claimedFill.toString(),
+      ];
+      if (options.spinePath !== undefined && options.spinePath.trim() !== "") {
+        args.push("--spine", options.spinePath.trim());
+      }
+      const { stdout, stderr, code } = await options.spawn(binary, args);
+
+      // The DECISION is the second whitespace token of the LAST non-empty stdout line (`<verdict>
+      // <decision>`). A usage failure prints NO such line -> degrade LOUDLY (never a fabricated RELEASE).
+      const lines = stdout
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+      const last = lines.length > 0 ? lines[lines.length - 1] : undefined;
+      const decision = last === undefined ? undefined : last.split(/\s+/)[1];
+
+      if (decision === undefined || !VALID_FILL_DECISIONS.has(decision)) {
+        const diag = stderr.trim() === "" ? "<no stderr>" : stderr.trim();
+        throw new LoopError(
+          `fill-proof oracle printed no valid <verdict> <decision> line for fill ${fillTxHash} ` +
+            `(exit=${String(code)}; stdout=${JSON.stringify(stdout)}; stderr=${diag})`,
+        );
+      }
+      // A valid decision string from the binary -- carry it as-is (the oracle minted it, not the loop).
+      return decision as FillDecision;
     },
   };
 }
