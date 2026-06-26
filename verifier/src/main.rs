@@ -36,7 +36,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use verifier::{
-    parse_journal, verify_tx, Audit, JournalRecord, LedgerSummary, SpineConfig, Source,
+    adjudicate_fill, parse_journal, verify_tx, Audit, FillClaim, JournalRecord, LedgerSummary, Ratio,
+    SpineConfig, Source, Verdict,
 };
 
 /// Stable program name for usage/diagnostic text -- not the binary's filesystem path (determinism:
@@ -55,6 +56,7 @@ fn main() -> ExitCode {
 
     match args.first().map(String::as_str) {
         Some("verify-tx") => cmd_verify_tx(&args[1..]),
+        Some("fill-proof") => cmd_fill_proof(&args[1..]),
         Some("ledger") => cmd_ledger(&args[1..]),
         Some("audit") => cmd_audit(&args[1..]),
         Some("--help" | "-h" | "help") | None => {
@@ -203,6 +205,109 @@ fn cmd_verify_tx(rest: &[String]) -> ExitCode {
             eprintln!("{PROG}: {e}");
             ExitCode::FAILURE
         }
+    }
+}
+
+/// `fill-proof --claimed <n> [--observed <n> | --unreadable] [--tol-num <n>] [--tol-den <n>]`
+/// -- the FILL-PROOF ORACLE demo (the LI.FI-Intents frontier, STEP FILL-PROOF). Adjudicates a solver's
+/// CLAIMED fill against the verifier's independent OBSERVATION and prints `<verdict> <decision>` to
+/// stdout. The headline: `fill-proof --claimed 1000000 --observed 0` -> `hollow BLOCK` -- a hollow fill
+/// a hash-only oracle would have RELEASED. Honest exit contract: exit `0` ONLY on RELEASE (settled); any
+/// BLOCK exits non-zero, so a script that checks only the exit code can never release a hollow fill.
+fn cmd_fill_proof(rest: &[String]) -> ExitCode {
+    let mut claimed: Option<i128> = None;
+    let mut observed: Option<i128> = None;
+    let mut unreadable = false;
+    let mut tol_num: i128 = 15;
+    let mut tol_den: i128 = 100;
+    let mut i = 0;
+    while i < rest.len() {
+        match rest[i].as_str() {
+            flag @ ("--claimed" | "--observed" | "--tol-num" | "--tol-den") => {
+                let Some(raw) = rest.get(i + 1) else {
+                    eprintln!("{PROG}: {flag} requires an integer (minor units)");
+                    return ExitCode::FAILURE;
+                };
+                let Ok(n) = raw.parse::<i128>() else {
+                    eprintln!("{PROG}: {flag} must be an integer (minor units), got {raw}");
+                    return ExitCode::FAILURE;
+                };
+                match flag {
+                    "--claimed" => claimed = Some(n),
+                    "--observed" => observed = Some(n),
+                    "--tol-num" => tol_num = n,
+                    _ => tol_den = n,
+                }
+                i += 2;
+            }
+            "--unreadable" => {
+                unreadable = true;
+                i += 1;
+            }
+            other => {
+                eprintln!("{PROG}: unknown option: {other}");
+                eprintln!(
+                    "usage: {PROG} fill-proof --claimed <n> [--observed <n> | --unreadable] \
+                     [--tol-num <n>] [--tol-den <n>]"
+                );
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+
+    let Some(claimed) = claimed else {
+        eprintln!("{PROG}: fill-proof requires --claimed <n> (the solver's claimed delivered amount)");
+        return ExitCode::FAILURE;
+    };
+    // The observation is the verifier's OWN read: a number, or `--unreadable` (the chain could not be
+    // read -> None -> Unverified -> BLOCK; never a fabricated release, design SS3 principle 3).
+    let observed_opt: Option<i128> = if unreadable {
+        None
+    } else {
+        let Some(v) = observed else {
+            eprintln!(
+                "{PROG}: fill-proof requires --observed <n> (the chain's delivered amount) or \
+                 --unreadable (the chain could not be read)"
+            );
+            return ExitCode::FAILURE;
+        };
+        Some(v)
+    };
+    let Some(tol) = Ratio::new(tol_num, tol_den) else {
+        eprintln!("{PROG}: invalid tolerance {tol_num}/{tol_den} (need den > 0, num >= 0)");
+        return ExitCode::FAILURE;
+    };
+
+    // Two placeholder PUBLIC tx ids for the demo claim (the decision turns on the amounts, not the ids).
+    let claim = FillClaim::new(
+        "0x1111111111111111111111111111111111111111111111111111111111111111",
+        "0x2222222222222222222222222222222222222222222222222222222222222222",
+        claimed,
+    );
+    let report = adjudicate_fill(&claim, observed_opt, tol);
+
+    // The one machine-readable line: `<verdict> <decision>` (e.g. `hollow BLOCK`).
+    println!("{} {}", report.verdict.canonical_string(), report.decision.canonical_string());
+
+    // A human-readable explanation to stderr (does not pollute the stdout line).
+    let observed_str = observed_opt.map_or_else(|| "<unreadable>".to_string(), |v| v.to_string());
+    eprintln!(
+        "{PROG}: fill-proof oracle (the honest fill-proof for cross-chain intents): claimed={claimed} \
+         observed={observed_str} -> verdict={} decision={}",
+        report.verdict, report.decision,
+    );
+    if report.verdict == Verdict::Hollow {
+        eprintln!(
+            "{PROG}: (HOLLOW FILL -- the solver claims payment for a delivery the chain says never \
+             happened; a hash-only oracle would RELEASE here. ProofAgent BLOCKS.)"
+        );
+    }
+
+    // Honest exit contract: exit 0 ONLY on RELEASE (settled); any BLOCK exits non-zero.
+    if report.decision.is_release() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
 }
 
@@ -421,6 +526,10 @@ fn print_usage() {
     println!("        verify a transaction; prints one of:");
     println!("        settled / hollow / mismatch / unverified");
     println!("        and APPENDS the verdict to the journal (design SS5a; --no-journal to skip)");
+    println!("    {PROG} fill-proof --claimed <n> [--observed <n> | --unreadable] [--tol-num <n>] [--tol-den <n>]");
+    println!("        the FILL-PROOF ORACLE for cross-chain intents: adjudicate a solver's claimed fill");
+    println!("        against the chain and print `<verdict> <decision>` (RELEASE only on settled).");
+    println!("        e.g. fill-proof --claimed 1000000 --observed 0  ->  hollow BLOCK");
     println!("    {PROG} ledger [--journal <path>] [--spine <path>]");
     println!("        project the journal read-only: per tx claimed vs observed, verdict, delta");
     println!("    {PROG} audit  [--journal <path>] [--spine <path>]");

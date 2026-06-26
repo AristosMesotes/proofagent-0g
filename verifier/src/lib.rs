@@ -154,6 +154,20 @@
 //! [`connector::ConnectorManifest`] (the `[[connector]]` blocks of `proofagent.toml`) is the width-by-data
 //! seam -- a new adapter is a manifest entry (shape · chains · priority · which checks gate it) + the
 //! adapter, with ZERO change to this dispatch (design WOW Feature 5, the Engine).
+//!
+//! STEP FILL-PROOF adds the [`fillproof`] module -- the FILL-PROOF ORACLE for cross-chain intents (the
+//! LI.FI-Intents frontier). Intent-settlement protocols release a solver's funds only after an oracle
+//! proves the fill; a hash-only oracle pays whatever it is *told* proved. [`fillproof::verify_fill`] makes
+//! ProofAgent that oracle, the HONEST version: it reads the destination fill INDEPENDENTLY (the
+//! **Observation**) and adjudicates it against the solver's [`fillproof::FillClaim`] through the SAME
+//! [`adjudicate`] algebra and the SAME four [`Verdict`]s (the monopoly, design SS3 principle 2), then
+//! derives a [`fillproof::FillDecision`] -- RELEASE only on [`Verdict::Settled`], BLOCK otherwise. The
+//! HOLLOW-FILL catch is the centerpiece: a positive claimed fill with an independently-observed ZERO
+//! delivery is a loud [`Verdict::Hollow`] -> BLOCK, exactly where a hash-only oracle would have paid.
+//! Fail-closed (design SS3 principle 3): an out-of-band [`Verdict::Mismatch`] or an unreadable
+//! [`Verdict::Unverified`] fill also blocks -- the oracle releases ONLY on a chain-confirmed, within-band
+//! fill. Offline-buildable over the existing [`Source`] read seam (the live destination read reuses the
+//! settlement [`Source`]).
 
 #![forbid(unsafe_code)]
 
@@ -161,6 +175,7 @@ mod adjudicate;
 pub mod bridge;
 mod config;
 pub mod connector;
+pub mod fillproof;
 pub mod gasfloor;
 pub mod journal;
 pub mod ledger;
@@ -184,6 +199,7 @@ pub use connector::{
     verify_connector_settlement, ConnectorClaim, ConnectorEntry, ConnectorKind, ConnectorManifest,
     ConnectorMismatch, ConnectorObservation, ManifestError,
 };
+pub use fillproof::{adjudicate_fill, verify_fill, FillClaim, FillDecision, FillReport};
 pub use gasfloor::{
     adjudicate_gas_floor, confirm_gas_floor_via, GasFloorClaim, GasFloorKey, GasFloorObservation,
     GasFloorReport, GasFloorSource, GasFloorTape, GasFloorVerdict,
