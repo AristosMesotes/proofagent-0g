@@ -36,8 +36,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use verifier::{
-    adjudicate_fill, parse_journal, slash, verify_fill, verify_tx, Audit, FillClaim, FillReport,
-    JournalRecord, LedgerSummary, Ratio, ReadKey, SlashConfig, SpineConfig, Source, Verdict,
+    adjudicate_fill, parse_journal, run_filler, slash, verify_fill, verify_tx, Audit, FillClaim,
+    FillReport, FillRequest, JournalRecord, LedgerSummary, Observation, Ratio, ReadKey, SlashConfig,
+    SpineConfig, Source, TapeSource, Verdict,
 };
 
 /// Stable program name for usage/diagnostic text -- not the binary's filesystem path (determinism:
@@ -60,6 +61,7 @@ fn main() -> ExitCode {
         Some("ledger") => cmd_ledger(&args[1..]),
         Some("audit") => cmd_audit(&args[1..]),
         Some("slash") => cmd_slash(&args[1..]),
+        Some("filler") => cmd_filler(&args[1..]),
         Some("--help" | "-h" | "help") | None => {
             print_usage();
             ExitCode::SUCCESS
@@ -360,6 +362,144 @@ fn emit_fill_report(report: &FillReport) -> ExitCode {
     }
 }
 
+/// `filler [--revoke-after <n>] [--tol-num <n>] [--tol-den <n>]` -- the FILLER reference loop demo: the
+/// honest fill-proof oracle wired into an intent fill -> prove -> release loop, end to end (design "2b.4"
+/// capstone). It runs a built-in batch -- an honest fill (RELEASED), two hollow fills (BLOCKED, which
+/// auto-revoke the mandate), then a chain-confirmed fill that is WITHHELD because the mandate is already
+/// revoked (the slash BITES) -- printing each settlement and the scoreboard. Exits non-zero whenever any
+/// fill was blocked/withheld OR the mandate ended revoked (the demo's honest signal), never a fabricated
+/// all-clear.
+fn cmd_filler(rest: &[String]) -> ExitCode {
+    let mut revoke_after: u32 = 2;
+    let mut tol_num: i128 = 15;
+    let mut tol_den: i128 = 100;
+    let mut i = 0;
+    while i < rest.len() {
+        match rest[i].as_str() {
+            flag @ ("--revoke-after" | "--tol-num" | "--tol-den") => {
+                let Some(raw) = rest.get(i + 1) else {
+                    eprintln!("{PROG}: {flag} requires an integer");
+                    return ExitCode::FAILURE;
+                };
+                match flag {
+                    "--revoke-after" => {
+                        let Ok(n) = raw.parse::<u32>() else {
+                            eprintln!("{PROG}: --revoke-after must be a non-negative integer, got {raw}");
+                            return ExitCode::FAILURE;
+                        };
+                        revoke_after = n;
+                    }
+                    "--tol-num" => {
+                        let Ok(n) = raw.parse::<i128>() else {
+                            eprintln!("{PROG}: --tol-num must be an integer, got {raw}");
+                            return ExitCode::FAILURE;
+                        };
+                        tol_num = n;
+                    }
+                    _ => {
+                        let Ok(n) = raw.parse::<i128>() else {
+                            eprintln!("{PROG}: --tol-den must be an integer, got {raw}");
+                            return ExitCode::FAILURE;
+                        };
+                        tol_den = n;
+                    }
+                }
+                i += 2;
+            }
+            other => {
+                eprintln!("{PROG}: unknown option: {other}");
+                eprintln!("usage: {PROG} filler [--revoke-after <n>] [--tol-num <n>] [--tol-den <n>]");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+
+    let Some(tol) = Ratio::new(tol_num, tol_den) else {
+        eprintln!("{PROG}: invalid tolerance {tol_num}/{tol_den} (need den > 0, num >= 0)");
+        return ExitCode::FAILURE;
+    };
+    let Some(config) = SlashConfig::new(revoke_after) else {
+        eprintln!("{PROG}: --revoke-after must be >= 1 (a 0 threshold would revoke with no dishonesty)");
+        return ExitCode::FAILURE;
+    };
+
+    // The built-in demo batch (claimed, observed minor units): an honest fill, two hollow fills (which
+    // auto-revoke the mandate), then a chain-confirmed fill WITHHELD because the mandate is already
+    // revoked. The intent source-lock id is informational (not the read key); one placeholder is fine.
+    let specs: [(i128, Option<i128>); 4] = [
+        (1_000_000, Some(1_000_000)),
+        (1_000_000, Some(0)),
+        (1_000_000, Some(0)),
+        (1_000_000, Some(1_000_000)),
+    ];
+    let intent = "0x1111111111111111111111111111111111111111111111111111111111111111";
+    let mut tape = TapeSource::new();
+    let mut requests = Vec::with_capacity(specs.len());
+    for (idx, &(claimed, observed)) in specs.iter().enumerate() {
+        let fill_tx = format!("0x{:064x}", idx + 1);
+        let Some(key) = ReadKey::new(&fill_tx) else {
+            eprintln!("{PROG}: internal: demo fill key was malformed");
+            return ExitCode::FAILURE;
+        };
+        if let Some(v) = observed {
+            tape.record(key.clone(), Observation::new(v));
+        }
+        requests.push(FillRequest::new(FillClaim::new(intent, fill_tx, claimed), key));
+    }
+
+    let report = run_filler(&requests, tol, config, &mut tape);
+
+    println!("filler -- the honest fill-proof oracle, fill -> prove -> release, end to end");
+    println!();
+    for (idx, s) in report.settlements.iter().enumerate() {
+        let observed =
+            s.report.observed.map_or_else(|| "<unreadable>".to_string(), |v| v.to_string());
+        let outcome = if s.released {
+            "RELEASED".to_string()
+        } else {
+            format!("WITHHELD ({})", s.withheld_reason().unwrap_or("blocked"))
+        };
+        println!(
+            "  fill #{}: claimed={} observed={} -> {} {} [{}]",
+            idx + 1,
+            s.report.claimed,
+            observed,
+            s.report.verdict.canonical_string(),
+            s.report.decision.canonical_string(),
+            outcome,
+        );
+    }
+    println!();
+    println!("{}", report.summary_line());
+
+    // The loud honesty notes -- the two centerpiece moments the loop demonstrates.
+    if report.settlements.iter().any(|s| s.report.verdict == Verdict::Hollow) {
+        eprintln!(
+            "{PROG}: (HOLLOW FILL blocked -- a solver claimed payment for a delivery the chain says \
+             never happened; a hash-only oracle would have RELEASED.)"
+        );
+    }
+    if let Some(idx) =
+        report.settlements.iter().position(|s| s.report.decision.is_release() && !s.released)
+    {
+        eprintln!(
+            "{PROG}: (THE SLASH BIT fill #{} -- the chain CONFIRMED it (settled), but the solver's \
+             mandate was already revoked, so it was WITHHELD. Honesty enforced as economics.)",
+            idx + 1
+        );
+    }
+
+    // Exit non-zero whenever any fill was blocked/withheld OR the mandate was revoked at ANY point (the
+    // demo's honest signal) -- a clean, fully-released, never-revoked batch is the only success. Using
+    // `peak_revoked` (not just the final standing) means a mid-batch revoke that a trailing honest fill
+    // reset still exits non-zero.
+    if report.blocked_count == 0 && !report.peak_revoked {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
 /// `ledger [--journal <path>] [--spine <path>]` -- the read-only projection of the verdict journal.
 ///
 /// Design SS5a: prints, per transaction, claimed vs chain-observed minor units, the verdict, and the
@@ -651,6 +791,10 @@ fn print_usage() {
     println!("    {PROG} slash  [--revoke-after <n>] [--journal <path>] [--spine <path>]");
     println!("        the SLASHABLE MANDATE: project the journal into ACTIVE / REVOKED -- auto-revoke");
     println!("        after <n> (default 2) consecutive dishonest verdicts; exit non-zero if REVOKED");
+    println!("    {PROG} filler [--revoke-after <n>] [--tol-num <n>] [--tol-den <n>]");
+    println!("        the FILLER reference loop: the honest oracle, fill -> prove -> release, end to end --");
+    println!("        releases only chain-confirmed fills, BLOCKS hollow ones, and once a solver lies twice");
+    println!("        in a row the mandate REVOKES and even an honest fill is withheld (the slash bites)");
     println!("    {PROG} help                show this message");
     println!();
     println!("verify-tx prints the verdict to stdout; exit is 0 only for `settled`.");
