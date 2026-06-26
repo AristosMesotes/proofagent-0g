@@ -32,7 +32,7 @@ the agent can't lie because an independent reader, not the agent, gets the last 
 |---|---|---|---|
 | **0G Chain** — *gates + settles* | can't overspend **and** can't lie | 🟢 **LIVE** | the on-chain **`MandateRegistryV4`** ([`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) on Galileo `16602`) blocks an over-cap spend **pre-broadcast**; an **independent Rust verifier** reads 0G itself and stamps `SETTLED` only on a real on-chain receipt |
 | **0G Compute** — *reasons* | which model actually ran | 🟡 **operator-gated** | a **TEE attestation** on 0G Compute — `attested` only when a service attestation **and** a per-response enclave signature both verify (never the model's word); built + offline-tested, green on a live enclave proof |
-| **0G Storage** — *attests* | the proof itself lives on 0G | 🟡 **operator-gated** | the verifier's verdict bundle, **published immutably to 0G Storage** → a content-addressed `rootHash` anyone can re-derive; built + offline-tested, live on one publish |
+| **0G Storage** — *attests* | the proof itself lives on 0G | 🟡 **operator-gated** | the verifier's verdict bundle, **published immutably to 0G Storage** → a content-addressed `rootHash` anyone can re-derive; built + offline-tested — the live leg already computes the genuine 0G `rootHash`, with the on-chain anchor currently gated by a 0G testnet storage-flow outage |
 
 **0G Chain is LIVE and chain-checkable right now** (it carries both money proofs — can't-overspend **and** can't-lie). **0G Compute** (the brain) and **0G Storage** (the proof bundle) are **built + offline-tested**; their green flip is **operator-gated** on a live attestation / a live publish — and we never fabricate either (details below).
 
