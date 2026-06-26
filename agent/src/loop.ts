@@ -339,12 +339,15 @@ export async function runLoop(
   broadcaster?: SwapBroadcaster,
   verifier?: SettlementVerifier,
   fillProof?: FillProofOracle,
+  planner?: (query: string) => Plan | Promise<Plan>,
 ): Promise<LoopResult> {
   // --- (1) plan -------------------------------------------------------------------------------
-  // A deterministic, offline plan. An unplannable query is a loud LoopError -- never a fake plan.
+  // The brain: a deterministic offline stub by default, or an injected async planner (the configurable
+  // hosted-LLM brain). Either way the plan is a CLAIM the downstream legs verify -- an unplannable query
+  // or a hosted-LLM failure is a loud LoopError, never a fake plan and never a silent brain swap (SS3 #3).
   let thePlan: Plan;
   try {
-    thePlan = plan(query);
+    thePlan = await (planner ?? plan)(query);
   } catch (err) {
     if (err instanceof PlanError) {
       throw new LoopError(`plan leg failed: ${err.message}`);
