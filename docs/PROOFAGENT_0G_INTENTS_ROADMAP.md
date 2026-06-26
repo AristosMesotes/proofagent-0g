@@ -26,8 +26,15 @@ confirmed; every degrade is loud. That refusal-to-fake IS the product.
 Reframe the verifier as an intent-settlement oracle: ingest an intent (source-lock + a *claimed* destination
 fill), independently read the chain, and mint `settled / hollow / mismatch / unverified` that **gates fund
 release**. This is the exact primitive intent protocols need — built the honest way.
-**Demo moment:** feed a deliberately **hollow** fill (filler claims payment, no on-chain transfer) → ProofAgent
-mints `hollow` and **blocks release**, where a hash-only oracle would have paid.
+
+**✅ SHIPPED (verifier `fillproof` leg).** `adjudicate_fill` / `verify_fill` reuse the sealed `adjudicate`
+algebra and the four-verdict monopoly, deriving a `RELEASE` / `BLOCK` decision — RELEASE only on `settled`;
+`hollow` / `mismatch` / `unverified` all BLOCK, fail-closed (never a fabricated release). 11 tests green;
+clippy zero-warning (the verifier suite is 243 green).
+**Demo moment (runnable):** `verifier fill-proof --claimed 1000000 --observed 0` → `hollow BLOCK` — the solver
+claims payment for a delivery the chain says never happened; a hash-only oracle would RELEASE, ProofAgent **BLOCKS**
+(exit non-zero). The honest fill `--observed 1000000` → `settled RELEASE`; an unreadable fill `--unreadable`
+→ `unverified BLOCK`.
 
 ### 2 — TEE-Attested Solver Brain (0G Compute proof-of-decision)  ·  layers: 0G Compute + Chain  ·  effort: M
 Run the trade/intent-selection brain inside 0G Compute (TeeML); verify each decision's per-response enclave
