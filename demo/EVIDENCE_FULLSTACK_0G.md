@@ -1,6 +1,7 @@
 # ProofAgent — Full-Stack 0G Evidence (every layer on 0G)
 
 **Captured:** 2026-06-26 · 0G Galileo testnet (chainId 16602) · RPC `https://evmrpc-testnet.0g.ai`
+**Status:** all 0G-layer work is merged to `main`; the full gate is GREEN on re-test (2026-06-26) — Rust build · clippy (zero-warning) · test, Foundry 184, agent 239, web 90, all pass. The Storage leg **and its Node-`Blob` upload fix are shipped on `main`**.
 **Honesty legend:** ✅ **LIVE** = proven on-chain right now · 🟡 **BUILT, EXTERNALLY GATED** = leg works end-to-end,
 one external dependency outstanding (stated loudly, never faked green — design §3 #2/#3).
 
@@ -52,7 +53,7 @@ storage-flow availability issue, external to proofagent — corroborated by the 
 
 > Leg fix discovered live: `liveStorageProvider` must wrap bytes in a Node `Blob` before the SDK `Blob`
 > (`new Blob([new globalThis.Blob([bytes])])`) — the SDK `Blob` iterates `this.blob.slice().arrayBuffer()`,
-> which a raw `Uint8Array` lacks. Patch belongs in `agent/src/zerog/storage.ts` (`loadPublicStorage`).
+> which a raw `Uint8Array` lacks. Patch **applied + shipped on `main`** in `agent/src/zerog/storage.ts` (`loadPublicStorage`).
 
 ---
 
