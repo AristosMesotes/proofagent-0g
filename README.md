@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/AristosMesotes/proofagent-0g/actions/workflows/ci.yml/badge.svg)](https://github.com/AristosMesotes/proofagent-0g/actions/workflows/ci.yml)
 
-**The AI agent that can't lie, and can't overspend — every layer on 0G.**
+**The AI agent that can't lie, and can't overspend — live on 0G, and it won't fake the rest.**
 
 ## Point it at a transaction that never happened — it refuses to rubber-stamp it.
 
@@ -26,7 +26,7 @@ the agent can't lie because an independent reader, not the agent, gets the last 
 
 🌐 **[Open the live Verification Console →](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** — no install, no wallet, no signup. Run every proof in your browser right now: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo (read-only).
 
-### Every layer of the agent runs on 0G — and every layer is independently verifiable
+### Every layer is built on 0G — the Chain layer is LIVE, and we never fake the rest
 
 | 0G layer | What it proves | Status | How |
 |---|---|---|---|
@@ -34,7 +34,7 @@ the agent can't lie because an independent reader, not the agent, gets the last 
 | **0G Compute** — *reasons* | which model actually ran | 🟡 **operator-gated** | a **TEE attestation** on 0G Compute — `attested` only when a service attestation **and** a per-response enclave signature both verify (never the model's word); built + offline-tested, green on a live enclave proof |
 | **0G Storage** — *attests* | the proof itself lives on 0G | 🟡 **operator-gated** | the verifier's verdict bundle, **published immutably to 0G Storage** → a content-addressed `rootHash` anyone can re-derive; built + offline-tested — the live leg already computes the genuine 0G `rootHash`, with the on-chain anchor currently gated by a 0G testnet storage-flow outage |
 
-**0G Chain is LIVE and chain-checkable right now** (it carries both money proofs — can't-overspend **and** can't-lie). **0G Compute** (the brain) and **0G Storage** (the proof bundle) are **built + offline-tested**; their green flip is **operator-gated** on a live attestation / a live publish — and we never fabricate either (details below).
+**0G Chain is LIVE and chain-checkable right now** (it carries both money proofs — can't-overspend **and** can't-lie; verify them yourself above). **0G Compute** (the brain) and **0G Storage** (the proof bundle) are **built + offline-tested**, and they read **honestly PENDING** — their green flip is **operator-gated** on a real live attestation / a real live publish. *That is the point, not a gap:* we **never paint a layer green until the chain proves it** — the same refusal-to-fake that makes the agent itself trustworthy. A skeptic who notices Compute/Storage aren't live yet has just confirmed the pitch. (Details below.)
 
 **Run it yourself — no trust, no wallet, no signup:**
 - **▶ Watch it refuse a lie** — one click runs the NEG case live (a fabricated hash → `UNVERIFIED`).

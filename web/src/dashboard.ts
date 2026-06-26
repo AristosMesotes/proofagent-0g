@@ -961,19 +961,22 @@ function tryItButton(id: string, label: string): HTMLButtonElement {
 }
 
 /**
- * The "EVERY LAYER ON 0G" strip (the full-stack 0G story, the cup's thesis): three pillars showing that each
- * layer of the agent runs on a different 0G primitive and each is independently verifiable. 0G Chain is LIVE;
- * 0G Compute (the TEE brain) + 0G Storage (the verdict bundle) are PENDING until the operator flips them
- * (honest colour grammar -- only a LIVE pillar is green; PENDING is amber, never faked).
+ * The "BUILT ON 0G" strip (the full-stack 0G story, the cup's thesis): three pillars, one per 0G primitive,
+ * each independently verifiable. 0G Chain is LIVE (it carries both money proofs); 0G Compute (the TEE brain) +
+ * 0G Storage (the verdict bundle) are built + offline-proven but read PENDING until a real live attestation /
+ * publish lands (honest colour grammar -- only a LIVE pillar is green; PENDING is amber, never faked). The
+ * gap is the point, not a flaw: we never paint a layer green until the chain proves it.
  */
 function render0gStack(host: HTMLElement): void {
   const sec = document.createElement("section");
   sec.className = "og-stack";
-  sec.setAttribute("aria-label", "Every layer of the agent runs on 0G");
+  sec.setAttribute("aria-label", "Every layer is built on 0G — the Chain layer live, Compute and Storage built and offline-proven");
 
   const lead = document.createElement("p");
   lead.className = "og-stack__lead";
-  lead.textContent = "Every layer of the agent runs on 0G — and every layer is independently verifiable:";
+  lead.textContent =
+    "Every layer is built on 0G. The Chain layer is LIVE and chain-checkable right now; Compute + Storage are " +
+    "built + offline-proven, honestly PENDING until live — we never fake green (that refusal is the point):";
   sec.appendChild(lead);
 
   const row = document.createElement("div");
