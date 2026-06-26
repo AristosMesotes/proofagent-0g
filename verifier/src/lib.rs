@@ -188,6 +188,20 @@
 //! [`adjudicate`], and they fold with fail-closed precedence (unreadable > hollow > mismatch > settled).
 //! RELEASE only when BOTH legs settled within band; a cross-chain hollow fill is BLOCKED -- where a
 //! hash-only oracle would have paid. No new verdict enum (the monopoly holds, design SS3 principle 2).
+//!
+//! STEP FILLER adds the [`filler`] module -- the FILLER reference loop (the deployable capstone): the
+//! honest fill-proof oracle wired into a real intent fill -> prove -> release loop, end to end. Where
+//! [`fillproof`] proves ONE fill and [`slasher`] projects a journal into a standing, [`filler::run_filler`]
+//! is the loop a real Input Settler runs over a BATCH of solver fill claims, COMPOSING both: each fill is
+//! read INDEPENDENTLY ([`verify_fill`]) and the solver is RELEASED only on a chain-confirmed, within-band
+//! fill; every hollow / out-of-band / unreadable fill is BLOCKED (fail-closed). The verifier's OWN minted
+//! verdicts accrue into a settlement journal, and the [`slash`] projection GATES the loop -- once a
+//! solver's mandate is REVOKED (N consecutive dishonest fills), even an otherwise-releasable fill is
+//! WITHHELD: the slash BITES. No new verdict enum and no new decision type -- the filler only composes the
+//! proven [`verify_fill`] + [`slash`] algebras (the monopoly holds, design SS3 principle 2). Pure +
+//! deterministic over the [`Source`] read seam; the on-chain release gate (a `SettlementOracle` whose
+//! `requireProven` reverts unless the attested verdict is `Settled`) is the operator-gated production
+//! wiring of exactly this RELEASE-only-on-settled decision.
 
 #![forbid(unsafe_code)]
 
@@ -195,6 +209,7 @@ mod adjudicate;
 pub mod bridge;
 mod config;
 pub mod connector;
+pub mod filler;
 pub mod fillproof;
 pub mod gasfloor;
 pub mod journal;
@@ -221,6 +236,7 @@ pub use connector::{
     verify_connector_settlement, ConnectorClaim, ConnectorEntry, ConnectorKind, ConnectorManifest,
     ConnectorMismatch, ConnectorObservation, ManifestError,
 };
+pub use filler::{run_filler, FillRequest, FillerReport, Settlement};
 pub use fillproof::{adjudicate_fill, verify_fill, FillClaim, FillDecision, FillReport};
 pub use gasfloor::{
     adjudicate_gas_floor, confirm_gas_floor_via, GasFloorClaim, GasFloorKey, GasFloorObservation,

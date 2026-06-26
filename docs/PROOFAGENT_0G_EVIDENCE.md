@@ -221,10 +221,32 @@ unreadable/partial/overflow path degrading LOUDLY to `unverified` — never a fa
 | **No-bypass** (a too-early execute is impossible; the verifier proves it *did not* happen) | `executeBridgeOut` reverts `TooEarly` unless `block.timestamp ≥ executableAt` | `adjudicate_timelock` → `refuted` if `executed_at < executable_at` | `timelock.rs` tests `a_too_early_execute_is_a_bypass_refuted`, `a_bypass_is_caught_through_the_read_seam` |
 | **Per-spoke isolation** (a weak spoke is capped to that spoke; never the hub, never another spoke) | V3 Tier-4 `destCap` keyed by `spokeSpender(destSelector)` = `keccak("proofagent:spoke:"‖selector)` | `confirm_tier` over `checkTransferTo(agent, token, amount, spokeSpender)` per spoke | `contracts/test/TimelockSpokeIsolation.t.sol` (6); `verifier/tests/spoke_isolation.rs` — weak spoke reads `OVER_DEST_CAP` (`refuted` if unenforced), healthy spoke + hub within-mandate (`confirmed`) |
 | **Deploy script wires guard → registry** | `script/DeployTimelock.s.sol` | — | `contracts/test/DeployTimelock.t.sol` |
-| **§11.4 ZK light-client + intent-Filler hardenings** | **ROADMAP — NOT built, never claimed live** | — | the **0g-only gate** proves they stay roadmap (RED if a live cross-chain settlement were pinned); §12 item 9 |
+| **§11.4 ZK light-client hardening** | **ROADMAP — NOT built, never claimed live** (the intent-Filler half is now SHIPPED — see *The intents frontier*, §1e′) | — | the **0g-only gate** proves it stays roadmap (RED if a live cross-chain settlement were pinned); §12 item 9 |
 
 > Cross-chain CCIP legs are **MAINNET-only** (Galileo CCIP decommissioned) → operator-gated; the
 > TimelockGuard is **your own contract** → deployable + demoable on `16602` at $0 (deploy operator-gated).
+
+### 1e′. The intents frontier — the honest fill-proof oracle suite (the LI.FI-Intents frontier)
+
+Intent-settlement protocols release a solver's funds only after an oracle proves the destination fill; a
+hash-only oracle pays whatever it is *told* proved — it pays a HOLLOW fill. This suite is ProofAgent as the
+HONEST oracle, end to end, on **both** sides of the trust boundary (the verifier off-chain + the settler's
+gate on-chain). Every leg mints one of the SAME four verdicts (the monopoly) and is offline-buildable +
+deterministic.
+
+| Feature | What it does | Verdict / decision | Concrete proof |
+|---|---|---|---|
+| **Fill-Proof Oracle** (RELEASE a solver only on a chain-confirmed fill) | reads the destination fill INDEPENDENTLY (`verify_fill`) + derives RELEASE/BLOCK | `Hollow`→**BLOCK** (the hollow-fill catch, exactly where a hash-only oracle pays), `Settled`→**RELEASE**, fail-closed otherwise | `verifier/src/fillproof.rs` (11 tests); `verifier fill-proof --claimed 1000000 --observed 0 → hollow BLOCK` |
+| **Slashable Mandate** (honesty as enforced economics) | projects the verdict journal into a mandate standing; N consecutive dishonest verdicts auto-revoke | `SlashReport` — the trailing `hollow`/`mismatch` streak; a `settled`/`unverified` breaks it; **REVOKED** at the threshold | `verifier/src/slasher.rs` (11 tests); `verifier slash` two hollow in a row → `REVOKED` |
+| **Cross-Chain Fill Proof** (source lock + destination fill, both read independently) | `verify_xchain_fill` folds two `Source` reads fail-closed (unreadable > hollow > mismatch > settled) | RELEASE iff BOTH legs `Settled` within band; a cross-chain hollow → **BLOCK** | `verifier/src/xchain.rs` (8 tests) |
+| **Filler reference loop** (the capstone — fill → prove → release, end to end) | `run_filler` releases only chain-confirmed fills; once the mandate is REVOKED it withholds even an honest fill (the slash BITES) | composes `verify_fill` + `slash` — no new verdict enum, no new decision type | `verifier/src/filler.rs` (11 tests); `verifier filler` → fill #4 is `settled` but **WITHHELD** (mandate revoked) |
+| **On-chain SettlementOracle** (the gate the Input Settler calls) | `requireProven(fillId)` reverts unless the attested verdict is `Settled` — the on-chain mirror of the off-chain `FillDecision` | fail-closed `Unverified` default · write-once-final (no retroactive flip to `Settled`) · attestor monopoly · non-custodial | `contracts/src/SettlementOracle.sol` — 20 forge tests, `forge build` zero-warning, 1,308-byte runtime; deploy `contracts/script/DeploySettlementOracle.s.sol` (operator-gated) |
+
+> The whole suite is **offline-buildable + dependency-free**: the off-chain legs run on a deterministic
+> `TapeSource` (the live destination read reuses the settlement `Source`, feature-gated); the on-chain gate
+> is **your own contract** → `forge test` + deployable on `16602` (deploy operator-gated). The verifier suite
+> is **273 green**, clippy zero-warning; the contracts suite is **204 green** (incl. the 20 new
+> SettlementOracle tests), `forge build` zero-warning.
 
 ### 1f. The Engine + ExecutionConnector adapters + the unified verifier entry (design §10.5)
 

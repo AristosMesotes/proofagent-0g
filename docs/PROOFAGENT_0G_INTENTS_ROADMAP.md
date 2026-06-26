@@ -79,6 +79,33 @@ reader + testnet bridge liquidity) is the operator-gated production wiring.
 **Demo moment:** the source LOCKS a million, the destination delivers ZERO → a cross-chain **HOLLOW** fill →
 `BLOCK`. A naive integration paid on the source confirmation; ProofAgent refuses.
 
+## ✅ Capstone — the Filler reference loop + on-chain SettlementOracle (SHIPPED)
+
+The five legs above each prove a *fact*; the capstone makes ProofAgent a **deployable settlement primitive**
+— the honest oracle wired into a real intent **fill → prove → release** loop, end to end, on both sides of
+the trust boundary.
+
+**Off-chain — `verifier filler` (the loop).** `filler::run_filler(...)` is the loop a real Input Settler runs
+over a BATCH of solver fill claims, COMPOSING the proven legs: each fill is read INDEPENDENTLY (`verify_fill`)
+and the solver is RELEASED only on a chain-confirmed, within-band fill; every hollow / out-of-band /
+unreadable fill is BLOCKED (fail-closed). The verifier's OWN verdicts accrue into a settlement journal, and
+the `slash` projection GATES the loop: **once a solver lies twice in a row the mandate REVOKES and even an
+honest fill is WITHHELD — the slash bites.** No new verdict enum, no new decision type (the monopoly holds);
+pure + deterministic over the `Source` seam. 11 tests; the verifier suite is **273 green**, clippy zero-warning.
+
+**On-chain — `contracts/src/SettlementOracle.sol` (the gate).** The on-chain mirror of the off-chain
+`FillDecision`: an honest verifier ATTESTS a fill id's verdict, and `requireProven(fillId)` (the
+`efficientRequireProven`-style guard the settler calls) **reverts unless the attested verdict is `Settled`** —
+fail-closed on the `Unverified` default, on `Hollow`, and on `Mismatch`. Hardened: `Unverified` is ordinal 0
+(an un-attested fill is never releasable), attestations are **write-once-final** (a `Hollow` can never be
+retroactively flipped to `Settled`), and only the attestor (the verifier operator) may post a verdict.
+Non-custodial (holds no funds). 20 forge tests; `forge build` zero-warning; 1,308-byte runtime (a comfortable
+margin under EIP-170). Deploy is operator-gated (`contracts/script/DeploySettlementOracle.s.sol`).
+
+**Demo moment (runnable):** `verifier filler` → fill #1 settled → **RELEASED**; two hollow fills → **BLOCKED**
+(the mandate auto-revokes); fill #4, a chain-confirmed *settled* fill → **WITHHELD** because the mandate is
+already revoked — *the slash bites an honest fill.* Exits non-zero (the honest block signal).
+
 ## Sequencing
 
 1. **#1 Fill-Proof verdict path** (champion move; reuses the existing verifier — lowest risk, highest narrative payoff).
