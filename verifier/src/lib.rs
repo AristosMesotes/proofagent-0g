@@ -178,6 +178,16 @@
 //! `REVOKED`). It converts honesty into enforced economics, structurally (design SS3 principle 3, never
 //! softened); the slasher mints no settlement verdict, it consumes them. Pure + deterministic; the live
 //! on-chain auto-revoke (the `MandateRegistry`) is the operator-gated production wiring of this algebra.
+//!
+//! STEP XCHAIN adds the [`xchain`] module -- the CROSS-CHAIN FILL PROOF (the capstone of the fill-proof
+//! oracle). A cross-chain intent LOCKS on a source chain and is FILLED on a destination chain; a naive
+//! integration pays on the source confirmation while the async destination fill can land EMPTY (the
+//! cross-chain hollow fill). [`xchain::verify_xchain_fill`] reads BOTH legs INDEPENDENTLY (two `Source`
+//! reads, like [`bridge`]) and mints ONE cross-chain [`Verdict`] + [`fillproof::FillDecision`]: the
+//! destination leg goes through [`adjudicate_fill`] (the hollow-fill catch), the source lock through
+//! [`adjudicate`], and they fold with fail-closed precedence (unreadable > hollow > mismatch > settled).
+//! RELEASE only when BOTH legs settled within band; a cross-chain hollow fill is BLOCKED -- where a
+//! hash-only oracle would have paid. No new verdict enum (the monopoly holds, design SS3 principle 2).
 
 #![forbid(unsafe_code)]
 
@@ -199,6 +209,7 @@ pub mod swap;
 pub mod timelock;
 mod verdict;
 mod verify;
+pub mod xchain;
 
 pub use adjudicate::{adjudicate, Ratio};
 pub use bridge::{
@@ -244,6 +255,9 @@ pub use timelock::{
 };
 pub use verdict::Verdict;
 pub use verify::{verify_tx, VerifyError, VerifyReport, UNKNOWN_KIND};
+pub use xchain::{
+    adjudicate_xchain_fill, verify_xchain_fill, XChainFillClaim, XChainFillReport,
+};
 
 #[cfg(feature = "live")]
 pub use bridge::LiveBridgeSource;
