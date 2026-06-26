@@ -36,8 +36,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use verifier::{
-    adjudicate_fill, parse_journal, verify_tx, Audit, FillClaim, JournalRecord, LedgerSummary, Ratio,
-    SpineConfig, Source, Verdict,
+    adjudicate_fill, parse_journal, verify_fill, verify_tx, Audit, FillClaim, FillReport,
+    JournalRecord, LedgerSummary, Ratio, ReadKey, SpineConfig, Source, Verdict,
 };
 
 /// Stable program name for usage/diagnostic text -- not the binary's filesystem path (determinism:
@@ -220,9 +220,24 @@ fn cmd_fill_proof(rest: &[String]) -> ExitCode {
     let mut unreadable = false;
     let mut tol_num: i128 = 15;
     let mut tol_den: i128 = 100;
+    let mut fill_tx: Option<&str> = None;
+    let mut intent_tx: Option<&str> = None;
+    let mut spine_override: Option<PathBuf> = None;
     let mut i = 0;
     while i < rest.len() {
         match rest[i].as_str() {
+            flag @ ("--fill-tx" | "--intent-tx" | "--spine") => {
+                let Some(raw) = rest.get(i + 1) else {
+                    eprintln!("{PROG}: {flag} requires a value");
+                    return ExitCode::FAILURE;
+                };
+                match flag {
+                    "--fill-tx" => fill_tx = Some(raw),
+                    "--intent-tx" => intent_tx = Some(raw),
+                    _ => spine_override = Some(PathBuf::from(raw)),
+                }
+                i += 2;
+            }
             flag @ ("--claimed" | "--observed" | "--tol-num" | "--tol-den") => {
                 let Some(raw) = rest.get(i + 1) else {
                     eprintln!("{PROG}: {flag} requires an integer (minor units)");
@@ -247,8 +262,8 @@ fn cmd_fill_proof(rest: &[String]) -> ExitCode {
             other => {
                 eprintln!("{PROG}: unknown option: {other}");
                 eprintln!(
-                    "usage: {PROG} fill-proof --claimed <n> [--observed <n> | --unreadable] \
-                     [--tol-num <n>] [--tol-den <n>]"
+                    "usage: {PROG} fill-proof --claimed <n> (--fill-tx <hash> | --observed <n> | \
+                     --unreadable) [--intent-tx <hash>] [--spine <path>] [--tol-num <n>] [--tol-den <n>]"
                 );
                 return ExitCode::FAILURE;
             }
@@ -259,42 +274,77 @@ fn cmd_fill_proof(rest: &[String]) -> ExitCode {
         eprintln!("{PROG}: fill-proof requires --claimed <n> (the solver's claimed delivered amount)");
         return ExitCode::FAILURE;
     };
-    // The observation is the verifier's OWN read: a number, or `--unreadable` (the chain could not be
-    // read -> None -> Unverified -> BLOCK; never a fabricated release, design SS3 principle 3).
+    let Some(tol) = Ratio::new(tol_num, tol_den) else {
+        eprintln!("{PROG}: invalid tolerance {tol_num}/{tol_den} (need den > 0, num >= 0)");
+        return ExitCode::FAILURE;
+    };
+    // The intent's source-lock id is informational for the journal; a placeholder is fine for the demo.
+    let intent_id =
+        intent_tx.unwrap_or("0x1111111111111111111111111111111111111111111111111111111111111111");
+
+    // MODE A (the LIVE oracle, two-source): read the destination fill INDEPENDENTLY by its tx hash via
+    // verify_fill -- the verifier's OWN chain read (a TapeSource offline; a LiveSource under
+    // --features live). This is the mode the agent loop's fill-proof leg shells to.
+    if let Some(fill_tx) = fill_tx {
+        let Some(key) = ReadKey::new(fill_tx) else {
+            eprintln!("{PROG}: --fill-tx is not a transaction hash: {fill_tx}");
+            return ExitCode::FAILURE;
+        };
+        let spine_path = match resolve_spine(spine_override) {
+            Ok(p) => p,
+            Err(code) => return code,
+        };
+        let config = match load_spine(&spine_path) {
+            Ok(c) => c,
+            Err(code) => return code,
+        };
+        let mut source = match bind_source(&config) {
+            Ok(s) => s,
+            Err(msg) => {
+                eprintln!("{PROG}: {msg}");
+                return ExitCode::FAILURE;
+            }
+        };
+        let claim = FillClaim::new(intent_id, fill_tx, claimed);
+        let report = verify_fill(&key, &claim, tol, source.as_mut());
+        return emit_fill_report(&report);
+    }
+
+    // MODE B (the demo): the observation is supplied directly (--observed) or absent (--unreadable).
     let observed_opt: Option<i128> = if unreadable {
         None
     } else {
         let Some(v) = observed else {
             eprintln!(
-                "{PROG}: fill-proof requires --observed <n> (the chain's delivered amount) or \
-                 --unreadable (the chain could not be read)"
+                "{PROG}: fill-proof requires --fill-tx <hash> (read the chain), --observed <n> (the \
+                 chain's delivered amount), or --unreadable (the chain could not be read)"
             );
             return ExitCode::FAILURE;
         };
         Some(v)
     };
-    let Some(tol) = Ratio::new(tol_num, tol_den) else {
-        eprintln!("{PROG}: invalid tolerance {tol_num}/{tol_den} (need den > 0, num >= 0)");
-        return ExitCode::FAILURE;
-    };
-
-    // Two placeholder PUBLIC tx ids for the demo claim (the decision turns on the amounts, not the ids).
     let claim = FillClaim::new(
-        "0x1111111111111111111111111111111111111111111111111111111111111111",
+        intent_id,
         "0x2222222222222222222222222222222222222222222222222222222222222222",
         claimed,
     );
     let report = adjudicate_fill(&claim, observed_opt, tol);
+    emit_fill_report(&report)
+}
 
-    // The one machine-readable line: `<verdict> <decision>` (e.g. `hollow BLOCK`).
+/// Emit a [`FillReport`] under the honest output contract: the one machine-readable line
+/// `<verdict> <decision>` to stdout, a human-readable explanation to stderr, and exit `0` ONLY on
+/// RELEASE (settled) -- any BLOCK exits non-zero, so a script that checks only the exit code can never
+/// release a hollow fill.
+fn emit_fill_report(report: &FillReport) -> ExitCode {
     println!("{} {}", report.verdict.canonical_string(), report.decision.canonical_string());
-
-    // A human-readable explanation to stderr (does not pollute the stdout line).
-    let observed_str = observed_opt.map_or_else(|| "<unreadable>".to_string(), |v| v.to_string());
+    let observed_str = report
+        .observed
+        .map_or_else(|| "<unreadable>".to_string(), |v| v.to_string());
     eprintln!(
-        "{PROG}: fill-proof oracle (the honest fill-proof for cross-chain intents): claimed={claimed} \
+        "{PROG}: fill-proof oracle (the honest fill-proof for cross-chain intents): claimed={} \
          observed={observed_str} -> verdict={} decision={}",
-        report.verdict, report.decision,
+        report.claimed, report.verdict, report.decision,
     );
     if report.verdict == Verdict::Hollow {
         eprintln!(
@@ -302,8 +352,6 @@ fn cmd_fill_proof(rest: &[String]) -> ExitCode {
              happened; a hash-only oracle would RELEASE here. ProofAgent BLOCKS.)"
         );
     }
-
-    // Honest exit contract: exit 0 ONLY on RELEASE (settled); any BLOCK exits non-zero.
     if report.decision.is_release() {
         ExitCode::SUCCESS
     } else {
@@ -526,9 +574,10 @@ fn print_usage() {
     println!("        verify a transaction; prints one of:");
     println!("        settled / hollow / mismatch / unverified");
     println!("        and APPENDS the verdict to the journal (design SS5a; --no-journal to skip)");
-    println!("    {PROG} fill-proof --claimed <n> [--observed <n> | --unreadable] [--tol-num <n>] [--tol-den <n>]");
+    println!("    {PROG} fill-proof --claimed <n> (--fill-tx <hash> | --observed <n> | --unreadable) [--spine <path>]");
     println!("        the FILL-PROOF ORACLE for cross-chain intents: adjudicate a solver's claimed fill");
-    println!("        against the chain and print `<verdict> <decision>` (RELEASE only on settled).");
+    println!("        against the chain (--fill-tx reads it; --observed/--unreadable is the demo) and");
+    println!("        print `<verdict> <decision>` (RELEASE only on settled; exit 0 only on RELEASE).");
     println!("        e.g. fill-proof --claimed 1000000 --observed 0  ->  hollow BLOCK");
     println!("    {PROG} ledger [--journal <path>] [--spine <path>]");
     println!("        project the journal read-only: per tx claimed vs observed, verdict, delta");

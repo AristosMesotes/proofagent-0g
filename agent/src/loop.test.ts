@@ -23,15 +23,18 @@ import assert from "node:assert/strict";
 import {
   runLoop,
   binaryVerifier,
+  binaryFillProof,
   nodeSpawn,
   isSettled,
   dominantAllocation,
   LoopError,
   LOOP_STAGE,
   SETTLEMENT_VERDICT,
+  FILL_DECISION,
   type LoopConfig,
   type LoopResult,
   type SettlementVerifier,
+  type FillProofOracle,
 } from "./loop.js";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -453,4 +456,78 @@ test("INTEGRATION: nodeSpawn drives the real verifier binary -> NEG case stamps 
     "0xdead00000000000000000000000000000000000000000000000000000000beef",
   );
   assert.equal(verdict, SETTLEMENT_VERDICT.UNVERIFIED, "the real binary stamps the NEG case unverified");
+});
+
+// --- The FILL-PROOF ORACLE leg: a live BLOCKED_BY_FILL_PROOF stage (the LI.FI-Intents frontier) ----
+
+/** A fill-proof oracle double that replays a fixed decision + records what it was asked (the seam). */
+function tapeFillProof(decision: "RELEASE" | "BLOCK"): {
+  readonly fillProof: FillProofOracle;
+  readonly seen: { txHash: string; claimed: bigint }[];
+} {
+  const seen: { txHash: string; claimed: bigint }[] = [];
+  const fillProof: FillProofOracle = {
+    proveFill(txHash: string, claimed: bigint): Promise<typeof decision> {
+      seen.push({ txHash, claimed });
+      return Promise.resolve(decision);
+    },
+  };
+  return { fillProof, seen };
+}
+
+test("fill-proof: a settled swap with a HOLLOW fill => BLOCKED_BY_FILL_PROOF (never release an unproven fill)", async () => {
+  const { broadcaster } = recordingBroadcaster([TX_HASH]);
+  const { verifier } = tapeVerifier("settled");
+  const { fillProof, seen } = tapeFillProof("BLOCK");
+  const r = await runLoop("aggressive", cfg({ mode: ExecuteMode.LIVE }), tapeTransport(true), broadcaster, verifier, fillProof);
+  assert.equal(r.stage, LOOP_STAGE.BLOCKED_BY_FILL_PROOF, "a BLOCK decision stops the release");
+  assert.equal(r.settlement, SETTLEMENT_VERDICT.SETTLED, "the swap still settled -- the carry is honest");
+  assert.match(r.note, /fill-proof oracle BLOCKED release/);
+  // The oracle was asked about the real broadcast tx + the claimed delivery (expectedOut = 2_000_000n).
+  assert.deepEqual(seen, [{ txHash: TX_HASH, claimed: 2_000_000n }]);
+});
+
+test("fill-proof: a settled swap with a RELEASE fill => VERIFIED (the oracle independently released)", async () => {
+  const { broadcaster } = recordingBroadcaster([TX_HASH]);
+  const { verifier } = tapeVerifier("settled");
+  const { fillProof, seen } = tapeFillProof("RELEASE");
+  const r = await runLoop("aggressive", cfg({ mode: ExecuteMode.LIVE }), tapeTransport(true), broadcaster, verifier, fillProof);
+  assert.equal(r.stage, LOOP_STAGE.VERIFIED);
+  assert.equal(r.settlement, SETTLEMENT_VERDICT.SETTLED);
+  assert.equal(isSettled(r), true);
+  assert.match(r.note, /fill-proof oracle independently RELEASED/);
+  assert.deepEqual(seen, [{ txHash: TX_HASH, claimed: 2_000_000n }]);
+});
+
+test("fill-proof: a NON-settled swap verdict never consults the oracle (the gate runs only on settled)", async () => {
+  const { broadcaster } = recordingBroadcaster([TX_HASH]);
+  const { verifier } = tapeVerifier("mismatch");
+  const { fillProof, seen } = tapeFillProof("RELEASE");
+  const r = await runLoop("aggressive", cfg({ mode: ExecuteMode.LIVE }), tapeTransport(true), broadcaster, verifier, fillProof);
+  assert.equal(r.stage, LOOP_STAGE.VERIFIED, "the verify leg carried the mismatch verdict");
+  assert.equal(r.settlement, SETTLEMENT_VERDICT.MISMATCH);
+  assert.equal(seen.length, 0, "the fill-proof oracle is NOT consulted unless the swap settled");
+});
+
+test("fill-proof: a dry-run never consults the oracle (no broadcast => no fill to prove)", async () => {
+  const { fillProof, seen } = tapeFillProof("BLOCK");
+  const r = await runLoop("stable", cfg(), tapeTransport(true), undefined, undefined, fillProof);
+  assert.equal(r.stage, LOOP_STAGE.EXECUTED_DRY_RUN);
+  assert.equal(seen.length, 0, "a dry-run has nothing to prove -- the oracle is never called");
+});
+
+test("binaryFillProof: reads `<verdict> <decision>` -- RELEASE / BLOCK / loud usage failure", async () => {
+  const spawnOf =
+    (stdout: string, stderr = "", code: number | null = 0) =>
+    (_command: string, _args: readonly string[]) =>
+      Promise.resolve({ stdout, stderr, code });
+  // `settled RELEASE` -> RELEASE.
+  const release = binaryFillProof({ spawn: spawnOf("settled RELEASE\n") });
+  assert.equal(await release.proveFill(TX_HASH, 1_000_000n), FILL_DECISION.RELEASE);
+  // `hollow BLOCK` -> BLOCK (the binary exits non-zero; the decision is read from stdout, not the code).
+  const block = binaryFillProof({ spawn: spawnOf("hollow BLOCK\n", "verifier: ...hollow fill...", 1) });
+  assert.equal(await block.proveFill(TX_HASH, 1_000_000n), FILL_DECISION.BLOCK);
+  // A usage failure (no valid `<verdict> <decision>` line) => a loud throw, NEVER a fabricated RELEASE.
+  const broken = binaryFillProof({ spawn: spawnOf("", "verifier: not a tx hash", 1) });
+  await assert.rejects(() => broken.proveFill(TX_HASH, 1_000_000n), LoopError);
 });

@@ -143,7 +143,7 @@ pub fn adjudicate_fill(claim: &FillClaim, observed: Option<i128>, tol: Ratio) ->
 /// unreadable fill flows (via [`observed_amount`]) to `None` -> [`Verdict::Unverified`] -> BLOCK -- a
 /// fill the verifier could not confirm is NEVER released (design SS3 principle 3).
 #[must_use]
-pub fn verify_fill(key: &ReadKey, claim: &FillClaim, tol: Ratio, source: &mut impl Source) -> FillReport {
+pub fn verify_fill(key: &ReadKey, claim: &FillClaim, tol: Ratio, source: &mut dyn Source) -> FillReport {
     let observed = observed_amount(&source.read(key));
     adjudicate_fill(claim, observed, tol)
 }

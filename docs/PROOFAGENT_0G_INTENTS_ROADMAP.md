@@ -34,7 +34,10 @@ clippy zero-warning (the verifier suite is 243 green).
 **Demo moment (runnable):** `verifier fill-proof --claimed 1000000 --observed 0` → `hollow BLOCK` — the solver
 claims payment for a delivery the chain says never happened; a hash-only oracle would RELEASE, ProofAgent **BLOCKS**
 (exit non-zero). The honest fill `--observed 1000000` → `settled RELEASE`; an unreadable fill `--unreadable`
-→ `unverified BLOCK`.
+→ `unverified BLOCK`. The live two-source mode reads the chain itself: `--fill-tx <hash> --claimed <n>`.
+**Wired into the agent loop:** `runLoop` now has a live **`BLOCKED_BY_FILL_PROOF`** stage — after a swap settles
+it shells to `verifier fill-proof --fill-tx <hash> --claimed <n>` (the `FillProofOracle` / `binaryFillProof`
+seam) and BLOCKS release on a hollow fill, where a hash-only oracle would pay. 244 agent tests green.
 
 ### 2 — TEE-Attested Solver Brain (0G Compute proof-of-decision)  ·  layers: 0G Compute + Chain  ·  effort: M
 Run the trade/intent-selection brain inside 0G Compute (TeeML); verify each decision's per-response enclave
