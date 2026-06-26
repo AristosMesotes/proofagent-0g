@@ -36,8 +36,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use verifier::{
-    adjudicate_fill, parse_journal, verify_fill, verify_tx, Audit, FillClaim, FillReport,
-    JournalRecord, LedgerSummary, Ratio, ReadKey, SpineConfig, Source, Verdict,
+    adjudicate_fill, parse_journal, slash, verify_fill, verify_tx, Audit, FillClaim, FillReport,
+    JournalRecord, LedgerSummary, Ratio, ReadKey, SlashConfig, SpineConfig, Source, Verdict,
 };
 
 /// Stable program name for usage/diagnostic text -- not the binary's filesystem path (determinism:
@@ -59,6 +59,7 @@ fn main() -> ExitCode {
         Some("fill-proof") => cmd_fill_proof(&args[1..]),
         Some("ledger") => cmd_ledger(&args[1..]),
         Some("audit") => cmd_audit(&args[1..]),
+        Some("slash") => cmd_slash(&args[1..]),
         Some("--help" | "-h" | "help") | None => {
             print_usage();
             ExitCode::SUCCESS
@@ -438,6 +439,70 @@ fn cmd_audit(rest: &[String]) -> ExitCode {
     }
 }
 
+/// `slash [--revoke-after <n>] [--journal <path>] [--spine <path>]` -- the SLASHABLE MANDATE.
+///
+/// Projects the settlement journal into a mandate standing: `ACTIVE` / `REVOKED`. The mandate is
+/// AUTO-REVOKED after `--revoke-after` (default 2) consecutive DISHONEST verdicts (`hollow` / `mismatch`)
+/// -- honesty as enforced economics. Reads ONLY the journal (the verifier's own verdicts). Exit `0` iff
+/// ACTIVE; a REVOKED mandate exits non-zero (the agent can no longer spend), so an exit-only check can
+/// never treat a slashed agent as still-trusted.
+fn cmd_slash(rest: &[String]) -> ExitCode {
+    // Parse `--revoke-after` here; pass the journal/spine flags through to the shared resolver.
+    let mut revoke_after: u32 = 2;
+    let mut passthrough: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < rest.len() {
+        if rest[i] == "--revoke-after" {
+            let Some(raw) = rest.get(i + 1) else {
+                eprintln!("{PROG}: --revoke-after requires a number");
+                return ExitCode::FAILURE;
+            };
+            let Ok(n) = raw.parse::<u32>() else {
+                eprintln!("{PROG}: --revoke-after must be a non-negative integer, got {raw}");
+                return ExitCode::FAILURE;
+            };
+            revoke_after = n;
+            i += 2;
+        } else {
+            passthrough.push(rest[i].clone());
+            i += 1;
+        }
+    }
+    let Some(config) = SlashConfig::new(revoke_after) else {
+        eprintln!(
+            "{PROG}: --revoke-after must be >= 1 (a 0 threshold would revoke with no demonstrated dishonesty)"
+        );
+        return ExitCode::FAILURE;
+    };
+
+    let (journal_path, _spine) = match resolve_journal(&passthrough) {
+        Ok(p) => p,
+        Err(code) => return code,
+    };
+    let records = match read_journal(&journal_path) {
+        Ok(r) => r,
+        Err(code) => return code,
+    };
+
+    let report = slash(&records, config);
+    // The one machine-readable line: the mandate standing.
+    println!("{}", report.status.canonical_string());
+    // The scoreboard + the loud REVOKED explanation, to stderr.
+    eprintln!("{PROG}: {} (journal {})", report.status_line(), journal_path.display());
+    if !report.status.is_active() {
+        eprintln!(
+            "{PROG}: (the mandate is AUTO-REVOKED -- {} consecutive dishonest verdicts (hollow/mismatch) \
+             reached the {} threshold. Honesty is enforced economics: the agent can no longer spend.)",
+            report.consecutive_dishonest, report.revoke_after,
+        );
+    }
+    if report.status.is_active() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
 // ------------------------------------------------------------------------------------------------
 // Shared path resolution + loaders (deterministic over the filesystem; loud on failure).
 // ------------------------------------------------------------------------------------------------
@@ -583,6 +648,9 @@ fn print_usage() {
     println!("        project the journal read-only: per tx claimed vs observed, verdict, delta");
     println!("    {PROG} audit  [--journal <path>] [--spine <path>]");
     println!("        surface every non-settled verdict LOUDLY; exit non-zero if any defect");
+    println!("    {PROG} slash  [--revoke-after <n>] [--journal <path>] [--spine <path>]");
+    println!("        the SLASHABLE MANDATE: project the journal into ACTIVE / REVOKED -- auto-revoke");
+    println!("        after <n> (default 2) consecutive dishonest verdicts; exit non-zero if REVOKED");
     println!("    {PROG} help                show this message");
     println!();
     println!("verify-tx prints the verdict to stdout; exit is 0 only for `settled`.");
