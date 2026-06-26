@@ -349,6 +349,41 @@ brain stamp to green `LIVE / TEE-attested` and lets `attestPlan` label the plan 
 > (the `Clock` and `Sleeper` are injected). The build keeps the clean-room firewall GREEN — the only external
 > names are the PUBLIC 0G Compute SDK package + its documented broker concepts.
 
+### 1i. The mutation audit — the tests have teeth (no false-greens)
+
+"You don't trust it, you check" applies to the **test suite** too. We mutation-tested the verdict-critical
+verifier code: 16 deliberate, honesty-breaking defects injected ONE AT A TIME, the suite run, each reverted. A
+sound suite KILLS every one (a test fails); a mutation that **survives** is a coverage hole — the exact class
+of bug the `/diff-code-review` of the break-it gauntlet caught (attack #7, fixed in PR #22).
+
+**Result: 16 / 16 KILLED — zero survivors, zero coverage holes.** Every mutation compiled and broke ONLY its
+named invariant, so each kill is a real assertion failure (not a compile-error cop-out). Reproduce: apply any
+row's change to the cited function and run `cargo test -p verifier` — at least one test fails; revert → green.
+
+| # | Broken invariant (the injected defect) | Killed by (representative failing test) |
+|---|---|---|
+| A1 | an unread chain returns `settled` (not `unverified`) | `adjudicate::unverified_when_no_observation` · `verify::fabricated_unknown_hash_stamps_unverified_never_settled` |
+| A2 | a beyond-tolerance claim `settled` (not `mismatch`) | `adjudicate::mismatch_outside_tolerance_band` · `xchain::an_out_of_band_leg_is_mismatch_block` |
+| A3 | the band boundary made exclusive (`<` not `<=`) | `adjudicate::boundary_delta_exactly_equal_to_band_settles` |
+| A4 | an unavailable read leaks `Some(0)` (not `None`) | `source::observed_amount_is_the_only_unavailable_to_none_bridge` |
+| B1 | the oracle RELEASEs on `hollow` (not only `settled`) | `fillproof::hollow_fill_blocks_the_kill_demo` · `decision_releases_only_on_settled` |
+| B2 | the hollow-fill catch returns `settled` | `fillproof::verify_fill_blocks_a_taped_hollow_fill` · `filler::two_consecutive_hollow_fills_revoke_the_mandate` |
+| B3 | a hollow destination leg doesn't dominate (folds `settled`) | `xchain::locked_on_source_nothing_on_destination_is_hollow_block` · `breakit::the_gauntlet_defeats_every_attack` |
+| B4 | an unverified leg folds to `settled` | `xchain::an_unreadable_leg_dominates_and_blocks` |
+| C1 | the revoke threshold off-by-one (`>` not `>=`) | `slasher::two_consecutive_dishonest_revokes_the_kill_demo` |
+| C2 | a `settled` verdict extends the dishonest streak | `slasher::a_settled_breaks_the_streak` |
+| C3 | the slash-bite gate dropped (a revoked solver is paid) | `filler::a_revoked_mandate_withholds_even_an_honest_fill_the_slash_bites` · `breakit::the_gauntlet_defeats_every_attack` |
+| C4 | a fill released on a `BLOCK` decision | `filler::one_hollow_fill_is_blocked_others_release` |
+| D1 | an unbounded spend (transfer w/o record) reconciles | `reconciler::refuted_on_a_transfer_without_a_record_the_unbounded_spend` · `breakit::the_gauntlet_defeats_every_attack` |
+| D2 | nothing-to-reconcile returns `reconciled` (not `unverified`) | `reconciler::unverified_when_nothing_to_reconcile_never_reconciled` |
+| D3 | a disagreeing gate `confirmed` (not `refuted`) | `mandate::refuted_when_gate_answers_but_disagrees` |
+| D4 | an unreadable gate `confirmed` (not `unverified`) | `mandate::unverified_when_gate_read_is_unavailable_never_confirmed` |
+
+The most dangerous money-path mutations (C3 drop-the-slash-bite, D1 unbounded-spend) are caught by the
+**break-it gauntlet** (`the_gauntlet_defeats_every_attack`) — so the adversarial gauntlet is not a demo, it is
+load-bearing test coverage. And the verdict monopoly's sealed `pub(crate)` minters mean a fabricated `settled`
+cannot even be *constructed* outside the crate — a compile error, the strongest kill of all.
+
 ---
 
 ## 2. The MVP three proofs — on the real chain (the live tx evidence)
