@@ -1728,3 +1728,143 @@ code {
 .watch-card__out a {
   color: var(--accent);
 }
+
+/* ------------------------------------------------------------------------------------------------ *
+ * The FRONTIER strip -- the two just-shipped honesty features made hands-on (the Fill-Proof Oracle +
+ * the Slashable Mandate). Card chrome mirrors .card / .proof-card; the verdict block reuses the SAME
+ * honesty colour grammar (only .is-settled is green; .is-mismatch is the loud red; default amber).
+ * ------------------------------------------------------------------------------------------------ */
+
+.frontier {
+  margin: 1.5rem 0;
+}
+.frontier__lead {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+}
+.frontier__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+/* one frontier card -- Card chrome + a head row + lead + a button row + the verdict output block */
+.frontier-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+.frontier-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.frontier-card__title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+.frontier-card__lead {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--ink-dim);
+}
+.frontier-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.frontier-card__btn {
+  appearance: none;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-bg);
+}
+.frontier-card__btn:hover {
+  background: rgba(74, 168, 255, 0.12);
+}
+.frontier-card__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.frontier-card__btn--ghost {
+  border-color: var(--line);
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+.frontier-card__btn--ghost:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: transparent;
+}
+.frontier-card__output {
+  margin-top: auto;
+}
+
+/* the RELEASE/BLOCK decision line -- green on RELEASE (is-settled), loud red on BLOCK (is-mismatch) */
+.frontier-card__decision {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.frontier-card__decision.is-settled {
+  color: var(--green);
+}
+.frontier-card__decision.is-mismatch {
+  color: var(--danger);
+}
+.frontier-card__streak {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+/* the slasher verdict sequence -- one colour-coded chip per verdict (the honest dot grammar) */
+.frontier-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.frontier-card__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: var(--pill-h);
+  padding: 0 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 0.74rem;
+  color: var(--ink-dim);
+  background: var(--panel-2);
+}
+.frontier-card__chip.is-settled {
+  border-color: var(--green);
+  color: var(--text-success);
+}
+.frontier-card__chip.is-mismatch {
+  border-color: var(--danger);
+  color: var(--ink);
+}
+.frontier-card__chip.is-pending {
+  border-color: var(--amber);
+  color: var(--ink);
+}
+.frontier-card__chip-empty {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-style: italic;
+}
