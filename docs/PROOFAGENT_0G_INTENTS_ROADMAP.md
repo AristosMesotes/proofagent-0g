@@ -68,9 +68,16 @@ tests green; clippy zero-warning (the verifier suite is 254 green). The on-chain
 
 ### 5 — Cross-Chain Intent Settlement Proof  ·  layers: 0G Chain (+ external read)  ·  effort: L
 Accept a cross-chain intent, independently verify BOTH legs landed (source lock + destination fill), and mint a
-single cross-chain `settled` verdict — the trust-minimised referee over a real bridge. Highest ceiling, heaviest
-(two-chain verification + testnet bridge liquidity).
-**Demo moment:** bridge a small transfer; ProofAgent catches a real destination-leg failure as `mismatch`.
+single cross-chain verdict — the trust-minimised referee over a real bridge.
+
+**✅ SHIPPED (verifier `xchain` leg).** `verify_xchain_fill(...)` reads BOTH legs INDEPENDENTLY (two `Source`
+reads, like `bridge`) and mints one cross-chain `Verdict` + a `RELEASE`/`BLOCK` decision: the destination leg
+through `adjudicate_fill` (the hollow-fill catch), the source lock through `adjudicate`, folded fail-closed
+(unreadable > hollow > mismatch > settled). RELEASE only when BOTH legs settled within band. 8 tests green;
+clippy zero-warning (the verifier suite is 262 green). The live two-chain read (a feature-gated per-chain
+reader + testnet bridge liquidity) is the operator-gated production wiring.
+**Demo moment:** the source LOCKS a million, the destination delivers ZERO → a cross-chain **HOLLOW** fill →
+`BLOCK`. A naive integration paid on the source confirmation; ProofAgent refuses.
 
 ## Sequencing
 
