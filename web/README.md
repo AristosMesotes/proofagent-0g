@@ -9,7 +9,12 @@ Two static screens (design §4):
   SETTLEMENT) — with **RAILS expanded into a read-only mirror of the deployed MandateRegistry** (a 0G chain
   badge + a tri-state reconciled-vs-deployed pill + a per-asset table + a wallet-free `checkTransfer`
   simulator) — + the paste-any-hash **Playground** + the **"Run the agent (dry-run)"** card + the live verdict
-  feed + the evidence drawer (loads `dist/dashboard.js`). The console mounts dynamically; it adds no new trust
+  feed + the evidence drawer (loads `dist/dashboard.js`). It opens on the **"every layer on 0G"** strip
+  (0G Compute · 0G Chain · 0G Storage) and adds the vote-lever self-serve hooks — a 1-click **"▶ watch it
+  refuse a lie"** (auto-runs the NEG case), a zero-typing **real-vs-fake** rail (a real settlement → `settled`
+  vs a fabricated hash → `unverified`), the **Tier-2 "run it with YOUR wallet"** card (connect your own wallet
+  and run the same mandate gate with your own key — the console never sees it), and a read-only **wallet watch**
+  (the agent's live 0G balance + nonce, key-free). The console mounts dynamically; it adds no new trust
   surface -- every verdict it paints is reconciled against an independent source, and only `settled`/`live` is
   green.
 

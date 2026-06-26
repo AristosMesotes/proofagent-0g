@@ -1490,3 +1490,241 @@ code {
     transition: none;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------ *
+ * The hero CTA + the "try it in 30 seconds" rail (the vote-lever hook -- a one-click can't-lie gotcha).
+ * Honesty colour grammar preserved: only a SETTLED verdict is green; UNVERIFIED is amber; read-error grey.
+ * ------------------------------------------------------------------------------------------------ */
+
+.dash-header__cta {
+  align-self: flex-start;
+  margin-top: 0.6rem;
+  padding: 0.5rem 1.05rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--green-ink);
+  background: var(--green);
+  border: 1px solid var(--green);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+  transition: var(--transition-bg), transform 120ms ease;
+}
+.dash-header__cta:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.dash-header__cta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tryit-rail {
+  margin: 0 0 1.1rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+.tryit-rail__lead {
+  margin: 0 0 0.7rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+.tryit-rail__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.tryit-rail__btn {
+  padding: 0.55rem 1.05rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--panel-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: var(--transition-bg), transform 120ms ease;
+}
+.tryit-rail__btn:hover {
+  background: rgba(74, 168, 255, 0.12);
+  transform: translateY(-1px);
+}
+.tryit-rail__btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.tryit-rail__btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+  transform: none;
+}
+.tryit-rail__out {
+  margin: 0.8rem 0 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font-variant-numeric: var(--num);
+  line-height: 1.4;
+}
+.tryit-rail__out--pending {
+  color: var(--ink-dim);
+}
+.tryit-rail__out--settled {
+  color: var(--ink);
+  border-color: var(--green);
+  background: rgba(46, 194, 126, 0.08);
+}
+.tryit-rail__out--unverified {
+  color: var(--ink);
+  border-color: var(--amber);
+  background: rgba(224, 163, 10, 0.08);
+}
+
+/* ------------------------------------------------------------------------------------------------ *
+ * The "EVERY LAYER ON 0G" strip (the full-stack 0G thesis) + the read-only "watch the wallet" card.
+ * Honesty colour grammar preserved: only a LIVE pillar is green; PENDING is amber.
+ * ------------------------------------------------------------------------------------------------ */
+
+.og-stack {
+  margin: 0 0 1.1rem;
+}
+.og-stack__lead {
+  margin: 0 0 0.7rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+.og-stack__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+.og-pillar {
+  border: 1px solid var(--line);
+  border-top-width: 4px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  padding: 0.9rem 1rem 1rem;
+}
+.og-pillar--live {
+  border-top-color: var(--green);
+}
+.og-pillar--pending {
+  border-top-color: var(--amber);
+}
+.og-pillar__status {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--r-pill);
+}
+.og-pillar__status--live {
+  background: var(--green);
+  color: var(--green-ink);
+}
+.og-pillar__status--pending {
+  background: var(--amber);
+  color: var(--amber-ink);
+}
+.og-pillar__name {
+  margin: 0.5rem 0 0.1rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.og-pillar__role {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.og-pillar__proves {
+  margin: 0.4rem 0 0;
+  color: var(--ink-dim);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.watch-card {
+  margin: 0 0 1.1rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+.watch-card__title {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+}
+.watch-card__lead {
+  margin: 0 0 0.8rem;
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+}
+.watch-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.watch-card__input {
+  flex: 1 1 22rem;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86rem;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.watch-card__input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.watch-card__btn {
+  padding: 0.5rem 1.05rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--panel-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: var(--transition-bg);
+}
+.watch-card__btn:hover {
+  background: rgba(74, 168, 255, 0.12);
+}
+.watch-card__out {
+  margin: 0.8rem 0 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+.watch-card__out--ok {
+  color: var(--ink);
+  border-color: var(--green);
+  background: rgba(46, 194, 126, 0.08);
+}
+.watch-card__out--err {
+  color: var(--ink);
+  border-color: var(--amber);
+  background: rgba(224, 163, 10, 0.08);
+}
+.watch-card__out a {
+  color: var(--accent);
+}

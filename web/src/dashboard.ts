@@ -49,14 +49,15 @@
  * only the public spine constants and the public 0G explorer/RPC. Generic, verification-domain names only.
  */
 
-import { buildStamps, runNegCase, FABRICATED_HASH } from "./proofs.js";
+import { buildStamps, runNegCase, FABRICATED_HASH, VERDICT } from "./proofs.js";
 import {
   runRailsCheck,
   runSettledCheck,
   createBrowserRpcTransport,
+  REASON_OVER_TX_CAP,
   type RpcTransport,
 } from "./onchain.js";
-import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN } from "./spine.js";
+import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN, STORAGE_ONCHAIN, WATCH } from "./spine.js";
 import { card, statusPill, statusDot, shortHash, renderThreeAltitude } from "./render.js";
 import {
   ReconcileBadge,
@@ -72,16 +73,18 @@ import { EvidenceDrawer, type EvidenceRecord } from "./evidence.js";
 import { buildDryRun, type DryRunListeners } from "./dryrunView.js";
 import { type DryRunResult } from "./dryrun.js";
 import { buildMandateCard, type MandateCardListeners } from "./mandateCard.js";
+import { buildTier2Card } from "./tier2.js";
 import { type MandateAsset } from "./spine.js";
 
 /* ------------------------------------------------------------------------------------------------ *
  * Identity copy (the header rail -- design §3/§4.1).
  * ------------------------------------------------------------------------------------------------ */
 
-/** The header-rail eyebrow -- the mono credibility cue (design §4.1). */
-const EYEBROW = "0G Aristotle · Verification Console";
+/** The header-rail eyebrow -- a voter-legible credibility cue (design §4.1). */
+const EYEBROW = "Verifiable AI · live on 0G";
 const TITLE = "ProofAgent-0G";
-const TAGLINE = "can't lie, can't overspend";
+/** The hook, in one breath -- the first sentence a judge/voter reads (design §3/§4.1). */
+const TAGLINE = "The AI agent that can't lie, and can't overspend — you don't trust it, you check the chain.";
 
 /* ------------------------------------------------------------------------------------------------ *
  * The shared read-only transport + a small live-state registry for the rollup + network pill.
@@ -206,6 +209,22 @@ function renderHeaderRail(host: HTMLElement): void {
   tagline.className = "dash-header__tagline";
   tagline.textContent = TAGLINE;
   idCol.appendChild(tagline);
+
+  // The hero CTA -- one click runs the NEG "can't lie" gotcha for the visitor (the vote-lever hook): scroll
+  // the NEG control into view and fire it, so the very first interaction is "watch it refuse a lie → UNVERIFIED".
+  const cta = document.createElement("button");
+  cta.type = "button";
+  cta.id = "hero-cta";
+  cta.className = "dash-header__cta";
+  cta.textContent = "▶ Watch it refuse a lie";
+  cta.addEventListener("click", () => {
+    // The dashboard's NEG control is the card button (#card-neg .proof-card__button) -- NOT #neg-run, which
+    // exists only on the thin index.html page. Target the console's own NEG run button (cf. autoEnrich).
+    const run = document.querySelector<HTMLButtonElement>("#card-neg .proof-card__button");
+    run?.scrollIntoView({ block: "center", behavior: "smooth" });
+    window.setTimeout(() => run?.click(), 320); // let the smooth-scroll settle before firing the click
+  });
+  idCol.appendChild(cta);
 
   rail.appendChild(idCol);
 
@@ -859,6 +878,264 @@ function autoEnrich(transport: RpcTransport): void {
  * ------------------------------------------------------------------------------------------------ */
 
 /** Boot the dashboard once the DOM is ready. First paint is honest + complete; live reads enrich after. */
+/**
+ * The "try it in 30 seconds" rail (the vote-lever hook): two zero-typing buttons that run the SAME verifier
+ * pipeline on a REAL settled tx vs a FABRICATED one — so a visitor watches "can't lie" themselves in one
+ * click, no wallet, no hash to find. The REAL button reads the pinned settlement (a claim is on record →
+ * `settled`); the FAKE button reads an off-record fabricated hash (no receipt → `unverified`, NEVER a
+ * fabricated settled). The verdict carried is the verifier's own `runSettledCheck` adjudication, re-derivable
+ * by anyone who reruns it — the card mints nothing (design §3 #2 verdict monopoly, §3 #3 never fabricate).
+ */
+function buildTryItRail(host: HTMLElement, transport: RpcTransport): void {
+  const rail = document.createElement("section");
+  rail.className = "tryit-rail";
+  rail.setAttribute("aria-label", "Try it yourself — verify a real settlement vs a fabricated one");
+
+  const lead = document.createElement("p");
+  lead.className = "tryit-rail__lead";
+  lead.textContent = "Don't trust it — check the chain yourself. No wallet, no typing:";
+  rail.appendChild(lead);
+
+  const row = document.createElement("div");
+  row.className = "tryit-rail__row";
+  const realBtn = tryItButton("tryit-real", "▶ Verify a REAL settlement");
+  const fakeBtn = tryItButton("tryit-fake", "▶ Now try a FAKE one");
+  row.appendChild(realBtn);
+  row.appendChild(fakeBtn);
+  rail.appendChild(row);
+
+  const out = document.createElement("p");
+  out.className = "tryit-rail__out";
+  out.id = "tryit-output";
+  out.setAttribute("role", "status");
+  out.setAttribute("aria-live", "polite");
+  out.textContent = "Click a button — the independent verifier reads 0G and stamps the verdict.";
+  rail.appendChild(out);
+
+  host.appendChild(rail);
+
+  let busy = false;
+  realBtn.addEventListener("click", () => void runTryIt(undefined, "the pinned REAL settlement"));
+  fakeBtn.addEventListener("click", () => void runTryIt(FABRICATED_HASH, "a FABRICATED hash"));
+
+  async function runTryIt(hashArg: string | undefined, label: string): Promise<void> {
+    if (busy) {
+      return;
+    }
+    busy = true;
+    realBtn.disabled = true;
+    fakeBtn.disabled = true;
+    out.removeAttribute("data-verdict");
+    out.className = "tryit-rail__out tryit-rail__out--pending";
+    out.textContent = `Reading 0G for ${label}…`;
+    try {
+      // REAL = the pinned default (a claim on record → settled); FAKE = an off-record hash (→ unverified).
+      const result = await runSettledCheck(transport, hashArg);
+      const settled = result.verdict === VERDICT.SETTLED;
+      out.setAttribute("data-verdict", result.verdict);
+      out.className = `tryit-rail__out ${settled ? "tryit-rail__out--settled" : "tryit-rail__out--unverified"}`;
+      out.textContent = `${settled ? "✅" : "❌"} ${result.verdict.toUpperCase()} — ${result.explanation}`;
+    } catch (err) {
+      out.setAttribute("data-verdict", "read-error");
+      out.className = "tryit-rail__out tryit-rail__out--unverified";
+      out.textContent = `read-error: ${err instanceof Error ? err.message : String(err)} — degraded loudly, never a guessed settled.`;
+    } finally {
+      busy = false;
+      realBtn.disabled = false;
+      fakeBtn.disabled = false;
+    }
+  }
+}
+
+/** A try-it-rail button (the zero-typing real-vs-fake controls). */
+function tryItButton(id: string, label: string): HTMLButtonElement {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.id = id;
+  b.className = "tryit-rail__btn";
+  b.textContent = label;
+  return b;
+}
+
+/**
+ * The "EVERY LAYER ON 0G" strip (the full-stack 0G story, the cup's thesis): three pillars showing that each
+ * layer of the agent runs on a different 0G primitive and each is independently verifiable. 0G Chain is LIVE;
+ * 0G Compute (the TEE brain) + 0G Storage (the verdict bundle) are PENDING until the operator flips them
+ * (honest colour grammar -- only a LIVE pillar is green; PENDING is amber, never faked).
+ */
+function render0gStack(host: HTMLElement): void {
+  const sec = document.createElement("section");
+  sec.className = "og-stack";
+  sec.setAttribute("aria-label", "Every layer of the agent runs on 0G");
+
+  const lead = document.createElement("p");
+  lead.className = "og-stack__lead";
+  lead.textContent = "Every layer of the agent runs on 0G — and every layer is independently verifiable:";
+  sec.appendChild(lead);
+
+  const row = document.createElement("div");
+  row.className = "og-stack__row";
+  row.appendChild(
+    ogPillar("0G Compute", "reasons", "which model ran — TEE-attested inside a hardware enclave", "pending", "operator-gated"),
+  );
+  row.appendChild(
+    ogPillar("0G Chain", "gates + settles", "can't overspend / can't lie — the mandate blocks pre-broadcast; the verifier confirms", "live", "● LIVE"),
+  );
+  // Flip the Storage pillar green ONLY on a real 32-byte 0G Storage rootHash (the same 0x+64-hex shape the
+  // agent leg's ROOT_HASH_RE enforces) -- so a malformed/placeholder pin can never fake a green pillar.
+  const storageLive = /^0x[0-9a-fA-F]{64}$/.test(STORAGE_ONCHAIN.rootHash.trim());
+  row.appendChild(
+    ogPillar("0G Storage", "attests", "the proof itself lives on 0G — the verdict bundle, published immutably", storageLive ? "live" : "pending", storageLive ? "● LIVE" : "operator-gated"),
+  );
+  sec.appendChild(row);
+  host.appendChild(sec);
+}
+
+/** One pillar of the 0G-stack strip (PUBLIC; honest colour grammar — only `live` is green). */
+function ogPillar(primitive: string, role: string, proves: string, state: "live" | "pending", statusLabel: string): HTMLElement {
+  const cardEl = document.createElement("div");
+  cardEl.className = `og-pillar og-pillar--${state}`;
+  const status = document.createElement("span");
+  status.className = `og-pillar__status og-pillar__status--${state}`;
+  status.textContent = statusLabel;
+  const name = document.createElement("p");
+  name.className = "og-pillar__name";
+  name.textContent = primitive;
+  const roleEl = document.createElement("p");
+  roleEl.className = "og-pillar__role";
+  roleEl.textContent = role;
+  const provesEl = document.createElement("p");
+  provesEl.className = "og-pillar__proves";
+  provesEl.textContent = proves;
+  cardEl.append(status, name, roleEl, provesEl);
+  return cardEl;
+}
+
+/**
+ * The READ-ONLY "watch the agent's wallet on 0G" card (the honest, key-free wallet display — the safe answer
+ * to "show a connected wallet"): an address input (default the public demo wallet from the spine, overridable),
+ * auto-connected on load, that reads the wallet's LIVE 0G state (native balance + nonce) via a key-less
+ * JSON-RPC read. NO private key, NO signing, NO wallet extension — the console never holds a key (design §3:
+ * you don't trust it, you check the chain). An unreachable RPC degrades LOUDLY (read-error), never faked.
+ */
+function buildWatchCard(host: HTMLElement): void {
+  const cardEl = document.createElement("section");
+  cardEl.className = "watch-card";
+  cardEl.setAttribute("aria-label", "Watch the agent's wallet on 0G (read-only)");
+
+  const h = document.createElement("h2");
+  h.className = "watch-card__title";
+  h.textContent = "Watch the agent's wallet on 0G";
+  const lead = document.createElement("p");
+  lead.className = "watch-card__lead";
+  lead.textContent =
+    "Read-only — no key, no signing, no wallet to connect. The console never holds a key; it just reads the chain.";
+  cardEl.append(h, lead);
+
+  const row = document.createElement("div");
+  row.className = "watch-card__row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.id = "watch-address";
+  input.className = "watch-card__input";
+  input.value = WATCH.address;
+  input.placeholder = "0x… a public wallet address (never a private key)";
+  input.setAttribute("aria-label", "wallet address to watch (read-only)");
+  input.spellcheck = false;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.id = "watch-go";
+  btn.className = "watch-card__btn";
+  btn.textContent = "Watch →";
+  row.append(input, btn);
+  cardEl.appendChild(row);
+
+  const out = document.createElement("p");
+  out.className = "watch-card__out watch-card__out--pending";
+  out.id = "watch-output";
+  out.setAttribute("role", "status");
+  out.setAttribute("aria-live", "polite");
+  out.textContent = "Reading 0G…";
+  cardEl.appendChild(out);
+  host.appendChild(cardEl);
+
+  async function watch(addr: string): Promise<void> {
+    const a = addr.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(a)) {
+      out.className = "watch-card__out watch-card__out--err";
+      out.textContent = "Enter a valid 0x + 40-hex wallet ADDRESS (read-only — never a private key).";
+      return;
+    }
+    out.className = "watch-card__out watch-card__out--pending";
+    out.textContent = `Reading ${shortAddr(a)} on 0G Galileo…`;
+    try {
+      const [balHex, nonceHex] = await Promise.all([
+        rpcRead("eth_getBalance", [a, "latest"]),
+        rpcRead("eth_getTransactionCount", [a, "latest"]),
+      ]);
+      const og = formatOg(BigInt(balHex));
+      const nonce = Number.parseInt(nonceHex, 16);
+      out.className = "watch-card__out watch-card__out--ok";
+      out.replaceChildren();
+      const span = document.createElement("span");
+      span.textContent = `● live on 0G Galileo — ${shortAddr(a)} · ${og} 0G · ${nonce} txs`;
+      out.appendChild(span);
+      out.appendChild(document.createTextNode("  "));
+      const link = document.createElement("a");
+      link.href = `${GALILEO.explorer}/address/${a}`;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "view on explorer ↗";
+      out.appendChild(link);
+    } catch (err) {
+      out.className = "watch-card__out watch-card__out--err";
+      out.textContent = `read-error: ${err instanceof Error ? err.message : String(err)} — degraded loudly (infra-gated), never faked.`;
+    }
+  }
+
+  btn.addEventListener("click", () => void watch(input.value));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      void watch(input.value);
+    }
+  });
+  // Auto-connect: read the default (public) watch address on load — the "auto-logged-in" feel, key-free.
+  void watch(WATCH.address);
+}
+
+/** A key-less, read-only JSON-RPC read against the public 0G Galileo endpoint (no signing surface). */
+async function rpcRead(method: string, params: readonly unknown[]): Promise<string> {
+  const res = await fetch(GALILEO.rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  }
+  const j = (await res.json()) as { result?: unknown; error?: { message?: string } };
+  if (j.error !== undefined) {
+    throw new Error(j.error.message ?? "rpc error");
+  }
+  if (typeof j.result !== "string") {
+    throw new Error("non-string rpc result");
+  }
+  return j.result;
+}
+
+/** Format a wei bigint to a 4-decimal 0G string (exact-integer; no float on the value). */
+function formatOg(wei: bigint): string {
+  const unit = 10n ** 18n;
+  const whole = wei / unit;
+  const frac = ((wei % unit) * 10000n) / unit;
+  return `${whole.toString()}.${frac.toString().padStart(4, "0")}`;
+}
+
+/** Short a 0x address for display (0x1234…cdef). */
+function shortAddr(a: string): string {
+  return a.length > 12 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
+}
+
 export function boot(): void {
   const mount = document.getElementById("dashboard");
   if (mount === null) {
@@ -870,10 +1147,17 @@ export function boot(): void {
   renderHeaderRail(mount);
   // B. rollup strip.
   renderRollup(mount);
+  // B1. The "EVERY LAYER ON 0G" strip -- the full-stack 0G thesis (Compute · Chain · Storage), up top.
+  render0gStack(mount);
+  // The shared read-only transport reads the public 0G Galileo testnet (no key, no broadcast).
+  const transport = createBrowserRpcTransport(GALILEO.rpcUrl);
+  // B2. The "try it in 30 seconds" rail -- the zero-typing real-vs-fake gotcha, above the card grid (the
+  // vote-lever hook: a visitor watches "can't lie" themselves in one click, no wallet, no hash to find).
+  buildTryItRail(mount, transport);
+  // B3. The read-only "watch the agent's wallet on 0G" card (key-free; the safe wallet display).
+  buildWatchCard(mount);
   // C. the four proof cards.
   const grid = renderCardGrid(mount);
-  // The two on-chain controls read the public 0G Galileo testnet read-only (no key, no broadcast).
-  const transport = createBrowserRpcTransport(GALILEO.rpcUrl);
   buildNegCard(grid);
   buildBrainCard(grid);
   buildRailsCard(grid, transport);
@@ -934,6 +1218,30 @@ export function boot(): void {
   };
   const dryRun = buildDryRun(transport, dryRunListeners);
   mount.appendChild(dryRun.root);
+  // D3. Tier-2 — "run it with YOUR wallet": connect a wallet, run the SAME mandate gate with the judge's OWN
+  // key (over-cap BLOCKED pre-broadcast; under-cap ALLOWED → they sign → the verifier confirms THEIR tx). The
+  // provider is the injected window.ethereum (a mock in the headless harness); every read stays public-RPC.
+  const tier2 = buildTier2Card(transport, undefined, {
+    onVerdict: (action, verdict, hash) => {
+      // Derive the HONEST reconcile state from the verdict — only a settled tx or the EXPECTED over-cap block
+      // is green; a mismatch is unreconciled; every loud-degrade (read-error / unverified / signing-declined /
+      // no-wallet) is infra-gated, NEVER green. (Was hardcoded RECONCILED for all — a feed-badge honesty bug.)
+      const reconcile =
+        verdict === VERDICT.SETTLED || verdict === REASON_OVER_TX_CAP
+          ? RECONCILE.RECONCILED
+          : verdict === VERDICT.MISMATCH
+            ? RECONCILE.MISMATCH
+            : RECONCILE.UNAVAILABLE;
+      // settled/mismatch/unverified are the verifier's adjudication of the judge's own tx; the gate/chain
+      // reads (over-cap block, read-error) are 0G-RPC-sourced.
+      const source: VerdictSource =
+        verdict === VERDICT.SETTLED || verdict === VERDICT.MISMATCH || verdict === VERDICT.UNVERIFIED
+          ? "verifier"
+          : "0G RPC";
+      appendFeed(action, verdict, source, hash, reconcile);
+    },
+  });
+  mount.appendChild(tier2.root);
   // E. the live verdict feed (newest-first; every checked verdict this session stamps a row).
   const feedView = new FeedView(feedStore, flashCopied);
   mount.appendChild(feedView.element());

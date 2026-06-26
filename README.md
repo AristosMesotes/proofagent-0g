@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/AristosMesotes/proofagent-0g/actions/workflows/ci.yml/badge.svg)](https://github.com/AristosMesotes/proofagent-0g/actions/workflows/ci.yml)
 
-**The AI agent that can't lie, and can't overspend.**
+**The AI agent that can't lie, and can't overspend — every layer on 0G.**
 
 ## Point it at a transaction that never happened — it refuses to rubber-stamp it.
 
@@ -26,15 +26,21 @@ the agent can't lie because an independent reader, not the agent, gets the last 
 
 🌐 **[Open the live Verification Console →](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** — no install, no wallet, no signup. Run every proof in your browser right now: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo (read-only).
 
-### Three layers, each independently provable — 2 live + 1 operator-gated
+### Every layer of the agent runs on 0G — and every layer is independently verifiable
 
-| Proof | Status | Guarantee | How |
+| 0G layer | What it proves | Status | How |
 |---|---|---|---|
-| **Settlement** | 🟢 **LIVE** | the trade really happened | an **independent verifier** that reads 0G itself — `SETTLED` only on a real on-chain receipt |
-| **Rails** | 🟢 **LIVE** | it can't overspend — blocked pre-broadcast, proven by the verifier | an on-chain **spend cap** (the live **`MandateRegistryV4`**, [`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) on 0G Galileo `16602`), checked pre-broadcast |
-| **Brain** | 🟡 **operator-gated · PENDING** | the model you think ran, ran | 0G Compute **TEE attestation** — built + offline-tested; goes green only on a real enclave proof (see note below) |
+| **0G Chain** — *gates + settles* | can't overspend **and** can't lie | 🟢 **LIVE** | the on-chain **`MandateRegistryV4`** ([`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) on Galileo `16602`) blocks an over-cap spend **pre-broadcast**; an **independent Rust verifier** reads 0G itself and stamps `SETTLED` only on a real on-chain receipt |
+| **0G Compute** — *reasons* | which model actually ran | 🟡 **operator-gated** | a **TEE attestation** on 0G Compute — `attested` only when a service attestation **and** a per-response enclave signature both verify (never the model's word); built + offline-tested, green on a live enclave proof |
+| **0G Storage** — *attests* | the proof itself lives on 0G | 🟡 **operator-gated** | the verifier's verdict bundle, **published immutably to 0G Storage** → a content-addressed `rootHash` anyone can re-derive; built + offline-tested, live on one publish |
 
-Two legs are LIVE and chain-checkable right now; the Brain leg is **built and offline-tested** but its green stamp is **operator-gated** on a live TEE attestation — and we never fabricate it (details below).
+**0G Chain is LIVE and chain-checkable right now** (it carries both money proofs — can't-overspend **and** can't-lie). **0G Compute** (the brain) and **0G Storage** (the proof bundle) are **built + offline-tested**; their green flip is **operator-gated** on a live attestation / a live publish — and we never fabricate either (details below).
+
+**Run it yourself — no trust, no wallet, no signup:**
+- **▶ Watch it refuse a lie** — one click runs the NEG case live (a fabricated hash → `UNVERIFIED`).
+- **Real vs fake, zero typing** — two buttons: a real settlement → `SETTLED`, a fabricated one → `UNVERIFIED`.
+- **Run it with YOUR wallet (Tier-2)** — connect your own wallet and run the same mandate gate with your own key: over-cap is refused pre-broadcast (nothing to sign), under-cap you sign and the independent verifier confirms *your* tx.
+- **Watch the agent's wallet on 0G** — read-only, key-free: the live balance + nonce, straight from chain.
 
 <details>
 <summary><strong>Honest state of the Brain proof</strong> — why it reads PENDING, not green</summary>

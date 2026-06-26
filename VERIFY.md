@@ -17,11 +17,17 @@ Everything below is **reproducible by you** — that's the proof.
 ## 🔎 Quick look — no tools, just click *(for judges & voters)*
 You can confirm the project is real in under a minute, with **nothing installed**:
 
-**▶ Fastest path — [open the live Verification Console](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** and run every proof in your browser: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo. No install, no wallet, no signup.
+**▶ Fastest path — [open the live Verification Console](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** and run every proof in your browser: the proof cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo. No install, no wallet, no signup.
+
+The console opens on the **"every layer on 0G"** strip (0G Compute · 0G Chain · 0G Storage) and these self-serve hooks — no trust, no wallet needed:
+- **▶ Watch it refuse a lie** — one click runs the NEG case live: a fabricated hash → `UNVERIFIED`.
+- **Real vs fake, zero typing** — two buttons: a real settlement → `SETTLED`, a fabricated one → `UNVERIFIED`.
+- **Run it with YOUR wallet (Tier-2)** — connect your own wallet and run the *same* mandate gate with your own key (over-cap refused pre-broadcast; under-cap you sign and the verifier confirms your tx). The console never sees your key.
+- **Watch the agent's wallet on 0G** — read-only, key-free: the live native balance + nonce, straight from chain.
 
 Then confirm it's all real on-chain:
 
-1. **Watch the 2-minute demo** → the [`demo` release](https://github.com/AristosMesotes/proofagent-0g/releases/tag/demo) (master cut + a 30s short).
+1. **Watch the demo** → the [`demo` release](https://github.com/AristosMesotes/proofagent-0g/releases/tag/demo) (the comprehensive ~4-minute master cut + a 30s short).
 2. **Check the chain yourself** — these are **real transactions** on the public 0G-Galileo explorer. Click and look:
    - ✅ **A real settlement** → [`0x8c59…bfb0`](https://chainscan-galileo.0g.ai/tx/0x8c59d0e8beabc492f24e1726903388a852c964137790c47920b2cbbe3ef5bfb0) — should read **Success**, value **1,000,000 wei**, block 39,996,100.
    - 🟢 **The live mandate contract** (the consolidated, hardened **`MandateRegistryV4`**) → [`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) — deployed on 0G Galileo `16602`, block 40,213,222.

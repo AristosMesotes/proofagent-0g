@@ -285,3 +285,28 @@ export const SETTLED_ONCHAIN = {
   toleranceNum: 15n,
   toleranceDen: 100n,
 } as const;
+
+/**
+ * The 0G Storage "Wow" leg surface (design §9 Wow): the verifier's verdict bundle published to 0G Storage as
+ * immutable, content-addressed evidence -- "the proof itself lives on 0G". `rootHash` is the on-0G Merkle
+ * handle of the latest published bundle. It is EMPTY by default (the single live publish is operator-gated --
+ * a funded 0G wallet for storage gas), so the Storage stamp renders PENDING, exactly like the brain. When
+ * the operator pins a real rootHash here, the stamp flips to LIVE. All PUBLIC.
+ */
+export const STORAGE_ONCHAIN = {
+  /** The 0G Storage Merkle rootHash of the latest published verdict bundle -- EMPTY until the operator pins one. */
+  rootHash: "" as string,
+  /** The public 0G Galileo explorer base (so a viewer can confirm the publishing tx / evidence on 0G). */
+  explorer: "https://chainscan-galileo.0g.ai",
+} as const;
+
+/**
+ * The READ-ONLY "watch the agent's wallet on 0G" surface (the honest, key-free wallet display). A PUBLIC
+ * wallet ADDRESS the console shows live, read-only (native balance + nonce) -- NO key, NO signing (the
+ * console never holds a key, by construction). Defaults to the public demo wallet the LEDGER / V4 deploy /
+ * live settlement already use (already public on-chain); overridable via the input. NEVER a private key.
+ */
+export const WATCH = {
+  /** The default public wallet address to watch (the demo wallet -- already public on-chain). */
+  address: "0x4850417aE8aEDD5D67344FE98c86515cfb5F393b",
+} as const;
