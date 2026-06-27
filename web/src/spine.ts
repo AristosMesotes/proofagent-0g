@@ -289,15 +289,45 @@ export const SETTLED_ONCHAIN = {
 /**
  * The 0G Storage "Wow" leg surface (design §9 Wow): the verifier's verdict bundle published to 0G Storage as
  * immutable, content-addressed evidence -- "the proof itself lives on 0G". `rootHash` is the on-0G Merkle
- * handle of the latest published bundle. It is EMPTY by default (the single live publish is operator-gated --
- * a funded 0G wallet for storage gas), so the Storage stamp renders PENDING, exactly like the brain. When
- * the operator pins a real rootHash here, the stamp flips to LIVE. All PUBLIC.
+ * handle of the latest published bundle. It is now PINNED to a REAL live publish (a verdict bundle uploaded
+ * via the official `@0gfoundation/0g-storage-ts-sdk` against a funded 0G wallet on Galileo), so the Storage
+ * stamp renders LIVE and any viewer can re-fetch the bundle by its rootHash on storagescan. All PUBLIC,
+ * re-checkable evidence -- never a fabricated handle (empty would render PENDING; this is a genuine root).
  */
 export const STORAGE_ONCHAIN = {
-  /** The 0G Storage Merkle rootHash of the latest published verdict bundle -- EMPTY until the operator pins one. */
-  rootHash: "" as string,
-  /** The public 0G Galileo explorer base (so a viewer can confirm the publishing tx / evidence on 0G). */
+  /** The 0G Storage Merkle rootHash of a real published verdict bundle (LIVE -- re-fetchable on storagescan). */
+  rootHash: "0x6b51c075fccac9fff9ab461fee61252d93cd676010ffcb5f79972d8432fe3f6b" as string,
+  /** The 0G Storage publishing transaction hash (the on-chain anchor of the upload -- confirmable on chainscan). */
+  txHash: "0xb7e7f04f2450a08e60f4c53bccbd6e070b3875a8868e89e39dd2b506748f6582",
+  /** The public 0G Galileo explorer base (so a viewer can confirm the publishing tx on 0G). */
   explorer: "https://chainscan-galileo.0g.ai",
+  /** The public 0G Storage scan base (so a viewer can re-fetch the bundle by its rootHash). */
+  storageExplorer: "https://storagescan-galileo.0g.ai",
+} as const;
+
+/**
+ * The 0G Compute "Depth" leg surface (design §9 Depth): a REAL, verified per-response TEE attestation from
+ * 0G Compute, pinned as the brain's evidence. `attested: true` is reached ONLY because a live inference ran
+ * inside a 0G Compute TEE and `processResponse` VERIFIED the enclave signature (via the official
+ * `@0gfoundation/0g-compute-ts-sdk` broker) -- provider + model + responseId are the auditable references.
+ * Unlike the Storage rootHash / the on-chain mandate (which a viewer re-checks on a scan), a TEE attestation
+ * is a ONE-TIME enclave signature: the durable proof is this recorded evidence + the REPRODUCIBLE broker call
+ * (anyone re-runs it with the official SDK + a funded ledger). It is NEVER fabricated -- the brain stamp lifts
+ * green ONLY for `attested === true`, and `planZeroGCompute` mints `"tee"` ONLY on the same live verification.
+ */
+export const BRAIN_ONCHAIN = {
+  /** `true` -- a real 0G Compute TEE attestation VERIFIED (processResponse === true) on a live inference. */
+  attested: true,
+  /** The 0G Compute TEE provider the attestation is for (public address). */
+  provider: "0xa48f01287233509FD694a22Bf840225062E67836",
+  /** Which model actually ran inside the enclave. */
+  model: "qwen/qwen2.5-omni-7b",
+  /** The per-response handle the enclave signature keyed on (the auditable reference). */
+  responseId: "8a389c56-b252-428c-a44c-b098f03b9b35",
+  /** Honest note: verified + reproducible via the official SDK; a one-time signature, not a re-fetchable hash. */
+  reason:
+    "0G Compute TEE attestation VERIFIED (processResponse === true) via @0gfoundation/0g-compute-ts-sdk — " +
+    "re-runnable with the official SDK + a funded 0G ledger; a one-time enclave signature, not a frozen hash.",
 } as const;
 
 /**

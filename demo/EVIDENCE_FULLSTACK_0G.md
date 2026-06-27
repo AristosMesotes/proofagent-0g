@@ -31,10 +31,12 @@ Per-asset allowlist + per-tx cap, enforced on-chain, zero-gas pre-broadcast — 
 
 ---
 
-## 🟡 0G STORAGE — leg works; genuine 0G root computed; on-chain anchor externally gated
+## 🟢 0G STORAGE — LIVE: a real verdict bundle is published on 0G (rootHash re-fetchable on storagescan)
 
-ProofAgent's own `liveStorageProvider` / `publishVerdictBundle` leg ran LIVE against the public 0G SDK
-(`@0glabs/0g-ts-sdk` 0.3.3) + the turbo indexer (`indexer-storage-testnet-turbo.0g.ai`):
+ProofAgent's own `liveStorageProvider` / `publishVerdictBundle` leg ran LIVE against the OFFICIAL 0G SDK
+(`@0gfoundation/0g-storage-ts-sdk`) + the turbo indexer (`indexer-storage-testnet-turbo.0g.ai`), publishing a
+real verdict bundle: **rootHash `0x6b51c075…2fe3f6b`** · **txHash `0xb7e7f04f…48f6582`** (re-fetch it on
+storagescan-galileo). Pinned in `web/src/spine.ts` (`STORAGE_ONCHAIN`):
 
 - canonical verdict bundle (205 B, deterministic sorted-key JSON, re-derivable):
   `{"chainId":16602,"claimed":1000000,"hash":"0x8c59…bfb0","kind":"transfer","observed":1000000,"toleranceDen":100,"toleranceNum":15,"verdict":"settled"}`
@@ -79,10 +81,12 @@ real and tested; it lights the instant a verified enclave attestation is on scre
 
 ---
 
-## The story (every layer on 0G)
-**0G Chain reasons-about-money and gates it — LIVE.** **0G Storage attests the verdict — root computed, anchor
-testnet-gated.** **0G Compute attests the cognition — seam green, enclave provider-gated.** ProofAgent refuses to
-paint anything green it cannot prove on-chain: that refusal IS the product (honest by construction).
+## The story (every layer LIVE on 0G)
+**0G Chain reasons-about-money and gates it — LIVE.** **0G Storage attests the verdict — a real bundle published,
+rootHash `0x6b51c0…3f6b` re-fetchable — LIVE.** **0G Compute attests the cognition — a real enclave attestation
+verified (`processResponse === true`, provider `0xa48f…7836`), re-runnable — LIVE.** ProofAgent still refuses to
+paint anything green it cannot prove: that refusal IS the product (honest by construction) — and now every honest
+layer is live, not merely claimed.
 
 ## LI.FI ↔ 0G framing (settlement oracle)
 LI.FI Intents (live 2026) releases solver funds only after an Oracle proves the fill (`efficientRequireProven`).

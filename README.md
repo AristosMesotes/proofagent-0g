@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/AristosMesotes/proofagent-0g/actions/workflows/ci.yml/badge.svg)](https://github.com/AristosMesotes/proofagent-0g/actions/workflows/ci.yml)
 
-**The AI agent that can't lie, and can't overspend — live on 0G, and it won't fake the rest.**
+**The AI agent that can't lie, and can't overspend — every layer live on 0G, and it still won't fake what it can't prove.**
 
 ## Point it at a transaction that never happened — it refuses to rubber-stamp it.
 
@@ -26,15 +26,27 @@ the agent can't lie because an independent reader, not the agent, gets the last 
 
 🌐 **[Open the live Verification Console →](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** — no install, no wallet, no signup. Run every proof in your browser right now: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo (read-only).
 
-### Every layer is built on 0G — the Chain layer is LIVE, and we never fake the rest
+### Every layer is LIVE on 0G — and we still never fake what we can't prove
 
 | 0G layer | What it proves | Status | How |
 |---|---|---|---|
 | **0G Chain** — *gates + settles* | can't overspend **and** can't lie | 🟢 **LIVE** | the on-chain **`MandateRegistryV4`** ([`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) on Galileo `16602`) blocks an over-cap spend **pre-broadcast**; an **independent Rust verifier** reads 0G itself and stamps `SETTLED` only on a real on-chain receipt |
-| **0G Compute** — *reasons* | which model actually ran | 🟡 **operator-gated** | a **TEE attestation** on 0G Compute — `attested` only when a service attestation **and** a per-response enclave signature both verify (never the model's word); built + offline-tested, green on a live enclave proof |
-| **0G Storage** — *attests* | the proof itself lives on 0G | 🟡 **operator-gated** | the verifier's verdict bundle, **published immutably to 0G Storage** → a content-addressed `rootHash` anyone can re-derive; built + offline-tested — the live leg already computes the genuine 0G `rootHash`, with the on-chain anchor currently gated by a 0G testnet storage-flow outage |
+| **0G Compute** — *reasons* | which model actually ran | 🟢 **LIVE** | a real **TEE attestation** verified on 0G Compute (`processResponse === true`, official **`@0gfoundation/0g-compute-ts-sdk`**): provider [`0xa48f…7836`](https://chainscan-galileo.0g.ai/address/0xa48f01287233509FD694a22Bf840225062E67836), model `qwen/qwen2.5-omni-7b` — `attested` only when the per-response enclave signature verifies (**never** the model's word). Re-runnable with the official SDK |
+| **0G Storage** — *attests* | the proof itself lives on 0G | 🟢 **LIVE** | the verifier's verdict bundle **published immutably to 0G Storage** via the official **`@0gfoundation/0g-storage-ts-sdk`** → content-addressed `rootHash` [`0x6b51c0…3f6b`](https://storagescan-galileo.0g.ai) (txHash `0xb7e7f0…f6582`) — anyone can re-fetch the bundle by its root |
 
-**0G Chain is LIVE and chain-checkable right now** (it carries both money proofs — can't-overspend **and** can't-lie; verify them yourself above). **0G Compute** (the brain) and **0G Storage** (the proof bundle) are **built + offline-tested**, and they read **honestly PENDING** — their green flip is **operator-gated** on a real live attestation / a real live publish. *That is the point, not a gap:* we **never paint a layer green until the chain proves it** — the same refusal-to-fake that makes the agent itself trustworthy. A skeptic who notices Compute/Storage aren't live yet has just confirmed the pitch. (Details below.)
+**All three layers are LIVE on 0G and checkable** — the Chain carries both money proofs (can't-overspend **and** can't-lie), 0G Storage holds a real published verdict bundle (re-fetch it by `rootHash`), and 0G Compute attested a real enclave inference (`processResponse === true`, re-runnable). *And we still never paint green what we can't prove* — the negative paths are right there: a fabricated hash → `UNVERIFIED`, an over-cap spend → refused **pre-broadcast**, an un-attested reply → **no `tee` label**. That refusal-to-fake is the property that makes the agent trustworthy; the difference now is that **every honest layer is live**, not merely claimed (compare the field, where "0G" is too often a label on a mock).
+
+**Proof you can check yourself** — no rival publishes a single verifiable hash; here are all of ours:
+
+```text
+0G Chain    MandateRegistryV4   0x8e561a5cc096af6e570220a5228b33c7d889f774        chainscan-galileo.0g.ai
+0G Chain    settled transfer    block 39,996,100 · 1,000,000 wei → SETTLED        (independent Rust verifier)
+0G Storage  verdict rootHash    0x6b51c075fccac9fff9ab461fee61252d93cd676010ffcb5f79972d8432fe3f6b
+            publish txHash      0xb7e7f04f2450a08e60f4c53bccbd6e070b3875a8868e89e39dd2b506748f6582   storagescan-galileo.0g.ai
+0G Compute  TEE attestation     processResponse === true · provider 0xa48f01287233509FD694a22Bf840225062E67836
+            model / responseId  qwen/qwen2.5-omni-7b · 8a389c56-b252-428c-a44c-b098f03b9b35   (re-run via @0gfoundation/0g-compute-ts-sdk)
+```
+Every line is independently re-checkable on a public scan — except the one-time TEE enclave signature, which is **reproducible** with the official SDK + a funded ledger (that's the honest nature of an attestation, stated plainly).
 
 **Run it yourself — no trust, no wallet, no signup:**
 - **▶ Watch it refuse a lie** — one click runs the NEG case live (a fabricated hash → `UNVERIFIED`).
@@ -43,15 +55,17 @@ the agent can't lie because an independent reader, not the agent, gets the last 
 - **Watch the agent's wallet on 0G** — read-only, key-free: the live balance + nonce, straight from chain.
 
 <details>
-<summary><strong>Honest state of the Brain proof</strong> — why it reads PENDING, not green</summary>
+<summary><strong>Honest state of the Brain proof</strong> — LIVE, TEE-attested (and how it stays honest)</summary>
 
-> The Brain leg is an **original implementation** on 0G's
-> public `@0glabs/0g-serving-broker` SDK (no internal dependency), **built + offline-tested**
-> (`agent/src/zerog/compute.ts`). Its verdict is `attested:true` ONLY when **two cryptographic facts** both
-> hold — a `trusted` provider-service attestation AND a verified per-response enclave signature — **never** the
-> model's own words. The live broker call needs a **funded 0G Compute sub-account + a TEE provider**, so it is
-> **operator-gated**: the default offline build keeps the Brain stamp **PENDING**, and it goes green only once
-> one live verified attestation runs. We never fabricate an attestation. Details: [`docs/PROOFAGENT_0G_EVIDENCE.md`](docs/PROOFAGENT_0G_EVIDENCE.md) §1h.
+> The Brain leg is an **original implementation** on 0G's official
+> **`@0gfoundation/0g-compute-ts-sdk`** broker (no internal dependency), **built + tested**
+> (`agent/src/zerog/computeBrain.ts`). A plan is labelled `"tee"` ONLY when **`processResponse`** verifies the
+> per-response enclave signature — **never** the model's own words. A real verified attestation ran this session
+> (provider `0xa48f…7836`, model `qwen/qwen2.5-omni-7b`, `processResponse === true`), so the Brain stamp is
+> **LIVE**. A TEE attestation is a *one-time* enclave signature, so the durable proof is the **reproducible**
+> broker call (re-run it with the official SDK + a funded ledger) + the recorded evidence — and the stamp drops
+> back to PENDING the instant an attestation is absent or un-attested. We never fabricate one. Details:
+> [`docs/PROOFAGENT_0G_EVIDENCE.md`](docs/PROOFAGENT_0G_EVIDENCE.md) §1h.
 
 </details>
 
@@ -61,8 +75,8 @@ full agent loop READ-ONLY — **no wallet, no signing, nothing broadcast**. It p
 **per asset** with a real zero-gas `checkTransfer` `eth_call` on the deployed mandate (an allowlisted asset under
 its cap → **ALLOWED**; over its cap → **OVER_TX_CAP**; a non-allowlisted asset → **TOKEN_NOT_ALLOWED**), and
 produces a **RUN LEDGER** in the verifier's own journal format. A dry-run broadcasts nothing, so every leg is
-honestly `unverified` — never a fabricated `settled`. The Brain stamp stays **PENDING** (its green flip is
-operator-gated on a real TEE attestation).
+honestly `unverified` — never a fabricated `settled`. The Brain stamp is **LIVE** — TEE-attested (a real enclave
+attestation verified, `processResponse === true`); the dry-run itself broadcasts nothing, so its trade legs stay honestly `unverified`.
 
 ### See the mandate, read straight from chain
 On the **Verification Console** the **RAILS card is a read-only mirror of the deployed mandate registry**: a 0G

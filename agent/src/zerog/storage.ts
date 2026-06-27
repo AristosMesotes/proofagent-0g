@@ -22,7 +22,7 @@
  * ## Offline-by-default + the live path is operator-gated (design §6, the honesty bar)
  *
  * This module is pure and dependency-free EXCEPT for [`liveStorageProvider`], which dynamically imports
- * the public `@0glabs/0g-ts-sdk` + `ethers` ONLY when the operator constructs it with a funded wallet.
+ * the public `@0gfoundation/0g-storage-ts-sdk` + `ethers` ONLY when the operator constructs it with a funded wallet.
  * The default build, and every test, drives [`publishVerdictBundle`] with an in-repo stub
  * [`StorageProvider`] -- so `tsc` and the suite run with no SDK installed and no network reachable. The
  * single live publish (which needs a funded 0G wallet for storage gas) is reached only on that opt-in
@@ -31,7 +31,7 @@
  * ## Clean-room (design §6)
  *
  * No proprietary identifier, private path, or secret appears here. The only external names are the PUBLIC
- * `@0glabs/0g-ts-sdk` storage-SDK package name and its documented `Indexer.upload` concept. The wallet
+ * `@0gfoundation/0g-storage-ts-sdk` storage-SDK package name and its documented `Indexer.upload` concept. The wallet
  * key, the EVM RPC, and the indexer RPC all come from operator config/env, never baked into the source.
  */
 
@@ -82,7 +82,7 @@ export interface StoragePublishResult {
 
 /**
  * The narrow STORAGE seam (mirrors the Brain's `AttestationProvider` and the verifier's `Source`): the ONE
- * boundary the Storage leg publishes across. A live `@0glabs/0g-ts-sdk` Indexer adapter and an offline test
+ * boundary the Storage leg publishes across. A live `@0gfoundation/0g-storage-ts-sdk` Indexer adapter and an offline test
  * double both satisfy it, so the publish logic is identical whether it talks to real 0G Storage or a
  * recorded double. The single method returns a real on-0G handle, or THROWS (mapped to a loud StorageError).
  */
@@ -172,7 +172,7 @@ export function serializeVerdictBundle(bundle: VerdictBundle): {
  * local FNV-1a fingerprint (checkable offline) AND the on-0G rootHash (the immutable, re-derivable handle).
  *
  * @param bundle   The verifier's verdict bundle (the auditable payload).
- * @param storage  The storage seam -- a live `@0glabs/0g-ts-sdk` Indexer adapter OR an offline test double.
+ * @param storage  The storage seam -- a live `@0gfoundation/0g-storage-ts-sdk` Indexer adapter OR an offline test double.
  */
 export async function publishVerdictBundle(
   bundle: VerdictBundle,
@@ -244,7 +244,7 @@ export function localStorageProvider(): LocalStorageProvider {
 }
 
 // ------------------------------------------------------------------------------------------------
-// liveStorageProvider -- the OPERATOR-GATED live path. Dynamically imports the PUBLIC @0glabs/0g-ts-sdk
+// liveStorageProvider -- the OPERATOR-GATED live path. Dynamically imports the PUBLIC @0gfoundation/0g-storage-ts-sdk
 // + ethers ONLY here, so the default build / tests never need the SDK or the network. Needs a FUNDED 0G
 // wallet (storage gas) + an indexer endpoint; opt-in by construction.
 // ------------------------------------------------------------------------------------------------
@@ -265,7 +265,7 @@ export interface LiveStorageConfig {
 }
 
 /**
- * The minimal PUBLIC shape this module needs from `@0glabs/0g-ts-sdk` -- declared locally (rather than
+ * The minimal PUBLIC shape this module needs from `@0gfoundation/0g-storage-ts-sdk` -- declared locally (rather than
  * importing SDK types) so `tsc` stays fully offline; the real SDK is loaded only at runtime on the live
  * path and structurally checked there. Mirrors the documented `new Indexer(url)` + `indexer.upload(file,
  * evmRpc, signer) -> [tx, err]` (with `tx.rootHash` / `tx.txHash`) and an in-memory file factory.
@@ -288,7 +288,7 @@ interface LiveStorageHandles {
 }
 
 /**
- * Construct the LIVE [`StorageProvider`] backed by the public `@0glabs/0g-ts-sdk` (design §9 Wow). The SDK
+ * Construct the LIVE [`StorageProvider`] backed by the public `@0gfoundation/0g-storage-ts-sdk` (design §9 Wow). The SDK
  * is imported DYNAMICALLY here -- the default offline build and the tests never load it. The returned
  * provider performs a real `Indexer.upload` against a FUNDED 0G wallet and returns the genuine on-0G Merkle
  * rootHash. This is the operator-gated path; the default build pins no rootHash (Storage stamp PENDING).
@@ -331,12 +331,12 @@ export async function liveStorageProvider(config: LiveStorageConfig): Promise<St
 /**
  * Dynamically load the public 0G Storage SDK + ethers and build the live publisher handles. Isolated so the
  * dynamic import + wallet construction live in ONE place and the offline build never resolves them. The
- * package names are the PUBLIC `@0glabs/0g-ts-sdk` + its documented `ethers` peer.
+ * package names are the PUBLIC `@0gfoundation/0g-storage-ts-sdk` + its documented `ethers` peer.
  *
  * @throws {StorageError} on any load/construction failure (loud -- never returns a fake indexer).
  */
 async function loadPublicStorage(config: LiveStorageConfig): Promise<LiveStorageHandles> {
-  const sdkName = "@0glabs/0g-ts-sdk";
+  const sdkName = "@0gfoundation/0g-storage-ts-sdk";
   const ethersName = "ethers";
   try {
     const sdk = (await import(sdkName)) as {
