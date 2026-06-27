@@ -57,10 +57,19 @@ export interface ZeroGComputeConfig {
   readonly fetchImpl?: typeof fetch;
   /** Inference request timeout (ms, default 45s). */
   readonly timeoutMs?: number;
+  /** Attestation verification attempts (default 3): the enclave signature can lag the response. */
+  readonly attestRetries?: number;
+  /** Delay between attestation attempts (ms, default 1200; set 0 in tests for speed). */
+  readonly attestRetryDelayMs?: number;
 }
 
 /** The default public 0G Galileo testnet EVM RPC (never a hardcoded key -- only a public host). */
 export const DEFAULT_COMPUTE_RPC = "https://evmrpc-testnet.0g.ai";
+
+/** Default attestation retries + settle delay -- the enclave signature can lag the response (observed live). */
+const DEFAULT_ATTEST_RETRIES = 3;
+const DEFAULT_ATTEST_RETRY_DELAY_MS = 1200;
+const sleep = (ms: number): Promise<void> => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
 
 /**
  * Read the live 0G Compute brain config from the env, or `null` if not configured (so the caller keeps the
@@ -186,14 +195,27 @@ export async function planZeroGCompute(query: string, config: ZeroGComputeConfig
   // The attestation -- the ONLY path to a "tee" plan. `processResponse` verifies the enclave signature for
   // THIS response; we NEVER read attested-ness from the model's reply text (design SS3 #2).
   const chatId = responseId(response, body);
-  let attested: boolean;
-  try {
-    attested = await broker.inference.processResponse(providerAddr, chatId, query);
-  } catch (err) {
-    throw new ComputeBrainError(`0G Compute attestation check failed: ${err instanceof Error ? err.message : String(err)}`);
+  // The enclave signature can lag the response: the provider needs a moment to register it before
+  // `processResponse` can fetch + verify it (observed live as a transient "getting signature error").
+  // Retry the GENUINE verification with a short settle delay; a "tee" plan is still minted ONLY on a
+  // real attested===true -- the retry only waits out provider timing, it NEVER fabricates (design SS3 #3).
+  const retries = Math.max(1, config.attestRetries ?? DEFAULT_ATTEST_RETRIES);
+  const retryDelay = config.attestRetryDelayMs ?? DEFAULT_ATTEST_RETRY_DELAY_MS;
+  let attested = false;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < retries && attested !== true; attempt++) {
+    if (attempt > 0) {
+      await sleep(retryDelay);
+    }
+    try {
+      attested = await broker.inference.processResponse(providerAddr, chatId, query);
+    } catch (err) {
+      lastErr = err;
+    }
   }
   if (attested !== true) {
-    throw new ComputeBrainError("0G Compute: the per-response TEE attestation did NOT verify -- refusing a 'tee' plan");
+    const why = lastErr instanceof Error ? `: ${lastErr.message}` : "";
+    throw new ComputeBrainError(`0G Compute: the per-response TEE attestation did NOT verify -- refusing a 'tee' plan${why}`);
   }
 
   try {

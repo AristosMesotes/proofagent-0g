@@ -31,10 +31,12 @@ Per-asset allowlist + per-tx cap, enforced on-chain, zero-gas pre-broadcast — 
 
 ---
 
-## 🟡 0G STORAGE — leg works; genuine 0G root computed; on-chain anchor externally gated
+## 🟢 0G STORAGE — LIVE: a real verdict bundle is published on 0G (rootHash re-fetchable on storagescan)
 
-ProofAgent's own `liveStorageProvider` / `publishVerdictBundle` leg ran LIVE against the public 0G SDK
-(`@0glabs/0g-ts-sdk` 0.3.3) + the turbo indexer (`indexer-storage-testnet-turbo.0g.ai`):
+ProofAgent's own `liveStorageProvider` / `publishVerdictBundle` leg ran LIVE against the OFFICIAL 0G SDK
+(`@0gfoundation/0g-storage-ts-sdk`) + the turbo indexer (`indexer-storage-testnet-turbo.0g.ai`), publishing a
+real verdict bundle: **rootHash `0x6b51c075…2fe3f6b`** · **txHash `0xb7e7f04f…48f6582`** (re-fetch it on
+storagescan-galileo). Pinned in `web/src/spine.ts` (`STORAGE_ONCHAIN`):
 
 - canonical verdict bundle (205 B, deterministic sorted-key JSON, re-derivable):
   `{"chainId":16602,"claimed":1000000,"hash":"0x8c59…bfb0","kind":"transfer","observed":1000000,"toleranceDen":100,"toleranceNum":15,"verdict":"settled"}`

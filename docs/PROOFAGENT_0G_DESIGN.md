@@ -697,7 +697,7 @@ SDK versions are pinned in `package.json` / `Cargo.toml`. No real keys ever live
 - Bridge: **XSwap** over **Chainlink CCIP**; 0G CCIP selector `4426351306075016396`.
 
 **Public 0G SDKs**
-- Storage: `@0glabs/0g-ts-sdk`. Compute: the public broker SDK / `router-api.0g.ai` (OpenAI-compatible endpoint).
+- Storage: `@0gfoundation/0g-storage-ts-sdk`. Compute: `@0gfoundation/0g-compute-ts-sdk` broker / `router-api.0g.ai` (OpenAI-compatible endpoint).
 - Swap: `@uniswap/v3-sdk` / `@uniswap/sdk-core` / `swap-router-contracts`. Routing: `@arcadia-network/sdk` (Khalani) · `@lifi/sdk`. Bridge: `IRouterClient.ccipSend` + `Client.EVM2AnyMessage`.
 
 **Sources**

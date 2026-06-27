@@ -15,6 +15,8 @@ const PROVIDER = "0xa48f01287233509fd694a22bf840225062e67836";
 interface MockOpts {
   services?: Array<{ provider: string; model?: string; serviceType?: string }>;
   attested?: boolean;
+  /** A per-call attestation sequence (e.g. [false, false, true]) to exercise the settle-retry. */
+  attestSequence?: boolean[];
   content?: string;
   httpOk?: boolean;
   status?: number;
@@ -22,13 +24,19 @@ interface MockOpts {
 
 function harness(opts: MockOpts = {}): { config: ZeroGComputeConfig; seenHeaders: Record<string, string> } {
   const seenHeaders: Record<string, string> = {};
+  let attestCalls = 0;
   const broker: ComputeBroker = {
     inference: {
       listService: async () =>
         opts.services ?? [{ provider: PROVIDER, model: "qwen/qwen2.5-omni-7b", serviceType: "chatbot" }],
       getServiceMetadata: async () => ({ endpoint: ENDPOINT, model: "qwen/qwen2.5-omni-7b" }),
       getRequestHeaders: async () => ({ "x-zg-signed": "single-use" }),
-      processResponse: async () => opts.attested ?? true,
+      processResponse: async () => {
+        if (Array.isArray(opts.attestSequence)) {
+          return opts.attestSequence[Math.min(attestCalls++, opts.attestSequence.length - 1)] ?? false;
+        }
+        return opts.attested ?? true;
+      },
       acknowledgeProviderSigner: async () => undefined,
     },
   };
@@ -45,7 +53,7 @@ function harness(opts: MockOpts = {}): { config: ZeroGComputeConfig; seenHeaders
     } as unknown as Response;
   }) as unknown as typeof fetch;
   return {
-    config: { walletPrivateKey: "0xkey", brokerFactory: async () => broker, fetchImpl },
+    config: { walletPrivateKey: "0xkey", brokerFactory: async () => broker, fetchImpl, attestRetryDelayMs: 0 },
     seenHeaders,
   };
 }
@@ -64,6 +72,14 @@ test("a verified attestation yields a plan labelled tee (the genuine 0G Compute 
   assert.equal(p.brain, "tee"); // reachable ONLY on a verified TEE attestation
   assert.deepEqual(p.allocations, [{ token: "W0G", bps: 10000 }]);
   assert.equal(seenHeaders["x-zg-signed"], "single-use"); // the broker's signed headers were sent
+});
+
+test("a transient signature error settles on retry -> tee (waits out provider timing, never fabricated)", async () => {
+  // Observed LIVE: processResponse can return a transient false/throw before the enclave signature is
+  // registered. The settle-retry waits it out; the plan is STILL minted only on a real attested===true.
+  const { config } = harness({ attestSequence: [false, false, true] });
+  const p = await planZeroGCompute("balanced", config);
+  assert.equal(p.brain, "tee"); // verified on the 3rd attempt -- genuine, not fabricated
 });
 
 test("an UNVERIFIED attestation refuses a tee plan (never fabricated)", async () => {

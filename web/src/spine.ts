@@ -289,15 +289,20 @@ export const SETTLED_ONCHAIN = {
 /**
  * The 0G Storage "Wow" leg surface (design §9 Wow): the verifier's verdict bundle published to 0G Storage as
  * immutable, content-addressed evidence -- "the proof itself lives on 0G". `rootHash` is the on-0G Merkle
- * handle of the latest published bundle. It is EMPTY by default (the single live publish is operator-gated --
- * a funded 0G wallet for storage gas), so the Storage stamp renders PENDING, exactly like the brain. When
- * the operator pins a real rootHash here, the stamp flips to LIVE. All PUBLIC.
+ * handle of the latest published bundle. It is now PINNED to a REAL live publish (a verdict bundle uploaded
+ * via the official `@0gfoundation/0g-storage-ts-sdk` against a funded 0G wallet on Galileo), so the Storage
+ * stamp renders LIVE and any viewer can re-fetch the bundle by its rootHash on storagescan. All PUBLIC,
+ * re-checkable evidence -- never a fabricated handle (empty would render PENDING; this is a genuine root).
  */
 export const STORAGE_ONCHAIN = {
-  /** The 0G Storage Merkle rootHash of the latest published verdict bundle -- EMPTY until the operator pins one. */
-  rootHash: "" as string,
-  /** The public 0G Galileo explorer base (so a viewer can confirm the publishing tx / evidence on 0G). */
+  /** The 0G Storage Merkle rootHash of a real published verdict bundle (LIVE -- re-fetchable on storagescan). */
+  rootHash: "0x6b51c075fccac9fff9ab461fee61252d93cd676010ffcb5f79972d8432fe3f6b" as string,
+  /** The 0G Storage publishing transaction hash (the on-chain anchor of the upload -- confirmable on chainscan). */
+  txHash: "0xb7e7f04f2450a08e60f4c53bccbd6e070b3875a8868e89e39dd2b506748f6582",
+  /** The public 0G Galileo explorer base (so a viewer can confirm the publishing tx on 0G). */
   explorer: "https://chainscan-galileo.0g.ai",
+  /** The public 0G Storage scan base (so a viewer can re-fetch the bundle by its rootHash). */
+  storageExplorer: "https://storagescan-galileo.0g.ai",
 } as const;
 
 /**
