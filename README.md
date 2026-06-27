@@ -46,9 +46,12 @@ the agent can't lie because an independent reader, not the agent, gets the last 
             publish txHash      0xb7e7f04f2450a08e60f4c53bccbd6e070b3875a8868e89e39dd2b506748f6582   storagescan-galileo.0g.ai
 0G Compute  TEE attestation     processResponse === true · provider 0xa48f01287233509FD694a22Bf840225062E67836
             model / responseId  qwen/qwen2.5-omni-7b · 8a389c56-b252-428c-a44c-b098f03b9b35   (re-run via @0gfoundation/0g-compute-ts-sdk)
-0G iNFT     AgentIdentity       0x3A915428775fA8AF3CAd01AAb8F801EC1fc0c4B1  · token #1        chainscan-galileo.0g.ai
-            deploy / mint tx    0x5dd5a81258baf0b026629d83491f5035c55ab82aa02394ed39703a4fcae6d418 · 0x4ed8e1a2884dc3c0a436e2ccc34cc831fa45e61ab283c7df90302e7054a62bc4
+0G iNFT     AgentIdentity       0x3A915428775fA8AF3CAd01AAb8F801EC1fc0c4B1  · token #1 (testnet)  chainscan-galileo.0g.ai
             canSpend(over-cap)  staticcall MandateRegistryV4 → OVER_TX_CAP   (the iNFT enforces the rails on-chain)
+0G iNFT     AgentIdentity MAINNET   0xcb00ACb3daC87465c4c931B3b713710e1c17Be7f  · token #1   chainscan.0g.ai  (✓ source-verified)
+            mainnet mandate         0xD96F7e0cb712Bbc5b17ebb6fd13F48e47a7320DF → canSpend → OVER_TX_CAP on MAINNET
+0G iNFT     ERC-7857 CONFORMANT     0x1E56e7bde7147FEaa3a1d4bcd1b2C305d2201E6e  (mainnet · ✓ verified · AIverse-ready)
+            supportsInterface       type(IERC7857).interfaceId → true  ·  canSpend → OVER_TX_CAP  (canonical + enforcing)
 ```
 Every line is independently re-checkable on a public scan — except the one-time TEE enclave signature, which is **reproducible** with the official SDK + a funded ledger (that's the honest nature of an attestation, stated plainly).
 
