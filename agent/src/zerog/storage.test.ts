@@ -16,6 +16,8 @@ import {
   serializeVerdictBundle,
   publishVerdictBundle,
   liveStorageProvider,
+  localStorageProvider,
+  contentAddress,
   fnv1a64,
   StorageError,
   type VerdictBundle,
@@ -139,4 +141,38 @@ test("liveStorageProvider is fail-closed without operator config (no key/rpc/ind
     () => liveStorageProvider({ walletPrivateKey: "k", evmRpcUrl: "x", indexerRpcUrl: "" }),
     StorageError,
   );
+});
+
+// --- the local content-addressed provider (fully-working, network-free) ---------------------------
+
+test("contentAddress is a re-derivable 0x + 64-hex SHA-256 (deterministic)", () => {
+  const a = contentAddress(new TextEncoder().encode("proofagent"));
+  assert.match(a, /^0x[0-9a-f]{64}$/);
+  assert.equal(a, contentAddress(new TextEncoder().encode("proofagent"))); // same bytes -> same root
+  assert.notEqual(a, contentAddress(new TextEncoder().encode("proofagen"))); // different bytes -> different root
+});
+
+test("localStorageProvider publishes a verdict bundle end-to-end (a real content-address, no network)", async () => {
+  const storage = localStorageProvider();
+  const receipt = await publishVerdictBundle(bundleOf(), storage);
+  const ser = serializeVerdictBundle(bundleOf());
+  assert.equal(receipt.rootHash, contentAddress(ser.bytes)); // the honest SHA-256 of the canonical bytes
+  assert.match(receipt.rootHash, /^0x[0-9a-f]{64}$/);
+  assert.equal(receipt.txHash, undefined); // a local store has no settling tx
+  assert.equal(receipt.bytesLength, ser.bytes.length);
+});
+
+test("localStorageProvider round-trips: retrieve returns byte-identical bytes (re-derivable proof)", async () => {
+  const storage = localStorageProvider();
+  const ser = serializeVerdictBundle(bundleOf());
+  const { rootHash } = await storage.publish(ser.bytes);
+  const got = storage.retrieve(rootHash);
+  assert.ok(got);
+  assert.deepEqual([...got], [...ser.bytes]);
+  assert.equal(contentAddress(got), rootHash); // what we got back re-derives the SAME root
+  assert.equal(storage.retrieve(`0x${"00".repeat(32)}`), null); // an unknown root -> null
+});
+
+test("localStorageProvider rejects empty bytes (loud, never a fake root)", async () => {
+  await assert.rejects(() => localStorageProvider().publish(new Uint8Array()), StorageError);
 });

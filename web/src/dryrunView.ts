@@ -136,6 +136,18 @@ export function buildDryRun(transport: RpcTransport, listeners?: DryRunListeners
   button.textContent = "Run the agent (dry-run) → gate 3 intents, project the run ledger";
   body.appendChild(button);
 
+  // An honest brain-mode caption: this OFFLINE console plans deterministically (there is no key in the
+  // browser); the live agent runs a CONFIGURABLE hosted-LLM brain -- a CLAIM the on-chain verifier checks,
+  // never trusted. It never claims the hosted brain runs in-browser, and it does NOT green the 0G-Compute
+  // pillar (the 0G Compute TEE attestation -- "which model ran on 0G" -- is the separate operator-gated layer).
+  const brainNote = document.createElement("p");
+  brainNote.className = "verdict-why dryrun__brain-note";
+  brainNote.textContent =
+    "Brain: this console plans deterministically (no key in the browser). The live agent runs a configurable " +
+    "hosted-LLM brain — a CLAIM the on-chain verifier checks; the 0G Compute TEE attestation (which model ran) " +
+    "is the operator-gated layer. We never fake green.";
+  body.appendChild(brainNote);
+
   // The legs list (one block per intent) + the run-ledger panel — both filled on a run.
   const legsHost = document.createElement("div");
   legsHost.className = "dryrun__legs";
