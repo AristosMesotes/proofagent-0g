@@ -357,6 +357,13 @@ export const AGENT_ID_ONCHAIN = {
     chainId: 16661,
     explorer: "https://chainscan.0g.ai",
   },
+  /** The CANONICAL, AIverse-conformant variant (AgentIdentityINFT): returns true for type(IERC7857).interfaceId
+   *  (indexer-recognisable) AND keeps canSpend. Deployed + minted on testnet + MAINNET (source-verified). */
+  conformant: {
+    testnet: { address: "0x463F700a200F671A481EcF4409dE471F1b8BE76e", oracle: "0xFa7326F8Ed67f55cB7eada408381619e540D86Ce", chainId: 16602 },
+    mainnet: { address: "0x1E56e7bde7147FEaa3a1d4bcd1b2C305d2201E6e", oracle: "0xE0D51040d3285383ED2ad08589eE538a6Ee64cE7", chainId: 16661, verified: true },
+    tokenId: 1,
+  },
 } as const;
 
 /**
