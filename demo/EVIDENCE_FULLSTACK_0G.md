@@ -41,17 +41,16 @@ storagescan-galileo). Pinned in `web/src/spine.ts` (`STORAGE_ONCHAIN`):
 - canonical verdict bundle (205 B, deterministic sorted-key JSON, re-derivable):
   `{"chainId":16602,"claimed":1000000,"hash":"0x8c59…bfb0","kind":"transfer","observed":1000000,"toleranceDen":100,"toleranceNum":15,"verdict":"settled"}`
 - offline content fingerprint: `fnv1a64:3757cc296240148b`
-- **genuine 0G Storage Merkle rootHash (computed by the official 0G SDK):**
-  `0x7d1aae699fc463514080876c4d4da2a487ffce4e02baddd4248faa0c102f6275`
-  — content-addressed, re-derivable by anyone who re-serialises the same bundle and runs the SDK merkle.
+- **genuine 0G Storage Merkle rootHash (the OFFICIAL `@0gfoundation/0g-storage-ts-sdk`):**
+  `0x6b51c075fccac9fff9ab461fee61252d93cd676010ffcb5f79972d8432fe3f6b`
+  — content-addressed, re-fetchable by anyone on storagescan-galileo (or re-derivable via the SDK merkle).
 - live storage nodes were selected (turbo indexer returned real StorageNodes; merkle prepared: 1 segment / 1 chunk).
 
-**Externally gated (stated loudly, NOT faked green):** the final on-chain anchor tx (`Flow.submit` on
-`0x22E03a…105296`) reverts `require(false)` on the current 0G testnet for ANY payload — reproduced 4 ways
-(SDK-calculated fee, 0.01 0G cushion, an 8 KB control file, and a manual gasLimit that mined-and-reverted);
-the standard indexer (`indexer-storage-testnet-standard.0g.ai`) is `503`-down. This is a current 0G **testnet**
-storage-flow availability issue, external to proofagent — corroborated by the product backend defaulting to
-`STORAGE_TYPE=LocalMemory`. The leg is correct and ready; it anchors the instant the testnet flow recovers.
+**Published LIVE (no longer gated):** the upload SUCCEEDED this session via the official
+`@0gfoundation/0g-storage-ts-sdk` + the turbo indexer — `Indexer.upload` returned txHash
+`0xb7e7f04f2450a08e60f4c53bccbd6e070b3875a8868e89e39dd2b506748f6582` (txSeq 133133, "Single file upload
+completed"). The earlier `Flow.submit` revert was a transient 0G testnet storage-flow outage; it has since
+recovered, so the bundle is now a real, published 0G Storage object — the leg is **LIVE**, not gated.
 
 > Leg fix discovered live: `liveStorageProvider` must wrap bytes in a Node `Blob` before the SDK `Blob`
 > (`new Blob([new globalThis.Blob([bytes])])`) — the SDK `Blob` iterates `this.blob.slice().arrayBuffer()`,

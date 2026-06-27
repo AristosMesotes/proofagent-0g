@@ -399,3 +399,13 @@ agent = "0x4850417aE8aEDD5D67344FE98c86515cfb5F393b"     # the agent EOA (also o
 mandate = "0x8e561a5cc096af6e570220a5228b33c7d889f774"  # the bound MandateRegistryV4 (rails)
 model = "qwen/qwen2.5-omni-7b"                           # the attested model (0G Compute TEE)
 sealed_metadata = "0x6b51c075fccac9fff9ab461fee61252d93cd676010ffcb5f79972d8432fe3f6b"  # 0G Storage rootHash of the mind
+
+[agent_id.mainnet]
+# The SAME Agentic ID, ALSO deployed + minted LIVE on 0G ARISTOTLE MAINNET (16661) with a mainnet
+# MandateRegistryV4 -- canSpend enforces the cap on-chain there too: canSpend(1,NATIVE,1e18) -> OVER_TX_CAP;
+# canSpend(1,NATIVE,1_000_000) -> OK. A real mainnet on-chain credential, AIverse-ready.
+address = "0xcb00ACb3daC87465c4c931B3b713710e1c17Be7f"   # AgentIdentity on 0G mainnet -- chain-checkable
+token_id = 1
+mandate = "0xD96F7e0cb712Bbc5b17ebb6fd13F48e47a7320DF"  # the mainnet MandateRegistryV4 (rails)
+chain_id = 16661
+explorer = "https://chainscan.0g.ai"

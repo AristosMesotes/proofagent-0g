@@ -348,6 +348,15 @@ export const AGENT_ID_ONCHAIN = {
   mintTx: "0x4ed8e1a2884dc3c0a436e2ccc34cc831fa45e61ab283c7df90302e7054a62bc4",
   /** The public 0G Galileo explorer base (confirm the contract + token yourself). */
   explorer: "https://chainscan-galileo.0g.ai",
+  /** The SAME Agentic ID, ALSO deployed + minted LIVE on 0G ARISTOTLE MAINNET (16661) with a mainnet
+   *  MandateRegistryV4 -- canSpend enforces the cap on-chain there too (over-cap -> OVER_TX_CAP; in-cap -> OK). */
+  mainnet: {
+    address: "0xcb00ACb3daC87465c4c931B3b713710e1c17Be7f",
+    tokenId: 1,
+    mandate: "0xD96F7e0cb712Bbc5b17ebb6fd13F48e47a7320DF",
+    chainId: 16661,
+    explorer: "https://chainscan.0g.ai",
+  },
 } as const;
 
 /**
