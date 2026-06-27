@@ -57,7 +57,7 @@ import {
   REASON_OVER_TX_CAP,
   type RpcTransport,
 } from "./onchain.js";
-import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN, STORAGE_ONCHAIN, BRAIN_ONCHAIN, WATCH } from "./spine.js";
+import { CHAIN, MANDATE, VERIFIER, GALILEO, RAILS_ONCHAIN, SETTLED_ONCHAIN, STORAGE_ONCHAIN, BRAIN_ONCHAIN, AGENT_ID_ONCHAIN, WATCH } from "./spine.js";
 import { card, statusPill, statusDot, shortHash, renderThreeAltitude } from "./render.js";
 import {
   ReconcileBadge,
@@ -978,8 +978,9 @@ function render0gStack(host: HTMLElement): void {
   lead.className = "og-stack__lead";
   lead.textContent =
     "Every layer is LIVE on 0G. Chain gates + settles (chain-checkable now); Storage published a real verdict " +
-    "bundle (rootHash re-fetchable on storagescan); Compute attested the cognition inside a TEE (processResponse " +
-    "verified, re-runnable) — we never fake green, and now we don't have to (that refusal is still the point):";
+    "bundle (rootHash re-fetchable); Compute attested the cognition inside a TEE (re-runnable); and the agent's " +
+    "sovereign identity is an ERC-7857 iNFT whose canSpend enforces the cap on-chain — five 0G primitives, one " +
+    "honest agent. We never fake green, and now we don't have to (that refusal is still the point):";
   sec.appendChild(lead);
 
   const row = document.createElement("div");
@@ -995,6 +996,12 @@ function render0gStack(host: HTMLElement): void {
   const storageLive = /^0x[0-9a-fA-F]{64}$/.test(STORAGE_ONCHAIN.rootHash.trim());
   row.appendChild(
     ogPillar("0G Storage", "attests", "the proof itself lives on 0G — the verdict bundle, published immutably", storageLive ? "live" : "pending", storageLive ? "● LIVE" : "operator-gated"),
+  );
+  // The 5th primitive: the agent's sovereign ERC-7857 Agentic ID. Green ONLY on a real 20-byte 0G address
+  // (the deployed AgentIdentity) -- a placeholder can never fake a green pillar.
+  const agentIdLive = /^0x[0-9a-fA-F]{40}$/.test(AGENT_ID_ONCHAIN.address.trim());
+  row.appendChild(
+    ogPillar("0G iNFT (ERC-7857)", "identifies", "the agent's sovereign Agentic ID — binds its rails + enclave-attested mind; canSpend enforces the cap on-chain", agentIdLive ? "live" : "pending", agentIdLive ? "● LIVE" : "operator-gated"),
   );
   sec.appendChild(row);
   host.appendChild(sec);

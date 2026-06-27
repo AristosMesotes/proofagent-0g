@@ -26,15 +26,16 @@ the agent can't lie because an independent reader, not the agent, gets the last 
 
 🌐 **[Open the live Verification Console →](https://aristosmesotes.github.io/proofagent-0g/dashboard.html)** — no install, no wallet, no signup. Run every proof in your browser right now: the four cards, paste **any** 0G tx hash into the Playground, the dry-run RUN LEDGER, the mandate card — all reconciled live against 0G Galileo (read-only).
 
-### Every layer is LIVE on 0G — and we still never fake what we can't prove
+### Every layer is LIVE on 0G — five primitives, one honest agent (and we still never fake what we can't prove)
 
 | 0G layer | What it proves | Status | How |
 |---|---|---|---|
 | **0G Chain** — *gates + settles* | can't overspend **and** can't lie | 🟢 **LIVE** | the on-chain **`MandateRegistryV4`** ([`0x8e561a…f774`](https://chainscan-galileo.0g.ai/address/0x8e561a5cc096af6e570220a5228b33c7d889f774) on Galileo `16602`) blocks an over-cap spend **pre-broadcast**; an **independent Rust verifier** reads 0G itself and stamps `SETTLED` only on a real on-chain receipt |
 | **0G Compute** — *reasons* | which model actually ran | 🟢 **LIVE** | a real **TEE attestation** verified on 0G Compute (`processResponse === true`, official **`@0gfoundation/0g-compute-ts-sdk`**): provider [`0xa48f…7836`](https://chainscan-galileo.0g.ai/address/0xa48f01287233509FD694a22Bf840225062E67836), model `qwen/qwen2.5-omni-7b` — `attested` only when the per-response enclave signature verifies (**never** the model's word). Re-runnable with the official SDK |
 | **0G Storage** — *attests* | the proof itself lives on 0G | 🟢 **LIVE** | the verifier's verdict bundle **published immutably to 0G Storage** via the official **`@0gfoundation/0g-storage-ts-sdk`** → content-addressed `rootHash` [`0x6b51c0…3f6b`](https://storagescan-galileo.0g.ai) (txHash `0xb7e7f0…f6582`) — anyone can re-fetch the bundle by its root |
+| **0G iNFT (ERC-7857)** — *identifies* | the agent's sovereign Agentic ID | 🟢 **LIVE** | ProofAgent's identity is an **ERC-7857 intelligent-NFT** ([`AgentIdentity 0x3A91…c4B1`](https://chainscan-galileo.0g.ai/address/0x3A915428775fA8AF3CAd01AAb8F801EC1fc0c4B1), token #1) binding its rails + TEE oracle + the 0G Storage mind-handle — and it does **real work**: `canSpend(1,…)` staticcalls the live mandate on-chain → **`OVER_TX_CAP`** for an over-cap spend. Launchpad-mintable (the AIverse Agentic-ID model) |
 
-**All three layers are LIVE on 0G and checkable** — the Chain carries both money proofs (can't-overspend **and** can't-lie), 0G Storage holds a real published verdict bundle (re-fetch it by `rootHash`), and 0G Compute attested a real enclave inference (`processResponse === true`, re-runnable). *And we still never paint green what we can't prove* — the negative paths are right there: a fabricated hash → `UNVERIFIED`, an over-cap spend → refused **pre-broadcast**, an un-attested reply → **no `tee` label**. That refusal-to-fake is the property that makes the agent trustworthy; the difference now is that **every honest layer is live**, not merely claimed (compare the field, where "0G" is too often a label on a mock).
+**All five 0G primitives are LIVE on 0G and checkable** — **Chain** carries both money proofs (can't-overspend **and** can't-lie), **Storage** (which rides on 0G **DA**) holds a real published verdict bundle, **Compute** attested a real enclave inference (`processResponse === true`, re-runnable), and the **ERC-7857 iNFT** is the agent's sovereign identity that enforces its own cap on-chain. *And we still never paint green what we can't prove* — the negative paths are right there: a fabricated hash → `UNVERIFIED`, an over-cap spend → refused **pre-broadcast**, an un-attested reply → **no `tee` label**. That refusal-to-fake is the property that makes the agent trustworthy; the difference now is that **every honest layer is live**, not merely claimed (compare the field, where "0G" is too often a label on a mock).
 
 **Proof you can check yourself** — no rival publishes a single verifiable hash; here are all of ours:
 
@@ -45,6 +46,9 @@ the agent can't lie because an independent reader, not the agent, gets the last 
             publish txHash      0xb7e7f04f2450a08e60f4c53bccbd6e070b3875a8868e89e39dd2b506748f6582   storagescan-galileo.0g.ai
 0G Compute  TEE attestation     processResponse === true · provider 0xa48f01287233509FD694a22Bf840225062E67836
             model / responseId  qwen/qwen2.5-omni-7b · 8a389c56-b252-428c-a44c-b098f03b9b35   (re-run via @0gfoundation/0g-compute-ts-sdk)
+0G iNFT     AgentIdentity       0x3A915428775fA8AF3CAd01AAb8F801EC1fc0c4B1  · token #1        chainscan-galileo.0g.ai
+            deploy / mint tx    0x5dd5a81258baf0b026629d83491f5035c55ab82aa02394ed39703a4fcae6d418 · 0x4ed8e1a2884dc3c0a436e2ccc34cc831fa45e61ab283c7df90302e7054a62bc4
+            canSpend(over-cap)  staticcall MandateRegistryV4 → OVER_TX_CAP   (the iNFT enforces the rails on-chain)
 ```
 Every line is independently re-checkable on a public scan — except the one-time TEE enclave signature, which is **reproducible** with the official SDK + a funded ledger (that's the honest nature of an attestation, stated plainly).
 

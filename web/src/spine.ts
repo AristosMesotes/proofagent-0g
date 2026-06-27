@@ -331,6 +331,26 @@ export const BRAIN_ONCHAIN = {
 } as const;
 
 /**
+ * The 0G ERC-7857 "Agentic ID" leg surface (design §9): ProofAgent's sovereign on-chain identity as an
+ * intelligent-NFT, deployed + minted LIVE on 0G Galileo testnet. The iNFT binds the agent EOA, its
+ * MandateRegistry (rails), its 0G Compute TEE verifier oracle, the attested model, and the 0G Storage rootHash
+ * of its encrypted "mind" -- and does REAL work: `canSpend` staticcalls the live mandate (verified on-chain to
+ * return OVER_TX_CAP for an over-cap spend). The 5th 0G primitive. All PUBLIC + chain-checkable; never faked.
+ */
+export const AGENT_ID_ONCHAIN = {
+  /** The deployed AgentIdentity (ERC-7857) collection on 0G Galileo testnet (16602). LIVE -- chain-checkable. */
+  address: "0x3A915428775fA8AF3CAd01AAb8F801EC1fc0c4B1",
+  /** ProofAgent's minted Agentic-ID token (the sovereign identity). */
+  tokenId: 1,
+  /** The deploy transaction (CREATE). */
+  deployTx: "0x5dd5a81258baf0b026629d83491f5035c55ab82aa02394ed39703a4fcae6d418",
+  /** The mint transaction (token #1 -- the full binding). */
+  mintTx: "0x4ed8e1a2884dc3c0a436e2ccc34cc831fa45e61ab283c7df90302e7054a62bc4",
+  /** The public 0G Galileo explorer base (confirm the contract + token yourself). */
+  explorer: "https://chainscan-galileo.0g.ai",
+} as const;
+
+/**
  * The READ-ONLY "watch the agent's wallet on 0G" surface (the honest, key-free wallet display). A PUBLIC
  * wallet ADDRESS the console shows live, read-only (native balance + nonce) -- NO key, NO signing (the
  * console never holds a key, by construction). Defaults to the public demo wallet the LEDGER / V4 deploy /
