@@ -174,7 +174,7 @@ every confirmable card has reconciled with zero mismatch.
 | Card | Click | On-screen verdict | Reconciled against (independent source) |
 |---|---|---|---|
 | **NEG — refuse a fabricated tx** | *Run the NEG case → expect UNVERIFIED* | **`UNVERIFIED`** (amber) | the verifier's published `adjudicate` rule, re-derived from scratch on the same fabricated hash — there is **deliberately no code path to `settled`** here |
-| **BRAIN — which model ran (0G Compute TEE)** | *(status card — no button)* | **`PENDING / Phase-2 (Depth)`** (amber) | **none yet** — the badge is permanently `awaiting real attestation`; it can **never** green here (the flip is operator-gated on a real enclave attestation, §1h of the [evidence](./docs/PROOFAGENT_0G_EVIDENCE.md)) |
+| **BRAIN — which model ran (0G Compute TEE)** | *(status card — no button)* | **`LIVE / TEE-attested`** (green) | a **real** 0G Compute TEE attestation verified (`processResponse === true`, provider `0xa48f…7836`, `qwen/qwen2.5-omni-7b`) — pinned in `web/src/spine.ts` (`BRAIN_ONCHAIN`); the stamp greens **only** on `attested === true` (re-runnable via the official SDK), §1h of the [evidence](./docs/PROOFAGENT_0G_EVIDENCE.md) |
 | **RAILS — it cannot overspend** | *(self-enriches; or use the simulator)* | reconcile pill **`Reconciled`** / **`Drifted`** / **`Unverified`** + per-pick **`ALLOWED`/`BLOCKED`/`UNVERIFIED`** | the deployed `MandateRegistry`'s own `checkTransfer` `eth_call` (the chain is the baseline, never the UI) |
 | **SETTLEMENT — the trade really happened** | *Check on-chain → expect SETTLED* | **`SETTLED`** (green) | a second, independent re-fetch of the pinned tx's receipt + value, re-running `adjudicate` in the open |
 
@@ -255,10 +255,11 @@ that the *same* affordances you click by hand are the ones the automation drives
 exactly what the chain/verifier independently re-derive.
 
 ### What stays honest (the scope you can hold us to)
-- **Brain stays PENDING.** The brain stamp goes green **only** on a real, verified 0G Compute **TEE
+- **Brain is LIVE — TEE-attested.** The brain stamp goes green **only** on a real, verified 0G Compute **TEE
   attestation** (a `trusted` provider-service attestation **AND** a verified per-response enclave signature —
-  never the model's words). The live broker call needs a funded 0G Compute sub-account + a TEE provider, so it
-  is **operator-gated**; the default build keeps the stamp PENDING. We never fabricate an attestation.
+  never the model's words) — and one verified this session (`processResponse === true`), so it is **LIVE**
+  (re-runnable via the official `@0gfoundation/0g-compute-ts-sdk`). Absent/un-attested it drops back to PENDING;
+  we never fabricate an attestation.
 - **The dry-run is a dry-run.** Nothing is signed or broadcast; the only chain access is the **read-only**
   `checkTransfer` `eth_call` (a real, zero-gas read). Every dry-run leg settles to `unverified` by construction.
 - **`MandateRegistryV4` is now LIVE.** The consolidated, hardened gate is deployed + tier-configured on 0G

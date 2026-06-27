@@ -59,11 +59,14 @@ storage-flow availability issue, external to proofagent — corroborated by the 
 
 ---
 
-## 🟡 0G COMPUTE — TEE-attestation seam GREEN; live enclave externally gated
+## 🟢 0G COMPUTE — LIVE: a real 0G Compute TEE attestation verified (`processResponse === true`)
 
-The brain-attestation seam (`agent/src/zerog/compute.ts`) is the honest gate: the dashboard brain stamp flips
-green ONLY when handed `attested:true`, which requires BOTH a trusted service attestation AND a verified
-per-response enclave signature. All 11 seam tests pass, including the single true path:
+A live inference now runs INSIDE a 0G Compute TEE via the official `@0gfoundation/0g-compute-ts-sdk`
+(`agent/src/zerog/computeBrain.ts`): provider `0xa48f…7836`, model `qwen/qwen2.5-omni-7b`, `processResponse`
+verified the enclave signature — pinned in `web/src/spine.ts` (`BRAIN_ONCHAIN`), so the brain stamp is LIVE.
+The honest gate still holds: the stamp flips green ONLY when handed `attested:true` (BOTH a trusted service
+attestation AND a verified per-response enclave signature). The original seam (`compute.ts`) keeps its 11
+fail-closed tests, including the single true path:
 
 ```
 ✔ attestInference: trusted service + valid signature => attested:true (the ONLY true path)
