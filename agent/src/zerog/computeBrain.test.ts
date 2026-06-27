@@ -96,7 +96,7 @@ test("an empty query throws before any call", async () => {
   await assert.rejects(() => planZeroGCompute("   ", config), ComputeBrainError);
 });
 
-test("the brain is tee, never stub or hosted-llm (it IS the 0G Compute attestation)", async () => {
+test("the brain is tee, never stub (it IS the 0G Compute attestation)", async () => {
   const { config } = harness({ attested: true, content: '{"allocations":[{"token":"USDC.e","bps":10000}]}' });
   const p = await planZeroGCompute("keep it stable", config);
   assert.equal(p.brain, "tee");

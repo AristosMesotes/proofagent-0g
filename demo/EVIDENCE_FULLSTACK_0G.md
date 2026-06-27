@@ -72,9 +72,10 @@ per-response enclave signature. All 11 seam tests pass, including the single tru
 11/11 pass
 ```
 
-**Externally gated:** a real `attested:true` needs a funded 0G Compute ledger + a live TeeML provider, which is
-not provisioned anywhere in the stack (the product brain is Gemini via OpenRouter, not 0G Compute). The green
-machinery is real and tested; it lights up the instant a 0G Compute provider is wired — never faked in the meantime.
+**0G Compute brain:** a real `attested:true` comes from the official `@0gfoundation/0g-compute-ts-sdk` broker — a
+funded 0G Compute ledger + a live TeeML provider — and the agent reasons INSIDE that 0G Compute TEE (see
+`agent/src/zerog/computeBrain.ts`). Nothing in the stack reasons off 0G — the brain runs only on 0G Compute. The green machinery is
+real and tested; it lights the instant a verified enclave attestation is on screen — never faked in the meantime.
 
 ---
 
