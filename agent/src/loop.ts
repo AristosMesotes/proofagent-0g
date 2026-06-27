@@ -342,9 +342,9 @@ export async function runLoop(
   planner?: (query: string) => Plan | Promise<Plan>,
 ): Promise<LoopResult> {
   // --- (1) plan -------------------------------------------------------------------------------
-  // The brain: a deterministic offline stub by default, or an injected async planner (the configurable
-  // hosted-LLM brain). Either way the plan is a CLAIM the downstream legs verify -- an unplannable query
-  // or a hosted-LLM failure is a loud LoopError, never a fake plan and never a silent brain swap (SS3 #3).
+  // The brain: a deterministic offline stub by default, or an injected async planner (the 0G Compute
+  // TEE brain). Either way the plan is a CLAIM the downstream legs verify -- an unplannable query or a
+  // brain failure is a loud LoopError, never a fake plan and never a silent brain swap (SS3 #3).
   let thePlan: Plan;
   try {
     thePlan = await (planner ?? plan)(query);

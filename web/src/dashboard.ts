@@ -561,7 +561,7 @@ function buildBrainCard(grid: HTMLElement): void {
   renderThreeAltitude(
     built.out,
     "pending",
-    "At MVP the brain is a hosted LLM, honestly labelled. This card is NOT green until a real 0G Compute " +
+    "The live brain reasons inside a 0G Compute TEE. This card is NOT green until a real 0G Compute " +
       "TEE attestation (a verified service attestation AND a per-response enclave signature) is on screen.",
     "buildStamps(brain=∅) → PENDING (no attestation wired; the green flip is operator-gated, elsewhere)",
   );

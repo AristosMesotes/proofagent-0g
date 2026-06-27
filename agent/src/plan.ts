@@ -7,11 +7,10 @@
  *
  * ## Honestly-labelled stub (design SS7 + SS8 "claim only what's live")
  *
- * Design SS7 (build roadmap, MVP): "Brain is a hosted LLM at this stage, honestly labelled." Design
- * SS8 (honesty doctrine): "Claim only what is live ... every later 0G capability is an
- * honestly-labelled bracket-delta." So this MVP planner is a **deterministic, offline rule stub** --
- * NOT a model. It contains no network call, no LLM, no `0G Compute` TEE leg. The live brain (a hosted
- * LLM now, then the 0G Compute TEE-attested call) is a later bracket-delta that will replace
+ * Design SS8 (honesty doctrine): "Claim only what is live ... every 0G capability is an
+ * honestly-labelled bracket-delta." So this default planner is a **deterministic, offline rule stub** --
+ * NOT a model. It contains no network call, no LLM, no `0G Compute` TEE leg. The live brain (the 0G
+ * Compute TEE-attested call -- see [`zerog/computeBrain.ts`]) is the bracket-delta that replaces
  * [`planStub`] behind the same [`plan`] signature; see [`PlannerKind`] and [`Plan.brain`], which
  * label on the wire exactly which brain produced a plan so the UI can never present a stub plan as a
  * TEE-verified one.
@@ -110,10 +109,11 @@ export interface Allocation {
  * Which brain produced a plan -- the honesty label (design SS7 / SS8, "claim only what's live").
  *
  * The wire carries this so no UI can ever present a deterministic stub plan as a TEE-verified one.
- * Today only `"stub"` is produced; `"hosted-llm"` and `"tee"` are the later bracket-deltas that will
- * back the SAME [`plan`] signature once they are live on screen.
+ * Today `"stub"` (the deterministic planner) and `"tee"` (the 0G Compute TEE-attested brain) are
+ * produced; both back the SAME [`plan`] signature. The brain runs ONLY on 0G Compute -- the live
+ * brain reasons inside a 0G Compute TEE, labelled `"tee"` ONLY when the enclave attestation verifies.
  */
-export type PlannerKind = "stub" | "hosted-llm" | "tee";
+export type PlannerKind = "stub" | "tee";
 
 /**
  * The planner's output -- design SS4: `{ chain, allocations }`.
@@ -155,8 +155,8 @@ export class PlanError extends Error {
  *
  * Each rule is an exact-integer allocation over [`TOKENS`] that sums to `TOTAL_BPS`. The rules are a
  * small, readable, OFFLINE proxy for the brain (design SS7 MVP). They are intentionally simple and
- * fully covered by tests; the live brain (a hosted LLM, then the 0G Compute TEE call) replaces this
- * table behind the same [`plan`] signature as a later bracket-delta (design SS8).
+ * fully covered by tests; the live brain (the 0G Compute TEE-attested call) replaces this
+ * table behind the same [`plan`] signature as a bracket-delta (design SS8).
  *
  * The order of `allocations` within each rule is the deterministic emit order (design SS3
  * principle 4) -- it is preserved exactly into the returned [`Plan`].
@@ -271,8 +271,8 @@ export function makePlan(
   brain: PlannerKind,
   chain: ChainRef = DEFAULT_CHAIN,
 ): Plan {
-  // Every brain (stub / hosted-llm / tee) routes through the SAME exact-integer allocation invariant,
-  // so a hosted LLM's chosen split is held to the identical bar as the stub -- a malformed/partial set
+  // Every brain (stub / tee) routes through the SAME exact-integer allocation invariant, so the 0G
+  // Compute TEE brain's chosen split is held to the identical bar as the stub -- a malformed/partial set
   // is a loud PlanError, never a fabricated plan (design SS3 #3/#5). The `brain` label stays honest:
   // the constructor never upgrades the label, it only records which brain the caller says produced this.
   assertAllocations(allocations);

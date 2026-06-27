@@ -10,9 +10,9 @@
  *
  * ## HONESTY: the brain stamp is green ONLY when a real enclave attestation backs it (design §7 / §8 / §9)
  *
- * Design §7 (build roadmap) puts the TEE brain proof in the **Depth** bracket, NOT the MVP: at the MVP
- * "Brain is a hosted LLM at this stage, honestly labelled", and design §9 Depth is explicit -- "surface a
- * real green 'brain' verdict on screen for a live plan call." So the brain stamp is `PENDING` (Phase-2) in
+ * Design §7 (build roadmap) puts the TEE brain proof in the **Depth** bracket: the live brain reasons
+ * inside a 0G Compute TEE, and design §9 Depth is explicit -- "surface a real green 'brain' verdict on
+ * screen for a live plan call." So the brain stamp is `PENDING` (Phase-2) in
  * the DEFAULT offline build -- showing a green brain the MVP cannot back would violate design §8 ("claim
  * only what is live"). It lifts to a green `LIVE` ONLY when {@link buildStamps} is handed a REAL verified
  * brain attestation whose `attested === true` (the Depth leg, on screen) -- the single, gated condition.
@@ -133,8 +133,8 @@ export interface BrainAttestation {
 /**
  * Build the three stamps from the spine-derived constants, honestly (design §2, §7, §8, §9).
  *
- * - **Brain** -> `PENDING` by DEFAULT (design §7: TEE attestation is the *Depth* bracket; at MVP the brain
- *   is a hosted LLM, honestly labelled). It lifts to a green `LIVE` ONLY when `brain?.attested === true` --
+ * - **Brain** -> `PENDING` by DEFAULT (design §7: TEE attestation is the *Depth* bracket; the live brain
+ *   reasons inside a 0G Compute TEE). It lifts to a green `LIVE` ONLY when `brain?.attested === true` --
  *   a REAL verified enclave attestation handed in (design §9 Depth: "a real green brain verdict on screen
  *   for a live plan call"). No attestation, or a non-attested one, stays PENDING. This is the single gated
  *   green path; the MVP default never backs a green brain it cannot prove (design §8 / §3 #3).
@@ -173,8 +173,8 @@ export function buildStamps(brain?: BrainAttestation): readonly [Stamp, Stamp, S
           level: STAMP_LEVEL.PENDING,
           status: "PENDING / Phase-2",
           claim:
-            "0G Compute TEE attestation is a Phase-2 (Depth) bracket. At MVP the brain is a hosted LLM, " +
-            "honestly labelled -- so this stamp is NOT green until a real enclave verdict is on screen.",
+            "0G Compute TEE attestation is a Phase-2 (Depth) bracket. The live brain reasons inside a 0G " +
+            "Compute TEE -- so this stamp is NOT green until a real enclave verdict is on screen.",
           bracket: "Depth",
         },
     {
