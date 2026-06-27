@@ -306,6 +306,31 @@ export const STORAGE_ONCHAIN = {
 } as const;
 
 /**
+ * The 0G Compute "Depth" leg surface (design §9 Depth): a REAL, verified per-response TEE attestation from
+ * 0G Compute, pinned as the brain's evidence. `attested: true` is reached ONLY because a live inference ran
+ * inside a 0G Compute TEE and `processResponse` VERIFIED the enclave signature (via the official
+ * `@0gfoundation/0g-compute-ts-sdk` broker) -- provider + model + responseId are the auditable references.
+ * Unlike the Storage rootHash / the on-chain mandate (which a viewer re-checks on a scan), a TEE attestation
+ * is a ONE-TIME enclave signature: the durable proof is this recorded evidence + the REPRODUCIBLE broker call
+ * (anyone re-runs it with the official SDK + a funded ledger). It is NEVER fabricated -- the brain stamp lifts
+ * green ONLY for `attested === true`, and `planZeroGCompute` mints `"tee"` ONLY on the same live verification.
+ */
+export const BRAIN_ONCHAIN = {
+  /** `true` -- a real 0G Compute TEE attestation VERIFIED (processResponse === true) on a live inference. */
+  attested: true,
+  /** The 0G Compute TEE provider the attestation is for (public address). */
+  provider: "0xa48f01287233509FD694a22Bf840225062E67836",
+  /** Which model actually ran inside the enclave. */
+  model: "qwen/qwen2.5-omni-7b",
+  /** The per-response handle the enclave signature keyed on (the auditable reference). */
+  responseId: "8a389c56-b252-428c-a44c-b098f03b9b35",
+  /** Honest note: verified + reproducible via the official SDK; a one-time signature, not a re-fetchable hash. */
+  reason:
+    "0G Compute TEE attestation VERIFIED (processResponse === true) via @0gfoundation/0g-compute-ts-sdk — " +
+    "re-runnable with the official SDK + a funded 0G ledger; a one-time enclave signature, not a frozen hash.",
+} as const;
+
+/**
  * The READ-ONLY "watch the agent's wallet on 0G" surface (the honest, key-free wallet display). A PUBLIC
  * wallet ADDRESS the console shows live, read-only (native balance + nonce) -- NO key, NO signing (the
  * console never holds a key, by construction). Defaults to the public demo wallet the LEDGER / V4 deploy /

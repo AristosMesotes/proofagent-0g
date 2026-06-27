@@ -83,11 +83,11 @@ test("verdictStateClass: read-error is grey; pending/armed/unverified/an on-chai
  * The BRAIN card's honesty -- its badge state is AWAITING (never RECONCILED) with no attestation wired.
  * ------------------------------------------------------------------------------------------------ */
 
-test("the BRAIN badge state `awaiting` is NOT the green `reconciled` state (the brain can never green here)", () => {
-  // The dashboard pins the brain badge to AWAITING (no independent attestation source at MVP). It is a
-  // distinct, muted state -- there is no code that maps AWAITING to RECONCILED.
+test("the BRAIN badge `reconciled` (a real attestation) is distinct from the non-attested `awaiting`/`pending`", () => {
+  // The dashboard now pins the brain badge to RECONCILED -- a REAL verified 0G Compute TEE attestation
+  // (BRAIN_ONCHAIN.attested === true) is the independent source that reconciled the model's reply. AWAITING
+  // stays the honest NO-attestation state (distinct from RECONCILED), and a `pending` verdict is never green.
   assert.notEqual(RECONCILE.AWAITING, RECONCILE.RECONCILED);
-  // And the brain's painted verdict (`pending`) is never green by the grammar either.
   assert.notEqual(verdictStateClass("pending"), "is-settled");
 });
 

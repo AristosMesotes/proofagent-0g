@@ -35,6 +35,7 @@ import {
   type RpcTransport,
 } from "./onchain.js";
 import { renderOnchainOutcome, renderOnchainDiag, markPending } from "./render.js";
+import { BRAIN_ONCHAIN } from "./spine.js";
 
 /** Map a stamp honesty level to its CSS state class. Only `LIVE` is the green state (design §8). */
 function levelClass(level: StampLevel): string {
@@ -87,7 +88,9 @@ function renderStamps(): void {
     return;
   }
   grid.replaceChildren();
-  for (const stamp of buildStamps()) {
+  // The brain stamp reads a REAL verified 0G Compute TEE attestation (BRAIN_ONCHAIN) -> LIVE; rails + settlement
+  // are unaffected. A non-attested BRAIN_ONCHAIN would keep the brain stamp PENDING (design §8 -- never faked).
+  for (const stamp of buildStamps(BRAIN_ONCHAIN)) {
     grid.appendChild(renderStamp(stamp));
   }
 }
