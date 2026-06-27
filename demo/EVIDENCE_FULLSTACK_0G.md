@@ -81,10 +81,12 @@ real and tested; it lights the instant a verified enclave attestation is on scre
 
 ---
 
-## The story (every layer on 0G)
-**0G Chain reasons-about-money and gates it — LIVE.** **0G Storage attests the verdict — root computed, anchor
-testnet-gated.** **0G Compute attests the cognition — seam green, enclave provider-gated.** ProofAgent refuses to
-paint anything green it cannot prove on-chain: that refusal IS the product (honest by construction).
+## The story (every layer LIVE on 0G)
+**0G Chain reasons-about-money and gates it — LIVE.** **0G Storage attests the verdict — a real bundle published,
+rootHash `0x6b51c0…3f6b` re-fetchable — LIVE.** **0G Compute attests the cognition — a real enclave attestation
+verified (`processResponse === true`, provider `0xa48f…7836`), re-runnable — LIVE.** ProofAgent still refuses to
+paint anything green it cannot prove: that refusal IS the product (honest by construction) — and now every honest
+layer is live, not merely claimed.
 
 ## LI.FI ↔ 0G framing (settlement oracle)
 LI.FI Intents (live 2026) releases solver funds only after an Oracle proves the fill (`efficientRequireProven`).
