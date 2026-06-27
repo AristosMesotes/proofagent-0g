@@ -137,15 +137,15 @@ export function buildDryRun(transport: RpcTransport, listeners?: DryRunListeners
   body.appendChild(button);
 
   // An honest brain-mode caption: this OFFLINE console plans deterministically (there is no key in the
-  // browser); the live agent runs a CONFIGURABLE hosted-LLM brain -- a CLAIM the on-chain verifier checks,
-  // never trusted. It never claims the hosted brain runs in-browser, and it does NOT green the 0G-Compute
-  // pillar (the 0G Compute TEE attestation -- "which model ran on 0G" -- is the separate operator-gated layer).
+  // browser); the live agent reasons INSIDE a 0G Compute TEE, and its plan is a CLAIM the on-chain verifier
+  // checks (never trusted). It never claims the TEE brain runs in-browser -- the live attestation runs in the
+  // agent and is pinned as evidence (the plan is labelled "tee" only when the enclave signature verifies).
   const brainNote = document.createElement("p");
   brainNote.className = "verdict-why dryrun__brain-note";
   brainNote.textContent =
-    "Brain: this console plans deterministically (no key in the browser). The live agent runs a configurable " +
-    "hosted-LLM brain — a CLAIM the on-chain verifier checks; the 0G Compute TEE attestation (which model ran) " +
-    "is the operator-gated layer. We never fake green.";
+    "Brain: this console plans deterministically (no key in the browser). The live agent reasons inside a " +
+    "0G Compute TEE — the plan is a CLAIM the on-chain verifier checks, labelled “tee” only when the enclave " +
+    "attestation verifies. Everything on 0G; we never fake green.";
   body.appendChild(brainNote);
 
   // The legs list (one block per intent) + the run-ledger panel — both filled on a run.
