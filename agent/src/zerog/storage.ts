@@ -35,6 +35,8 @@
  * key, the EVM RPC, and the indexer RPC all come from operator config/env, never baked into the source.
  */
 
+import { createHash } from "node:crypto"; // a Node built-in (no npm dependency, fully offline)
+
 /** A loud failure on the Storage path (design §3 #3 -- degrade loudly, never fabricate a rootHash). */
 export class StorageError extends Error {
   public override readonly name = "StorageError";
@@ -196,6 +198,49 @@ export async function publishVerdictBundle(
     typeof result.txHash === "string" && ROOT_HASH_RE.test(result.txHash) ? result.txHash : undefined;
 
   return { bundleDigest: digest, rootHash: result.rootHash.toLowerCase(), txHash, bytesLength: bytes.length };
+}
+
+// ------------------------------------------------------------------------------------------------
+// localStorageProvider -- a FULLY-WORKING, network-free content-addressed publish path. It is NOT 0G
+// Storage (that is `liveStorageProvider`, operator-gated): it is the honest, offline-complete fallback that
+// computes a REAL, re-derivable SHA-256 content-address and persists the bytes keyed by it, so a verdict
+// bundle can be published AND retrieved end-to-end with no network and no SDK. It never claims a 0G handle.
+// ------------------------------------------------------------------------------------------------
+
+/** The SHA-256 content-address of `bytes`, as `0x` + 64 lowercase hex -- a real root anyone can re-derive. */
+export function contentAddress(bytes: Uint8Array): string {
+  return `0x${createHash("sha256").update(bytes).digest("hex")}`;
+}
+
+/** A local content-addressed provider that also lets you RETRIEVE what it published (re-derivable proof). */
+export interface LocalStorageProvider extends StorageProvider {
+  /** Read back previously-published bytes by their content-address, or `null` if absent. */
+  retrieve(rootHash: string): Uint8Array | null;
+}
+
+/**
+ * Build a LOCAL content-addressed [`StorageProvider`] -- a fully-working publish path with NO network and NO
+ * SDK. `publish` computes the SHA-256 [`contentAddress`] of the canonical bytes (a genuine, re-derivable root)
+ * and persists the bytes keyed by it; `retrieve` reads them back byte-identical. This is the honest, offline-
+ * complete storage primitive: it is NOT 0G Storage (the on-0G Merkle root + on-chain anchor is
+ * [`liveStorageProvider`], operator-gated) -- it never claims a 0G handle, only an honest content-address.
+ */
+export function localStorageProvider(): LocalStorageProvider {
+  const store = new Map<string, Uint8Array>();
+  return {
+    async publish(bytes: Uint8Array): Promise<StoragePublishResult> {
+      if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
+        throw new StorageError("publish requires a non-empty Uint8Array of canonical bundle bytes");
+      }
+      const rootHash = contentAddress(bytes);
+      store.set(rootHash, bytes.slice());
+      return { rootHash, txHash: undefined };
+    },
+    retrieve(rootHash: string): Uint8Array | null {
+      const found = store.get(rootHash.trim().toLowerCase());
+      return found ? found.slice() : null;
+    },
+  };
 }
 
 // ------------------------------------------------------------------------------------------------
