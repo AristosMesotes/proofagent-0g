@@ -266,6 +266,22 @@ function planStub(normalized: string): readonly Allocation[] {
  *   produced allocation set would violate the exact-integer invariant (design SS3 principle 3 --
  *   degrade loudly, never fabricate a partial/zero plan).
  */
+export function makePlan(
+  allocations: readonly Allocation[],
+  brain: PlannerKind,
+  chain: ChainRef = DEFAULT_CHAIN,
+): Plan {
+  // Every brain (stub / hosted-llm / tee) routes through the SAME exact-integer allocation invariant,
+  // so a hosted LLM's chosen split is held to the identical bar as the stub -- a malformed/partial set
+  // is a loud PlanError, never a fabricated plan (design SS3 #3/#5). The `brain` label stays honest:
+  // the constructor never upgrades the label, it only records which brain the caller says produced this.
+  assertAllocations(allocations);
+  return { chain, allocations, brain };
+}
+
+/**
+ * Plan an action from a natural-language `query` -- the deterministic STUB brain (`brain: "stub"`).
+ */
 export function plan(query: string): Plan {
   if (typeof query !== "string") {
     // Defensive: callers from untyped JS could pass a non-string; fail loud, never coerce silently.
